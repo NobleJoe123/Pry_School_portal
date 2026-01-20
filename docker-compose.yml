@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: pry_school_portal
+      POSTGRES_USER: portal_user
+      POSTGRES_PASSWORD: portal_secure_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    command: sh -c "python manage.py runserver && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=pry_school_portal
+      - DB_USER=portal_user
+      - DB_PASSWORD=portal_secure_password
+    depends_on:
+      - db
+      
+volumes:
+  postgres_data:
