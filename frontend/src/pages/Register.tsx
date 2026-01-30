@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { RegisterData } from '../types';
+import type { RegisterData } from '../types';
 
 const Register = () => {
   const navigate = useNavigate();
