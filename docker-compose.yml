@@ -1,8 +1,9 @@
-version: '3.8'
-
 services:
+  # PostgreSQL Database
   db:
     image: postgres:15
+    container_name: primary_portal_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: pry_school_portal
       POSTGRES_USER: portal_user
@@ -11,12 +12,41 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal_user -d pry_school_portal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
 
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: primary_portal_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app_network
+
+  # Django Backend
   backend:
-    build: ./backend
-    command: sh -c "python manage.py runserver && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: primary_portal_backend
+    restart: unless-stopped
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
     ports:
       - "8000:8000"
     environment:
@@ -24,8 +54,82 @@ services:
       - DB_NAME=pry_school_portal
       - DB_USER=portal_user
       - DB_PASSWORD=portal_secure_password
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-dev-key-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend,0.0.0.0
+      - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: primary_portal_celery_worker
+    restart: unless-stopped
+    command: celery -A portal worker --loglevel=info --concurrency=2
+    volumes:
+      - ./backend:/app
+      - media_volume:/app/media
+    environment:
+      - DB_HOST=db
+      - DB_NAME=pry_school_portal
+      - DB_USER=portal_user
+      - DB_PASSWORD=portal_secure_password
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DEBUG=True
     depends_on:
       - db
-      
+      - redis
+      - backend
+    networks:
+      - app_network
+
+  # Celery Beat
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: primary_portal_celery_beat
+    restart: unless-stopped
+    command: celery -A portal beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - DB_HOST=db
+      - DB_NAME=pry_school_portal
+      - DB_USER=portal_user
+      - DB_PASSWORD=portal_secure_password
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DEBUG=True
+    depends_on:
+      - db
+      - redis
+      - backend
+    networks:
+      - app_network
+
 volumes:
   postgres_data:
+  static_volume:
+  media_volume:
+
+networks:
+  app_network:
+    driver: bridge
