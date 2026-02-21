@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.core.validators import RegexValidator
+from django.utils import timezone
 
 # Custom User Manager
 class CustomUserManager(BaseUserManager):
@@ -113,7 +114,7 @@ class StudentProfile(models.Model):
     medical_conditions = models.TextField(blank=True, null=True, help_text="Any known medical conditions or allergies")
     
     # Academic Info
-    admission_date = models.DateField()
+    admission_date = models.DateField(default=timezone.now)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     
     # Timestamps
