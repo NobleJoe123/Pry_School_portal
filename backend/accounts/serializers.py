@@ -260,3 +260,30 @@ def update(self, instance, validated_data):
 
 
 
+# TEACHER MANAGEMENT SERIALIZERS
+
+class TeacherDetailSerilizer(serializers.ModelSerializer):
+    """Complete teacher data including user info"""
+    user = UserSerializer(read_only=True)
+    teacher_profile = TeacherProfileSerializer(read_only=True)
+    
+    class Meta:
+        model = User
+        fields = ['user', 'teacher_profile']
+        
+class CreateTeacherSerializer(serializers.Serializer):
+    """Serializer for creating a new teacher"""
+    email = serializers.EmailField()
+    username = serializers.CharField(max_length=150)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, required=False)
+    
+    staff_id = serializers.CharField(max_length=20)
+    employment_status = serializers.ChoiceField(
+        choices=['full_time', 'part_time', 'contract'],
+        default='full_time'
+    )
