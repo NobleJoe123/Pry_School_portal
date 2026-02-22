@@ -92,7 +92,7 @@ class StudentProfile(models.Model):
     # We'll link to Class model later in academics app
     current_class = models.CharField(max_length=50, blank=True, null=True)  # Temporary - will be ForeignKey
     
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
+    gender = models.CharField(max_length=1, choices=GENDER_CHOICES, default='M')
     blood_group = models.CharField(max_length=5, blank=True, null=True)
     
     # Parent/Guardian Information
@@ -118,7 +118,7 @@ class StudentProfile(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     
     # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -145,7 +145,7 @@ class TeacherProfile(models.Model):
     
     # Employment Details
     employment_status = models.CharField(max_length=20, choices=EMPLOYMENT_STATUS_CHOICES, default='full_time')
-    date_of_joining = models.DateField()
+    date_of_joining = models.DateField(default=timezone.now)
     
     # Academic Qualifications
     highest_qualification = models.CharField(max_length=100, blank=True, null=True)
@@ -167,7 +167,7 @@ class TeacherProfile(models.Model):
     emergency_contact_phone = models.CharField(max_length=17, blank=True, null=True)
     
     # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -202,7 +202,7 @@ class ParentProfile(models.Model):
     alternate_phone = models.CharField(max_length=17, blank=True, null=True)
     
     # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
