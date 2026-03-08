@@ -287,3 +287,87 @@ class CreateTeacherSerializer(serializers.Serializer):
         choices=['full_time', 'part_time', 'contract'],
         default='full_time'
     )
+    
+    date_of_joining = serializers.DateField(required=False, allow_nul=False)
+    highest_qulification = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    specilaization = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    years_of_experience = serializers.IntegerField(default=0)
+    subjects_taught = serializers.CharField(required=False, allow_blank=True)
+    monthly_salary = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    is_class_teacher = serializers.BooleanField(default=False)
+    assigned_class = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    emergency_contact_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    emergency_contact_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    
+    def validate(self, value):
+        if User.objects.filter(email=value.lower()).exists():
+            raise serializers.ValidationError("This email already exists.")
+        return value.lower()
+    
+    def validate_username(self, value):
+        if User.objects.filter(username=value.lower()).exists():
+            raise serializers.ValidationError("This username already exists.")
+        return value.lower()
+    
+    
+    def validate_staff_id(self, value):
+        if TeacherProfile.objects.filter(staff_id=value).exists():
+            raise serializers.ValidationErro("This Staff ID already exists.")
+        return value.lower()
+    
+    
+    @transaction.atomic
+    def create(self, validated_data):
+        password = validated_data.pop('password', 'teacher123')
+        
+        profile_fields = {
+            'staff_id': validated_data.pop('staff_id'),
+            'employment_status': validated_data.pop('employment_status', 'full_time'),
+            'date_of_joining': validated_data.pop('date_of_joining', None),
+            'highest_qualification': validated_data.pop('highest_qualification', ''),
+            'specialization': validated_data.pop('specialization', ''),
+            'years_of_experiance': validated_data.pop('years_of experience', 0 ),
+            'subject_taught': validated_data.pop('subject_taught'),
+            'monthly_salary': validated_data.pop('monthly_salary', None),
+            'is_class_teacher': validated_data.pop('is_class_teacher', False),
+            'assigned_class': validated_data.pop('assigned_class', ''),
+            'emergency_contact_name':validated_data.pop('emergency_contact_name', ''),
+            'emergency_contact_name': validated_data.pop('emergency_contact_phone', ''),
+        }
+        
+        user = User.objects.create_user(
+            **validated_data,
+            password=password,
+            role='teacher'
+        )
+        
+        
+        TeacherProfile.objects.create(
+            user=user,
+            **profile_fields
+        )
+        return user
+    
+    # Parent Details Serializers
+    
+class ParentDetailSerializers(serializers.ModelSerializer):
+    """Complete parent data with children"""
+    user = UserSerializer(read_only=True)
+    parent_profile = ParentProfileSerializer(read_only=True)
+    children = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['user', 'parent_profile', 'children']
+        
+    
+    def get_children(self, obj):
+        children_users = obj.children.all()
+        children_data = []
+        for child in children_users:
+            if hasattr(child, 'student_profile'):
+                children_data.append({
+                    'user': UserSerializer(child).data,
+                    'profile': StudentProfileSerializer(child.student_profile).data
+                })
+        return children_data  
