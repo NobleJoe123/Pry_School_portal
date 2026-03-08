@@ -262,7 +262,7 @@ def update(self, instance, validated_data):
 
 # TEACHER MANAGEMENT SERIALIZERS
 
-class TeacherDetailSerilizer(serializers.ModelSerializer):
+class TeacherDetailSerializer(serializers.ModelSerializer):
     """Complete teacher data including user info"""
     user = UserSerializer(read_only=True)
     teacher_profile = TeacherProfileSerializer(read_only=True)
@@ -288,7 +288,7 @@ class CreateTeacherSerializer(serializers.Serializer):
         default='full_time'
     )
     
-    date_of_joining = serializers.DateField(required=False, allow_nul=False)
+    date_of_joining = serializers.DateField(required=False, allow_null=False)
     highest_qulification = serializers.CharField(max_length=100, required=False, allow_blank=True)
     specilaization = serializers.CharField(max_length=100, required=False, allow_blank=True)
     years_of_experience = serializers.IntegerField(default=0)
@@ -350,7 +350,7 @@ class CreateTeacherSerializer(serializers.Serializer):
     
     # Parent Details Serializers
     
-class ParentDetailSerializers(serializers.ModelSerializer):
+class ParentDetailSerializer(serializers.ModelSerializer):
     """Complete parent data with children"""
     user = UserSerializer(read_only=True)
     parent_profile = ParentProfileSerializer(read_only=True)

@@ -1,15 +1,22 @@
-from rest_framework import status, generics
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import status, generics, viewsets
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
+from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+from django.db.models import Count
+from datetime import datetime, timedelta
 from .models import User, StudentProfile, TeacherProfile, ParentProfile
 from .serializers import (
     UserSerializer, RegisterSerializer, StudentProfileSerializer,
-    TeacherProfileSerializer, ParentProfileSerializer, ChangePasswordSerializer
+    TeacherProfileSerializer, ParentProfileSerializer, ChangePasswordSerializer,
+    CreateStudentSerializer, UpdateStudentSerializer, StudentDetailSerializer,
+    CreateTeacherSerializer, TeacherDetailSerializer, ParentDetailSerializer
 )
+
+from .permissions import IsAdminOrReadOnly
 
 
 class RegisterView(generics.CreateAPIView):
@@ -192,3 +199,226 @@ class ChangePasswordView(APIView):
 def health_check(request):
     """Health check endpoint"""
     return Response({'status': 'ok', 'message': 'API is running'})
+
+
+
+# Student management Views
+
+class StudentViewSet(viewsets.ModelViewSet):
+    """
+    viewses for managing studente using CRUD
+     list: GET /api/students/
+    create: POST /api/students/
+    retrieve: GET /api/students/{id}/
+    update: PUT/PATCH /api/students/{id}/
+    destroy: DELETE /api/students/{id}/
+    """
+    
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['first_name', 'last_name', 'email', 'student_profile__admission_number']
+    ordering_fields = ['date_joined', 'first_name', 'last_name']
+    ordering = ['-date_joined']
+    
+    def get_queryset(self):
+        queryset = User.objects.filter(role='students').select_related('student_profile', 'student_profile__parent_profile')
+        
+        class_name = self.request.query_params.get('class', None)
+        if class_name:
+            queryset = queryset.filter(student_profile__class_name=class_name)
+        
+        student_status = self.request.query_params.get('status', None)
+        if student_status:
+            queryset = queryset.filter(student_profile_status=student_status)
+            
+        parent_id = self.request.query_params.get('parent_id', None)
+        if parent_id:
+            queryset = queryset.filter(student_profile__parent_id=parent_id)
+            
+        return queryset
+    
+    def get_serializer_class(self):
+        if self.action == 'craete':
+            return CreateStudentSerializer
+        elif self.action in ['update', 'partial_update']:
+            return UpdateStudentSerializer
+        elif self.action == 'retrieve':
+            return StudentDetailSerializer
+        return UserSerializer
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        return Response({
+            'message': 'Student created successfully!',
+            'student': UserSerializer(user, context={'request': request}).data
+        }, status=status.HTTP_201_CREATED)
+        
+        def update(self, request, *args, **kwargs):
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            serializer = self.get_serializer(instane, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save()
+            
+            return Response({
+                'message': 'Student updated successfully!',
+                'student': UserSerializer(user, context={'request': request}).data
+            })
+            
+        def destroy(self, request, *args, **kwargs):
+            instance = self.get_object()
+            instance.is_active = False
+            instance.save()
+            
+            return Response({
+                'message': 'Student deactivated successfully!'
+            }, status=status.HTTP_200_OK)
+            
+        @action(detail=False, methods=['get'])
+        def stats(self, request):
+            """Get student statistics"""
+            queryset = self.get_queryset()
+            total = queryset.count()
+            active = queryset.filters(student_profile__status='active').count()
+            
+            return Response({
+                'message' 'Student deactivated successfully!'
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get student statistics"""
+        queryset = self.get_queryset()
+        total = queryset.count()
+        active = queryset.filter(student_profile__status='active').count()
+        by_class = queryset.values('student_profile__current_class').annotate(count=Count('id'))
+        
+        return Response({
+            'total_students': total,
+            'active_students': active,
+            'by_class': list(by_class)
+        })
+
+
+# TEACHER MANAGEMENT VIEWS
+
+class TeacherViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing teachers
+    """
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['first_name', 'last_name', 'email', 'teacher_profile__staff_id']
+    ordering_fields = ['date_joined', 'first_name', 'last_name']
+    ordering = ['-date_joined']
+    
+    def get_queryset(self):
+        queryset = User.objects.filter(role='teacher').select_related('teacher_profile')
+        
+        # Filter by employment status
+        employment_status = self.request.query_params.get('employment_status', None)
+        if employment_status:
+            queryset = queryset.filter(teacher_profile__employment_status=employment_status)
+        
+        return queryset
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return CreateTeacherSerializer
+        elif self.action == 'retrieve':
+            return TeacherDetailSerializer
+        return UserSerializer
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        return Response({
+            'message': 'Teacher created successfully!',
+            'teacher': UserSerializer(user, context={'request': request}).data
+        }, status=status.HTTP_201_CREATED)
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        
+        return Response({
+            'message': 'Teacher deactivated successfully!'
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get teacher statistics"""
+        queryset = self.get_queryset()
+        total = queryset.count()
+        by_status = queryset.values('teacher_profile__employment_status').annotate(count=Count('id'))
+        
+        return Response({
+            'total_teachers': total,
+            'by_employment_status': list(by_status)
+        })
+
+
+# PARENT MANAGEMENT VIEWS
+
+class ParentViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for viewing parents
+    """
+    permission_classes = [IsAuthenticated]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['first_name', 'last_name', 'email', 'phone']
+    ordering = ['-date_joined']
+    
+    def get_queryset(self):
+        return User.objects.filter(role='parent').select_related('parent_profile').prefetch_related('children')
+    
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return ParentDetailSerializer
+        return UserSerializer
+
+
+# DASHBOARD VIEWS
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def dashboard_stats(request):
+    """
+    GET /api/dashboard/stats/
+    Get overview statistics for admin dashboard
+    """
+    total_students = User.objects.filter(role='student').count()
+    active_students = User.objects.filter(
+        role='student',
+        student_profile__status='active'
+    ).count()
+    total_teachers = User.objects.filter(role='teacher').count()
+    total_parents = User.objects.filter(role='parent').count()
+    
+    # Students by class
+    students_by_class = StudentProfile.objects.values('current_class').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Recent registrations (last 7 days)
+    week_ago = datetime.now() - timedelta(days=7)
+    recent_students = User.objects.filter(
+        role='student',
+        date_joined__gte=week_ago
+    ).count()
+    
+    return Response({
+        'total_students': total_students,
+        'active_students': active_students,
+        'total_teachers': total_teachers,
+        'total_parents': total_parents,
+        'students_by_class': list(students_by_class),
+        'recent_registrations': recent_students
+    })
+            
