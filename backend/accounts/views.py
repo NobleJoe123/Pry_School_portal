@@ -206,7 +206,7 @@ def health_check(request):
 
 class StudentViewSet(viewsets.ModelViewSet):
     """
-    viewses for managing studente using CRUD
+    viewses for managing students using CRUD
      list: GET /api/students/
     create: POST /api/students/
     retrieve: GET /api/students/{id}/
@@ -221,15 +221,15 @@ class StudentViewSet(viewsets.ModelViewSet):
     ordering = ['-date_joined']
     
     def get_queryset(self):
-        queryset = User.objects.filter(role='students').select_related('student_profile', 'student_profile__parent_profile')
+        queryset = User.objects.filter(role='student').select_related('student_profile', 'student_profile__parent_profile')
         
         class_name = self.request.query_params.get('class', None)
         if class_name:
-            queryset = queryset.filter(student_profile__class_name=class_name)
+            queryset = queryset.filter(student_profile__class=class_name)
         
         student_status = self.request.query_params.get('status', None)
         if student_status:
-            queryset = queryset.filter(student_profile_status=student_status)
+            queryset = queryset.filter(student_profile__status=student_status)
             
         parent_id = self.request.query_params.get('parent_id', None)
         if parent_id:
@@ -238,7 +238,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_serializer_class(self):
-        if self.action == 'craete':
+        if self.action == 'create':
             return CreateStudentSerializer
         elif self.action in ['update', 'partial_update']:
             return UpdateStudentSerializer
@@ -256,38 +256,27 @@ class StudentViewSet(viewsets.ModelViewSet):
             'student': UserSerializer(user, context={'request': request}).data
         }, status=status.HTTP_201_CREATED)
         
-        def update(self, request, *args, **kwargs):
-            partial = kwargs.pop('partial', False)
-            instance = self.get_object()
-            serializer = self.get_serializer(instane, data=request.data, partial=partial)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.save()
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
             
-            return Response({
-                'message': 'Student updated successfully!',
-                'student': UserSerializer(user, context={'request': request}).data
+        return Response({
+            'message': 'Student updated successfully!',
+            'student': UserSerializer(user, context={'request': request}).data
             })
             
-        def destroy(self, request, *args, **kwargs):
-            instance = self.get_object()
-            instance.is_active = False
-            instance.save()
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
             
-            return Response({
-                'message': 'Student deactivated successfully!'
+        return Response({
+            'message': 'Student deactivated successfully!'
             }, status=status.HTTP_200_OK)
             
-        @action(detail=False, methods=['get'])
-        def stats(self, request):
-            """Get student statistics"""
-            queryset = self.get_queryset()
-            total = queryset.count()
-            active = queryset.filters(student_profile__status='active').count()
-            
-            return Response({
-                'message' 'Student deactivated successfully!'
-        }, status=status.HTTP_200_OK)
-    
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Get student statistics"""
@@ -295,14 +284,15 @@ class StudentViewSet(viewsets.ModelViewSet):
         total = queryset.count()
         active = queryset.filter(student_profile__status='active').count()
         by_class = queryset.values('student_profile__current_class').annotate(count=Count('id'))
-        
+            
         return Response({
             'total_students': total,
             'active_students': active,
             'by_class': list(by_class)
+            
         })
-
-
+    
+    
 # TEACHER MANAGEMENT VIEWS
 
 class TeacherViewSet(viewsets.ModelViewSet):
@@ -394,17 +384,18 @@ def dashboard_stats(request):
     Get overview statistics for admin dashboard
     """
     total_students = User.objects.filter(role='student').count()
-    active_students = User.objects.filter(
-        role='student',
-        student_profile__status='active'
-    ).count()
+    active_students = StudentProfile.objects.filter(status='active').count()
     total_teachers = User.objects.filter(role='teacher').count()
     total_parents = User.objects.filter(role='parent').count()
     
     # Students by class
-    students_by_class = StudentProfile.objects.values('current_class').annotate(
+    students_by_class = StudentProfile.objects.exclude(current_class__isnull=True).exclude(current_class='').values('current_class').annotate(
         count=Count('id')
     ).order_by('-count')
+    
+    students_by_class_dict = {
+        item['current_class']: item['count'] for item in students_by_class
+    }
     
     # Recent registrations (last 7 days)
     week_ago = datetime.now() - timedelta(days=7)
@@ -418,7 +409,7 @@ def dashboard_stats(request):
         'active_students': active_students,
         'total_teachers': total_teachers,
         'total_parents': total_parents,
-        'students_by_class': list(students_by_class),
+        'students_by_class': students_by_class_dict,
         'recent_registrations': recent_students
     })
             
