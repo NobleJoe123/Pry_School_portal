@@ -12,10 +12,7 @@ docker-compose up --build
 # Backend API: http://localhost:8000
 # Admin Panel: http://localhost:8000/admin
 
-# Default superuser credentials:
-# Email: admin@school.com
-# Password: admin123
-```
+
 
 ### Daily Development Commands
 ```bash

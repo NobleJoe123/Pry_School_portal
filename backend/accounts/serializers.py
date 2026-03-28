@@ -124,7 +124,7 @@ class ChangePasswordSerializer(serializers.Serializer):
     
 # STUDENT PROFILE SERILAIZERS 
 
-class StudentDetailSerializer(serializers.Serializer):
+class StudentDetailSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     student_profile = StudentProfileSerializer(read_only=True)
     
@@ -154,6 +154,7 @@ class CreateStudentSerializer(serializers.Serializer):
     emergency_contact_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
     emergency_contact_relationship = serializers.CharField(max_length=50, required=False, allow_blank=True)
     medical_conditions = serializers.CharField(required=False, allow_blank=True)
+    status = serializers.ChoiceField(choices=['active', 'graduated', 'transferred', 'suspended'], default='active', required=False)
     
     def validate_email(self, value):
         if User.objects.filter(email=value.lower()).exists():
@@ -168,95 +169,95 @@ class CreateStudentSerializer(serializers.Serializer):
     def validate_parent_id(self, value):
         if value:
             try:
-                parent = User.objects.get(id=value, role='parent')
+                User.objects.get(id=value, role='parent')
             except User.DoesNotExist:
                 raise serializers.ValidationError("Parent with this ID does not exist.")
         return value
     
 
-@transaction.atomic
-def create(self, validated_data):
-    password = validated_data.pop('password', 'student123')
-    
-    profile_fields ={
-        'admission_number': validated_data.pop('admission_number'),
-        'current_class': validated_data.pop('current_class', ''),
-        'gender': validated_data.pop('gender'),
-        'blood_group': validated_data.pop('blood_group', ''),
-        'admission_date': validated_data.pop('admission_date', None),
-        'emergency_contact_name': validated_data.pop('emergency_contact_name', ''),
-        'emergency_contact_phone': validated_data.pop('emergency_contact_phone', ''),
-        'emergency_contact_relationship': validated_data.pop('emergency_contact_relationship', ''),
-        'medical_conditions': validated_data.pop('medical_conditions', ''),
+    @transaction.atomic
+    def create(self, validated_data):
+        password = validated_data.pop('password', 'student123')
         
-    }
-    
-    parent_id = validated_data.pop('parent_id', None)
-    parent = None
-    if parent_id:
-        parent = User.objects.get(id=parent_id)
-    
-    user = User.objects.create_user(
-        **validated_data,
-        password=password,
-        role='student',
-    )
-    
-    StudentProfile.objects.create(
-        user=user,
-        parent=parent,
-        **profile_fields
-    )
-    
-    return user
-
-class UpdateStudentSerializer(serializers.Serializer):
-    """Serializer for updating an existing student """
-    first_name = serializers.CharField(max_length=150, required=False)
-    last_name = serializers.CharField(max_length=150, required=False)
-    phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
-    date_of_birth = serializers.DateField(required=False, allow_null=True)
-    address = serializers.CharField(required=False, allow_blank=True)
-    is_active = serializers.BooleanField(required=False)
-    
-    current_class = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    blood_group = serializers.CharField(max_length=5, required=False, allow_blank=True)
-    parent_id = serializers.UUIDField(required=False, allow_null=True)
-    emergency_contact_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    emergency_contact_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
-    medical_conditions = serializers.CharField(required=False, allow_blank=True)
-    status = serializers.ChoiceField(choices=['active', 'graduated', 'transferred', 'suspended'], required=False)
-
-@transaction.atomic
-def update(self, instance, validated_data):
-    user_fields = ['first_name', 'last_name', 'phone', 'date_of_birth', 'address', 'is_active']
-    for field in user_fields:
-        if field in validated_data:
-            setattr(instance.user, field, validated_data[field])
-    instance.user.save()
-    
-    profile = instance.student_profile
-    profile_fields = [
-        'current_class', 'blood_group', 'emergency_contact_name',
-        'emergency_contact_phone', 'emergency_contact_relationship',
-        'medical_conditions', 'status'
+        profile_fields ={
+            'admission_number': validated_data.pop('admission_number'),
+            'current_class': validated_data.pop('current_class', ''),
+            'gender': validated_data.pop('gender'),
+            'blood_group': validated_data.pop('blood_group', ''),
+            'admission_date': validated_data.pop('admission_date', None),
+            'emergency_contact_name': validated_data.pop('emergency_contact_name', ''),
+            'emergency_contact_phone': validated_data.pop('emergency_contact_phone', ''),
+            'emergency_contact_relationship': validated_data.pop('emergency_contact_relationship', ''),
+            'medical_conditions': validated_data.pop('medical_conditions', ''),
+            'status': validated_data.pop('status', 'active'),
+        }
         
-    ]
-    
-    for field in profile_fields:
-        if field in validated_data:
-            setattr(profile, field, validated_data[field])
-    
-    
-    if 'parent_id' in validated_data:
-        parent_id = validated_data['parent_id']
+        parent_id = validated_data.pop('parent_id', None)
+        parent = None
         if parent_id:
-            profile.parent = User.objects.get(id=parent_id, role='parent')
-        else:
-            profile.parent = None
+            parent = User.objects.get(id=parent_id)
+        
+        user = User.objects.create_user(
+            **validated_data,
+            password=password,
+            role='student',
+        )
+        
+        StudentProfile.objects.create(
+            user=user,
+            parent=parent,
+            **profile_fields
+        )
+        
+        return user
+
+    class UpdateStudentSerializer(serializers.Serializer):
+        """Serializer for updating an existing student """
+        first_name = serializers.CharField(max_length=150, required=False)
+        last_name = serializers.CharField(max_length=150, required=False)
+        phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+        date_of_birth = serializers.DateField(required=False, allow_null=True)
+        address = serializers.CharField(required=False, allow_blank=True)
+        is_active = serializers.BooleanField(required=False)
+        
+        current_class = serializers.CharField(max_length=50, required=False, allow_blank=True)
+        blood_group = serializers.CharField(max_length=5, required=False, allow_blank=True)
+        parent_id = serializers.UUIDField(required=False, allow_null=True)
+        emergency_contact_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
+        emergency_contact_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+        medical_conditions = serializers.CharField(required=False, allow_blank=True)
+        status = serializers.ChoiceField(choices=['active', 'graduated', 'transferred', 'suspended'], required=False)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        user_fields = ['first_name', 'last_name', 'phone', 'date_of_birth', 'address', 'is_active']
+        for field in user_fields:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+        instance.save()
+        
+        profile = instance.student_profile
+        profile_fields = [
+            'current_class', 'blood_group', 'emergency_contact_name',
+            'emergency_contact_phone', 'emergency_contact_relationship',
+            'medical_conditions', 'status'
             
-    profile.save()
-    return instance
+        ]
+        
+        for field in profile_fields:
+            if field in validated_data:
+                setattr(profile, field, validated_data[field])
+        
+        
+        if 'parent_id' in validated_data:
+            parent_id = validated_data['parent_id']
+            if parent_id:
+                profile.parent = User.objects.get(id=parent_id, role='parent')
+            else:
+                profile.parent = None
+                
+        profile.save()
+        return instance
 
 
 
@@ -269,7 +270,7 @@ class TeacherDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['user', 'teacher_profile']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'role', 'phone', 'date_birth', 'address', 'is_active', 'date_joined', 'teacher_profile']
         
 class CreateTeacherSerializer(serializers.Serializer):
     """Serializer for creating a new teacher"""
@@ -289,7 +290,7 @@ class CreateTeacherSerializer(serializers.Serializer):
     )
     
     date_of_joining = serializers.DateField(required=False, allow_null=False)
-    highest_qulification = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    highest_qualification = serializers.CharField(max_length=100, required=False, allow_blank=True)
     specilaization = serializers.CharField(max_length=100, required=False, allow_blank=True)
     years_of_experience = serializers.IntegerField(default=0)
     subjects_taught = serializers.CharField(required=False, allow_blank=True)
@@ -299,7 +300,7 @@ class CreateTeacherSerializer(serializers.Serializer):
     emergency_contact_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     emergency_contact_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
     
-    def validate(self, value):
+    def validate_email(self, value):
         if User.objects.filter(email=value.lower()).exists():
             raise serializers.ValidationError("This email already exists.")
         return value.lower()
@@ -312,7 +313,7 @@ class CreateTeacherSerializer(serializers.Serializer):
     
     def validate_staff_id(self, value):
         if TeacherProfile.objects.filter(staff_id=value).exists():
-            raise serializers.ValidationErro("This Staff ID already exists.")
+            raise serializers.ValidationError("This staff id already exists.")
         return value.lower()
     
     
@@ -326,13 +327,13 @@ class CreateTeacherSerializer(serializers.Serializer):
             'date_of_joining': validated_data.pop('date_of_joining', None),
             'highest_qualification': validated_data.pop('highest_qualification', ''),
             'specialization': validated_data.pop('specialization', ''),
-            'years_of_experiance': validated_data.pop('years_of experience', 0 ),
-            'subject_taught': validated_data.pop('subject_taught'),
+            'years_of_experience': validated_data.pop('years_of experience', 0 ),
+            'subjects_taught': validated_data.pop('subjects_taught'),
             'monthly_salary': validated_data.pop('monthly_salary', None),
             'is_class_teacher': validated_data.pop('is_class_teacher', False),
             'assigned_class': validated_data.pop('assigned_class', ''),
             'emergency_contact_name':validated_data.pop('emergency_contact_name', ''),
-            'emergency_contact_name': validated_data.pop('emergency_contact_phone', ''),
+            'emergency_contact_phone': validated_data.pop('emergency_contact_phone', ''),
         }
         
         user = User.objects.create_user(
@@ -358,7 +359,8 @@ class ParentDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['user', 'parent_profile', 'children']
+        fields = ['id', 'username', 'email', 'first_name', 'lastname',
+                  'role', 'phone',  'is_active', 'date_joined' 'parent_profile', 'children']
         
     
     def get_children(self, obj):
