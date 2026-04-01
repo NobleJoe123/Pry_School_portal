@@ -211,22 +211,23 @@ class CreateStudentSerializer(serializers.Serializer):
         
         return user
 
-    class UpdateStudentSerializer(serializers.Serializer):
-        """Serializer for updating an existing student """
-        first_name = serializers.CharField(max_length=150, required=False)
-        last_name = serializers.CharField(max_length=150, required=False)
-        phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
-        date_of_birth = serializers.DateField(required=False, allow_null=True)
-        address = serializers.CharField(required=False, allow_blank=True)
-        is_active = serializers.BooleanField(required=False)
-        
-        current_class = serializers.CharField(max_length=50, required=False, allow_blank=True)
-        blood_group = serializers.CharField(max_length=5, required=False, allow_blank=True)
-        parent_id = serializers.UUIDField(required=False, allow_null=True)
-        emergency_contact_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
-        emergency_contact_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
-        medical_conditions = serializers.CharField(required=False, allow_blank=True)
-        status = serializers.ChoiceField(choices=['active', 'graduated', 'transferred', 'suspended'], required=False)
+
+class UpdateStudentSerializer(serializers.Serializer):
+    """Serializer for updating an existing student"""
+    first_name = serializers.CharField(max_length=150, required=False)
+    last_name = serializers.CharField(max_length=150, required=False)
+    phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    is_active = serializers.BooleanField(required=False)
+    
+    current_class = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    blood_group = serializers.CharField(max_length=5, required=False, allow_blank=True)
+    parent_id = serializers.UUIDField(required=False, allow_null=True)
+    emergency_contact_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    emergency_contact_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    medical_conditions = serializers.CharField(required=False, allow_blank=True)
+    status = serializers.ChoiceField(choices=['active', 'graduated', 'transferred', 'suspended'], required=False)
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -241,13 +242,11 @@ class CreateStudentSerializer(serializers.Serializer):
             'current_class', 'blood_group', 'emergency_contact_name',
             'emergency_contact_phone', 'emergency_contact_relationship',
             'medical_conditions', 'status'
-            
         ]
         
         for field in profile_fields:
             if field in validated_data:
                 setattr(profile, field, validated_data[field])
-        
         
         if 'parent_id' in validated_data:
             parent_id = validated_data['parent_id']

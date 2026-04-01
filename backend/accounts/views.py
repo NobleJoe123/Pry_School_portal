@@ -12,7 +12,7 @@ from .models import User, StudentProfile, TeacherProfile, ParentProfile
 from .serializers import (
     UserSerializer, RegisterSerializer, StudentProfileSerializer,
     TeacherProfileSerializer, ParentProfileSerializer, ChangePasswordSerializer,
-    CreateStudentSerializer, UpdateStudentSerializer, StudentDetailSerializer,
+    CreateStudentSerializer, StudentDetailSerializer, UpdateStudentSerializer,
     CreateTeacherSerializer, TeacherDetailSerializer, ParentDetailSerializer
 )
 
