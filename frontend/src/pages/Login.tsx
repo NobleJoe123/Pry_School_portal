@@ -1,95 +1,243 @@
-// src/pages/Login.tsx
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
-import type { LoginData } from '../types';
+import { useState, type FormEvent } from 'react';
+import { useNavigate, useLocation, href } from 'react-router-dom';
+import { Eye, EyeOff, GraduationCap } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import type { UserRole } from '../types';
 
-const Login = () => {
+// Role Mapping
+
+const ROLE_ROUTES: Record<UserRole, string> = {
+  admin: '/dashboard',
+  teacher: '/teacher',
+  parent: '/parent',
+  student: '/student',
+
+};
+
+
+// Background
+
+function LeftPanel() {
+  const roles: { label: string; color: string }[] = [
+    { label: 'Admin', color: 'bf-amber-500/20 text-amber-300 border-amber-500/30' },
+    { label: 'Teacher', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+    { label: 'Parent', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
+    { label: 'Student', color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' },
+  ];
+
+  const stats: { num: string; label: string }[] = [
+    { num: '500+', label: 'Students' },
+    { num: '40+', label: 'Teachers' },
+    { num: '90%', label: 'Uptime' },
+  ];
+
+  return (
+    <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-j-hidden"
+      style={{ background: 'linear-gradient(145deg, #0f1923 0%, #0d2137 50%, 0a1628 100%)' }}>
+
+      {/* Grid texture */}
+
+      <div className="absoulute inset-0 opacity-[0.04]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,.4) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255,255,255,.4) 1px, transparent 1px)`, backgroundSize: '40px 40px',
+        }} />
+
+      {/* light */}
+      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10"
+        style={{ background: 'radial-gradient(circle, #f59e0b, transparent 70%)' }} />
+
+      <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full opacity-10"
+        style={{ background: 'radial-gradient(circle, #10b981, transparent 70%)' }} />
+
+      {/* Logo */}
+      <div className="relative z-10 flex items-center gap-3">
+        <div className="p-2 rounded-x1 bg-amber-500/10 border border-amber-500/20 text-amber-400">
+          <GraduationCap size={28} />
+        </div>
+        <div>
+          <p className="text-white font-semibold text-lg leading-tight">Anyi</p>
+          <p className="text-slate-400 text-xs"> Primary School Portal</p>
+        </div>
+      </div>
+      {/* Hero */}
+      <div className="relative z-10">
+        <h1 className="text-5xl font-black tex-white leading-tight mb-6"
+          style={{ fontFamily: " 'DM Serif Display', serif", letterSpacing: '1-px' }}> Educating <br />
+          <span style={{ background: 'linear-gradient(90deg, #f569e0b, #10b981)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> Tomorrow's </span> <br /> Leaders.
+        </h1>
+        <p className="text-slate-400 text-sm leading-relaxed max-w-sm"> A unified portal for everything your primary school needs in one place - so let's get the portal started.</p>
+        <div className="flex flex-wrap gap-2 mt-8">
+          {roles.map((r) => (
+            <span key={r.label} className={`text-xs px-3 py-1.5 rounded-full border font-medium ${r.color}`}> {r.label} </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="relative z-10 flex gap-10">{stats.map(({ num, label }) => (
+        <div key={label}>
+          <p className="text-white font-bold text-2xl">{num}</p>
+          <p className="text-slate-500 text-xs mt-0.5">{label}</p>
+        </div>
+      ))}
+      </div>
+
+    </div>
+  );
+
+}
+
+// Login page
+
+export default function Login() {
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<LoginData>({
-    email: '',
-    password: '',
-  });
-  const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    setError(null);
 
     try {
-      const res = await api.post('/auth/login/', formData);
-      const user = res.data;
+      await login({ email, password });
 
-      // Redirect based on role
-      if (user.role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else if (user.role === 'teacher') {
-        navigate('/teacher', { replace: true });
-      } else {
-        navigate('/parent', { replace: true }); // parent or student
-      }
-    } catch (err: any) {
-      setError('Invalid email or password.');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const role: UserRole = user.role ?? 'student';
+      const destination = from || ROLE_ROUTES[role];
+      navigate(destination, { replace: true });
+
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">Login to Your Account</h2>
-        
-        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+    <div className="min-h-screen flex" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <LeftPanel />
+
+      {/* Right panel */}
+
+      <div className="flex-1 flex items-center justify-center p-6" style={{ background: '#f8f7f4' }}>
+        <div className="w-full max-w-md">
+
+          {/* Mobile Logo */}
+          <div className="flex lg:hidden items-center gap-3 mb-10">
+            <div className="p-2 rounded-xl text-amber-500" style={{ background: '#0f1923' }}>
+              <GraduationCap size={28} />
+            </div>
+            <div>
+              <p className="font-semibold text-slate-800 text-lg"> Anyi </p>
+              <p className="text-slate-400 text-xs"> Primary School Portal </p>
+
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          {/* Heading */}
+          <div className="mb-10">
+            <h2 className="text-3xl font-black text-slate-900 mb-2" style={{ fontFamily: "'DM Serif Display', serif" }}>
+              Sign in
+            </h2>
+            <p className="text-slate-500 text-sm"> Enter your credentials to continue.</p>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
 
-        <p className="mt-4 text-center text-gray-600">
-          Don’t have an account?{' '}
-          <a href="/register" className="text-blue-600 hover:underline">Register as Parent</a>
-        </p>
+          {/* Form */}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="vlock text-xs font-semibold text-slate-600 uppercase tracking-widest mb-2"> Email Address
+              </label>
+              {/* Email */}
+              <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="stan@school.com"
+                className="w-full px-4 py-3.5 rounded-xl border text-slate-800 text-sm bg-white border-slate-200 placeholder-slate-300
+                focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 transition-all duration-200"/>
+
+            </div>
+
+            {/* Password */}
+
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-widest">
+                  Password
+
+                </label>
+                <a href="/forgot-password" className="text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors"> Forgot password</a>
+              </div>
+              <div className="relative">
+                <input type={showPw ? 'text' : 'password'} required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  placeholder="......."
+                  className="w-full px-4 py-3.5 pr-12 rounded-xl border text-slate-800 text-sm bg-white border-slate-200
+                  placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-4 transition-all duration-200" />
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -tanslate-y-1/2 text-slate-400
+                        hover:text-slate-600 transition-colors" aria-label={showPw ? 'Hide password' : 'Show password'}>
+                  {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Error */}
+
+            {error && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-100">
+                <span className="text-red-500 text-sm mt-0.5"></span>
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* Submit */}
+
+            <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-sm text-white"
+              style={{
+                background: loading ? '#94a3b8' : 'linear-gradient(135deg, #0f1923 0%, #1e3a5f 100%)',
+                boxShadow: loading ? 'none' : '0 4px 24px rgba(15,25,35,0.25)',
+              }}>
+              {loading ? (<span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opactity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8x" />
+
+                </svg>
+                Signing in.....
+              </span>
+              ) : ('Sign In ->')}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-8">
+            <div className="flex-1 h-px bg-slate-200" />
+            <p className="text-ts text-slate-400 font-medium">OR</p>
+            <div className="flex-1 h-px bg-slate-200" />
+
+          </div>
+
+          {/* Register */}
+          <p className="text-sm text-slate-500 text-center"> Don't have an account? <a href="/register" className="text-amber-600 hover:text-amber-700 font-semibold transition-colors"> Register </a> </p>
+
+          <p className="text-center text-xs text-slate-400 mt-12"> &copy; {new Date().getFullYear()} Jascube Technologies . All rights reserved.</p>
+        </div>
+
+
       </div>
+
+      {/* Google Fonts */}
+
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
     </div>
   );
-};
-
-export default Login;
+}
