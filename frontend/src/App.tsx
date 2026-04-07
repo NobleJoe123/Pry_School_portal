@@ -1,46 +1,63 @@
-// src/App.tsx
-import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import api from './services/api';
-import type { User } from './types';
-import Register from './pages/Register';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 
-const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  // Check if user is logged in on app load
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await api.get('/auth/user/');
-        setUser(res.data);
-      } catch {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, []);
+// PlaceHolders Pages
 
-  if (loading) {
-    return <div className="p-10">Loading...</div>;
-  }
+const AdminDashboard = () => <div className="p-8 text-white bg-slate-950 min-h-screen"> Admin Dashboard - Coming Soon</div>;
+const TeacherDashboard = () => <div className="p-8 text-white bg-slate-950 min-h-screen"> Teacher Dashboard - Coming Soon</div>;
+const ParentDashboard = () => <div className="p-8 text-white bg-slate-950 min-h-screen"> Parent Dashboard - Coming Soon</div>;
 
+const NotFound = () => (
+  <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+    <div className="text-center">
+      <p className="text-6xl font-black text-slate-700 mb-4">404</p>
+      <p className="text-white font-semibold text-xl mb-2"> Page Not Found</p>
+    </div>
+  </div>
+);
+
+
+// App
+
+export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/register" element={<Register />} />
-        <Route path="/login" element={<Login />} />
-        
-        {/* Protected routes will be added later */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
-  );
-};
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-export default App;
+          {/* Admin Only */}
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/dashboard" element={<AdminDashboard />} />
+          </Route>
+
+          {/* Teacher Only */}
+
+          <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
+            <Route path="/teacher" element={<TeacherDashboard />} />
+          </Route>
+
+          {/* Parent Only */}
+
+          <Route element={<ProtectedRoute allowedRoles={['parent']} />}>
+            <Route path="/parent" element={<ParentDashboard />} />
+          </Route>
+
+          {/* Catch All - 404 Not Found */}
+          <Route path="*" element={<NotFound />} />
+
+
+
+
+
+
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+
+  );
+}
