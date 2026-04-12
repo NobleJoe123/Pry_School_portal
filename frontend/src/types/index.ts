@@ -149,7 +149,7 @@ export interface DashboardStats {
     total_teachers: number;
     total_parents: number;
     students_by_class: Record<string, number>;
-    recent_registration: number;
+    recent_registrations: number;
 }
 
 

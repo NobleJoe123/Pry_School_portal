@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, useLocation, href } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
@@ -19,7 +19,7 @@ const ROLE_ROUTES: Record<UserRole, string> = {
 
 function LeftPanel() {
   const roles: { label: string; color: string }[] = [
-    { label: 'Admin', color: 'bf-amber-500/20 text-amber-300 border-amber-500/30' },
+    { label: 'Admin', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
     { label: 'Teacher', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
     { label: 'Parent', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
     { label: 'Student', color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' },
@@ -32,27 +32,26 @@ function LeftPanel() {
   ];
 
   return (
-    <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-j-hidden"
-      style={{ background: 'linear-gradient(145deg, #0f1923 0%, #0d2137 50%, 0a1628 100%)' }}>
+    <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden bg-panel-dark">
 
       {/* Grid texture */}
 
-      <div className="absoulute inset-0 opacity-[0.04]"
+      <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
         style={{
           backgroundImage: `linear-gradient(rgba(255,255,255,.4) 1px, transparent 1px),
                             linear-gradient(90deg, rgba(255,255,255,.4) 1px, transparent 1px)`, backgroundSize: '40px 40px',
         }} />
 
       {/* light */}
-      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10"
+      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10 pointer-events-none"
         style={{ background: 'radial-gradient(circle, #f59e0b, transparent 70%)' }} />
 
-      <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full opacity-10"
+      <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full opacity-10 pointer-events-none"
         style={{ background: 'radial-gradient(circle, #10b981, transparent 70%)' }} />
 
       {/* Logo */}
       <div className="relative z-10 flex items-center gap-3">
-        <div className="p-2 rounded-x1 bg-amber-500/10 border border-amber-500/20 text-amber-400">
+        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
           <GraduationCap size={28} />
         </div>
         <div>
@@ -62,9 +61,10 @@ function LeftPanel() {
       </div>
       {/* Hero */}
       <div className="relative z-10">
-        <h1 className="text-5xl font-black tex-white leading-tight mb-6"
-          style={{ fontFamily: " 'DM Serif Display', serif", letterSpacing: '1-px' }}> Educating <br />
-          <span style={{ background: 'linear-gradient(90deg, #f569e0b, #10b981)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> Tomorrow's </span> <br /> Leaders.
+        <h1 className="text-5xl font-black text-white leading-tight mb-6"
+          style={{ fontFamily: " 'DM Serif Display', serif", letterSpacing: '1px' }}> Educating <br />
+          <span className="text-gradient-brand"> Tomorrow's </span>
+          <br /> Leaders.
         </h1>
         <p className="text-slate-400 text-sm leading-relaxed max-w-sm"> A unified portal for everything your primary school needs in one place - so let's get the portal started.</p>
         <div className="flex flex-wrap gap-2 mt-8">
@@ -111,9 +111,8 @@ export default function Login() {
     try {
       await login({ email, password });
 
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const role: UserRole = user.role ?? 'student';
-      const destination = from || ROLE_ROUTES[role];
+      const { user } = useAuth ();
+      const destination = from || ROLE_ROUTES[user?.role ?? 'student'];
       navigate(destination, { replace: true });
 
     } catch (err: unknown) {
@@ -125,17 +124,17 @@ export default function Login() {
 
 
   return (
-    <div className="min-h-screen flex" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="min-h-screen flex">
       <LeftPanel />
 
       {/* Right panel */}
 
-      <div className="flex-1 flex items-center justify-center p-6" style={{ background: '#f8f7f4' }}>
+      <div className="flex-1 flex items-center justify-center p-6 bg-[#f8f7f4]">
         <div className="w-full max-w-md">
 
           {/* Mobile Logo */}
           <div className="flex lg:hidden items-center gap-3 mb-10">
-            <div className="p-2 rounded-xl text-amber-500" style={{ background: '#0f1923' }}>
+            <div className="p-2 rounded-xl text-amber-500 bg-[#0f1923]">
               <GraduationCap size={28} />
             </div>
             <div>
@@ -158,9 +157,8 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="vlock text-xs font-semibold text-slate-600 uppercase tracking-widest mb-2"> Email Address
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-widest mb-2"> Email Address
               </label>
-              {/* Email */}
               <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder="stan@school.com"
                 className="w-full px-4 py-3.5 rounded-xl border text-slate-800 text-sm bg-white border-slate-200 placeholder-slate-300
@@ -176,14 +174,14 @@ export default function Login() {
                   Password
 
                 </label>
-                <a href="/forgot-password" className="text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors"> Forgot password</a>
+                <Link to="/forgot-password" className="text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors"> Forgot password</Link>
               </div>
               <div className="relative">
                 <input type={showPw ? 'text' : 'password'} required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}
                   placeholder="......."
                   className="w-full px-4 py-3.5 pr-12 rounded-xl border text-slate-800 text-sm bg-white border-slate-200
                   placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-4 transition-all duration-200" />
-                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -tanslate-y-1/2 text-slate-400
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400
                         hover:text-slate-600 transition-colors" aria-label={showPw ? 'Hide password' : 'Show password'}>
                   {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -194,34 +192,33 @@ export default function Login() {
 
             {error && (
               <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-100">
-                <span className="text-red-500 text-sm mt-0.5"></span>
+                <span className="text-red-500 text-sm mt-0.5">⚠</span>
                 <p className="text-red-600 text-sm">{error}</p>
               </div>
             )}
 
             {/* Submit */}
 
-            <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-sm text-white"
+            <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-sm text-white transition-all duration-200 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed bg-[#0f1923] hover:bg-[#1e3a5f]"
               style={{
-                background: loading ? '#94a3b8' : 'linear-gradient(135deg, #0f1923 0%, #1e3a5f 100%)',
                 boxShadow: loading ? 'none' : '0 4px 24px rgba(15,25,35,0.25)',
               }}>
               {loading ? (<span className="flex items-center justify-center gap-2">
                 <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opactity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8x" />
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
 
                 </svg>
                 Signing in.....
               </span>
-              ) : ('Sign In ->')}
+              ) : ('Sign In')}
             </button>
           </form>
 
           {/* Divider */}
           <div className="flex items-center gap-3 my-8">
             <div className="flex-1 h-px bg-slate-200" />
-            <p className="text-ts text-slate-400 font-medium">OR</p>
+            <p className="text-xs text-slate-400 font-medium">OR</p>
             <div className="flex-1 h-px bg-slate-200" />
 
           </div>

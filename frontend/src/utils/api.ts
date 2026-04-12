@@ -4,63 +4,46 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api
 
 // Token Base
 
-export const TokenStorage = {
-    getAccess: (): string | null => localStorage.getItem('access_token'),
-    getRefresh: (): string | null => localStorage.getItem('refresh_token'),
-    getUser: () => {
-        const u = localStorage.getItem('refresh_token');
-        return u ? JSON.parse(u): null;
-    },
-    set: (tokens: AuthTokens, user: object) => {
-        localStorage.setItem('acces_token', tokens.access);
-        localStorage.setItem('refresh_token', tokens.refresh);
-        localStorage.setItem('user', JSON.stringify(user));
-    },
-    clear: () => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
-    },
+let _accessToken: string | null = null;
+
+export const AccessToken = {
+    get: () => _accessToken,
+    set: (token: string) => (_accessToken = token),
+    clear: () => (_accessToken = null),
 };
 
 
-// Token Refresh
+//Token Refresh
 
-let isRefreshing = false;
-let refreshSubcribers: ((token: string) => void)[] = [];
+let _isRefreshing = false;
+let _refreshQueue: ((token: string) => void)[] = [];
 
-const subscribeTokenRefresh = (cb: (token: string) => void) => {
-    refreshSubcribers.push(cb);
+const drainQueue = (token: string) => {
+    _refreshQueue.forEach((cb) => cb(token));
+    _refreshQueue = [];
 };
 
-const onRefreshed = (token:string) => {
-    refreshSubcribers.forEach((cb) => cb(token));
-    refreshSubcribers = [];
-};
 
-const refreshAccessToken = async (): Promise<string> => {
-    const refresh = TokenStorage.getRefresh();
-    if (!refresh) throw new Error('No refresh token');
-
-    const res = await fetch(`${API_BASE}/auth/token/refresh/1`, {
+export const refreshAccessToken = async (): Promise<string> => {
+    const res = await fetch(`${API_BASE}/auth/token/refresh/`, {
         method: 'POST',
-        headers: {'COntent-Type': 'application/json'},
-        body: JSON.stringify({ refresh }),
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
     });
 
     if (!res.ok) {
-        TokenStorage.clear();
+        AccessToken.clear();
         window.location.href = '/login';
-        throw new Error('Sesion expired');
+        throw new Error('Session expired. Please log in again.');
     }
 
     const data = await res.json();
-    localStorage.setItem('access_token', data.access);
-    return data.access;
+    const newToken: string = data.access_token;
+    AccessToken.set(newToken);
+    return newToken;
 };
 
-
-// Main Fetch Wrapper
+// fetch Wrapper
 
 interface FetchOptions extends RequestInit {
     skipAuth?: boolean;
@@ -69,62 +52,62 @@ interface FetchOptions extends RequestInit {
 export async function apiFetch<T>(
     endpoint: string,
     options: FetchOptions = {}
+
 ): Promise<T> {
-    const { skipAuth = false, ...fetchOptions } = options;
+    const { skipAuth = false, ...rest } = options;
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...(fetchOptions.headers as Record<string, string>),
+        ...(rest.headers as Record<string, string>),
     };
 
     if (!skipAuth) {
-        const token = TokenStorage.getAccess();
+        const token = AccessToken.get();
         if (token) headers['Authorization'] = `Bearer ${token}`;
     }
 
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
 
-    let res = await fetch(url, { ...fetchOptions, headers });
+    let res = await fetch(url, { ...rest, headers, credentials: 'include', });
+
+    //Auto refresh on 401
+
     if (res.status === 401 && !skipAuth) {
-        if (!isRefreshing) {
-            isRefreshing = true;
+        if (!_isRefreshing) {
+            _isRefreshing = true;
             try {
                 const newToken = await refreshAccessToken();
-                onRefreshed(newToken);
-                isRefreshing = false;
-            } catch {
-                isRefreshing = false;
-                throw new Error('Session expired. Please log in again.');
+                drainQueue(newToken);
+            
+            } finally {
+                _isRefreshing = false;
             }
+
+        } else {
+
+            await new Promise<string>((resolve) => _refreshQueue.push(resolve));
         }
 
-        // Retry with new token
-        const newToken = await new Promise<string>((resolve) => {
-            subscribeTokenRefresh(resolve);
-        });
-
-        headers['Authorization'] = `Bearer ${newToken}`;
-        res = await fetch(url, { ...fetchOptions, headers });
+        headers['Authorization'] = `Bearer ${AccessToken.get()}`;
+        res = await fetch(url, {...rest, headers, credentials: 'include', })
     }
 
     if (!res.ok) {
-        const errorData: ApiError = await res.json().catch(() => ({
-            error: `HTTP ${res.status}`,
-        }));
-
-        const message =
+        const errorData: ApiError = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        const message = 
             errorData.error ||
             errorData.detail ||
-            Object.values(errorData).flat().join('') ||
-            'Something went wrong';
-            throw new Error(message);
-
+            Object.values(errorData).flat().join(' ') || 'Something went wrong';
+        throw new Error(message);
+            
     }
 
-    if (res.status == 204) return {} as T;
-
+    if (res.status === 204) return {} as T;
     return res.json() as Promise<T>;
+
+
 }
+
 
 
 // Convience Method........
