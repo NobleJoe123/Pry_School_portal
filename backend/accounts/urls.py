@@ -33,18 +33,18 @@ urlpatterns = [
     path('health/', health_check, name='health'),
     
     #Authentication Endpoints
-    path('register/', RegisterView.as_view(), name='register'),
-    path('login/', LoginView.as_view(), name='login'),
-    path('logout/', LogoutView.as_view(), name='logout'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/register/', RegisterView.as_view(), name='register'),
+    path('auth/login/', LoginView.as_view(), name='login'),
+    path('auth/logout/', LogoutView.as_view(), name='logout'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     #User Profile
-    path('profile/', UserProfileView.as_view(), name='profile'),
-    path('change-password/', ChangePasswordView.as_view(), name='change_password'),
-    
+    path('auth/profile/', UserProfileView.as_view(), name='profile'),
+    path('auth/change-password/', ChangePasswordView.as_view(), name='change_password'),
+    path('auth/health', health_check, name='health_check'),
     #Dashboard
     path('dashboard/stats/', dashboard_stats, name='dashboard_stats'),
     
     
-    path('', include(router.urls)),
+    path('auth/', include(router.urls)),
 ]

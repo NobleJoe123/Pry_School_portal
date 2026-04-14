@@ -1,8 +1,6 @@
-
-
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import type { User, LoginRequest, LoginResponse } from '../types';
-import { api, endpoints, TokenStorage } from '../utils/api';
+import type { User, LoginRequest } from '../types';
+import { api, endpoints, AccessToken, refreshAccessToken } from '../utils/api';
 
 
 // Context Types
@@ -14,6 +12,13 @@ interface AuthContextValue {
     login: (credentials: LoginRequest) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
+}
+
+interface LoginApiResponse {
+    user: User;
+    access_token: string;
+    message: string;
+
 }
 
 // Context
@@ -30,38 +35,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // On mount: restore session from localstorage
 
     useEffect(() => {
-        const storedUser = TokenStorage.getUser();
-        const token = TokenStorage.getAccess();
+        const restoreSession = async () => {
+            try {
+                await refreshAccessToken();
+                await refreshUser();
+            } catch {
+                setUser(null);
 
-        if (storedUser && token) {
-            setUser(storedUser);
-            refreshUser().finally(() => setIsLoading(false));
-        } else {
-            setIsLoading(false);
-        }
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-
+        restoreSession();
     }, []);
 
+
     const login = useCallback(async (credentials: LoginRequest) => {
-        const data = await api.post<LoginResponse>(endpoints.auth.login, credentials,
+        const data = await api.post<LoginApiResponse>(endpoints.auth.login, credentials,
             { skipAuth: true }
         );
 
-        TokenStorage.set(data.tokens, data.user);
+        AccessToken.set(data.access_token);
         setUser(data.user);
     }, []);
 
+
+
     const logout = useCallback(async () => {
-        const refresh = TokenStorage.getRefresh();
         try {
-            if (refresh) {
-                await api.post(endpoints.auth.logout, { refresh_token: refresh });
-            }
+            await api.post(endpoints.auth.logout, {});
         } catch {
 
         } finally {
-            TokenStorage.clear();
+            AccessToken.clear();
             setUser(null);
 
         }
@@ -69,10 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const refreshUser = useCallback(async () => {
-        try {
-            const data = await api.get<{ user: User }>(endpoints.auth.profile); setUser(data.user);
-            localStorage.setItem('user', JSON.stringify(data.user));
-        } catch { TokenStorage.clear(); setUser(null); }
+        const data = await api.get<{ user: User }>(endpoints.auth.profile);
+        setUser(data.user);
     }, []);
 
     return (
@@ -82,6 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 export function useAuth(): AuthContextValue {
-    const ctx = useContext(AuthContext); if (!ctx) throw new Error('useAuth must be used within <AuthProvider>'); return ctx;
+    const ctx = useContext(AuthContext); 
+    if (!ctx) throw new Error('useAuth must be used within <AuthProvider>'); 
+    return ctx;
 }
 

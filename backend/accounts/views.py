@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import authenticate
 from django.db.models import Count
 from datetime import datetime, timedelta
@@ -18,6 +19,17 @@ from .serializers import (
 
 from .permissions import IsAdminOrReadOnly
 
+# Cookie Settings
+
+REFRESH_COOKIE_NAME = 'refresh_token'
+
+COOKIE_SETTINGS = {
+    'key': REFRESH_COOKIE_NAME,
+    'httponly': True,
+    'secure' : False,
+    'samesite': 'Lax',
+    'path' : '/api/auth/',
+}
 
 class RegisterView(generics.CreateAPIView):
     """
@@ -38,12 +50,12 @@ class RegisterView(generics.CreateAPIView):
         
         return Response({
             'user': UserSerializer(user, context={'request': request}).data,
-            'tokens': {
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-            },
+            'access_token': access,
             'message': 'Registration successful!'
         }, status=status.HTTP_201_CREATED)
+        
+        response.set_cookie(value=str(refresh), **COOKIE_SETTINGS)
+        return response
 
 
 class LoginView(APIView):
@@ -86,16 +98,16 @@ class LoginView(APIView):
         
         # Generate tokens
         refresh = RefreshToken.for_user(user)
+        access = str(refresh.access_token)
         
         # Update last login
         user.save(update_fields=['last_login'])
         
-        return Response({
+        
+        
+        response = Response({
             'user': UserSerializer(user, context={'request': request}).data,
-            'tokens': {
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-            },
+            'access_token': access,
             'message': 'Login successful!'
         }, status=status.HTTP_200_OK)
 
@@ -108,20 +120,64 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
+        refresh_token = request.COOKIES.get(REFRESH_COOKIE_NAME)
         try:
-            refresh_token = request.data.get('refresh_token')
             if refresh_token:
                 token = RefreshToken(refresh_token)
                 token.blacklist()
-            return Response(
+        except TokenError:
+            pass
+        
+        response = Response(
                 {'message': 'Logout successful!'},
                 status=status.HTTP_200_OK
-            )
-        except Exception as e:
+        )
+        
+        response.delete_cookie(REFRESH_COOKIE_NAME, path='/api/auth/', samesite='Lax')
+        return response
+    
+
+class TokenRefreshView(APIView):
+    """"
+    POST /api/auth/token/refresh/
+    Refresh JWT token
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        refresh_token = request.COOKIES.get(REFRESH_COOKIE_NAME)
+        
+        
+        if not refresh_token:
             return Response(
-                {'error': 'Invalid token or already logged out.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': 'No refresh token found. Please log in again. '},
+                status=status.HTTP_401_UNAUTHORIZED
             )
+        
+      
+        
+        try:
+            refresh = RefreshToken(refresh_token)
+            access = str(refresh.access_token)
+            
+            response = Response(
+                {'access_token': access},
+                status=status.HTTP_200_OK
+            )
+            
+            refresh.set_jti()
+            refresh.set_exp()
+            response.set_cookie(value=str(refresh), **COOKIE_SETTINGS)
+            return response
+        
+        except TokenError:
+            response = Response(
+                {'error': 'Refresh token is invalid or expired. Please log in again'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            response.delete_cookie(REFRESH_COOKIE_NAME, path='/api/auth')
+            return response
+
 
 
 class UserProfileView(APIView):

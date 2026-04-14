@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
+import hero from '../assets/Hero1.jpg'
 
 // Role Mapping
 
@@ -19,10 +20,10 @@ const ROLE_ROUTES: Record<UserRole, string> = {
 
 function LeftPanel() {
   const roles: { label: string; color: string }[] = [
-    { label: 'Admin', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-    { label: 'Teacher', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-    { label: 'Parent', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
-    { label: 'Student', color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' },
+    { label: 'Admin', color: 'bg-amber-500/20 text-amber-300 border-amber-500' },
+    { label: 'Teacher', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500' },
+    { label: 'Parent', color: 'bg-sky-500/20 text-sky-300 border-sky-500' },
+    { label: 'Student', color: 'bg-violet-500/20 text-violet-300 border-violet-500' },
   ];
 
   const stats: { num: string; label: string }[] = [
@@ -33,6 +34,9 @@ function LeftPanel() {
 
   return (
     <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden bg-panel-dark">
+      <img src={hero} alt="Login hero" className="absolute inset-0 w-full h-full object-cover" />
+
+      <div className="absolute inset-0 bg-black/50" />
 
       {/* Grid texture */}
 
@@ -62,11 +66,12 @@ function LeftPanel() {
       {/* Hero */}
       <div className="relative z-10">
         <h1 className="text-5xl font-black text-white leading-tight mb-6"
-          style={{ fontFamily: " 'DM Serif Display', serif", letterSpacing: '1px' }}> Educating <br />
+          style={{ fontFamily: " 'DM Serif Display', serif", letterSpacing: '1px' }}> Hi <br />
           <span className="text-gradient-brand"> Tomorrow's </span>
-          <br /> Leaders.
+          <br />  Leaders.
         </h1>
-        <p className="text-slate-400 text-sm leading-relaxed max-w-sm"> A unified portal for everything your primary school needs in one place - so let's get the portal started.</p>
+        <p className="text-slate-400 text-sm text-white leading-relaxed max-w-sm"> A unified portal for everything your primary school needs in one place. </p> 
+          <p className="text-slate-400 text-sm text-white leading-relaxed max-w-sm"> let's get the portal started....</p>
         <div className="flex flex-wrap gap-2 mt-8">
           {roles.map((r) => (
             <span key={r.label} className={`text-xs px-3 py-1.5 rounded-full border font-medium ${r.color}`}> {r.label} </span>
