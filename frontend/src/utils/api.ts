@@ -16,31 +16,40 @@ export const AccessToken = {
 //Token Refresh
 
 let _isRefreshing = false;
-let _refreshQueue: ((token: string) => void)[] = [];
+
+let _refreshQueue:
+    ((token: string) => void)[] = [];
+
+
 
 const drainQueue = (token: string) => {
-    _refreshQueue.forEach((cb) => cb(token));
+    _refreshQueue.forEach((resolve) => resolve(token));
     _refreshQueue = [];
+
 };
 
 
-export const refreshAccessToken = async (): Promise<string> => {
-    const res = await fetch(`${API_BASE}/auth/token/refresh/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-    });
+export const refreshAccessToken = async (): Promise<string | null> => {
+    try {
+        const res = await fetch(`${API_BASE}/auth/token/refresh/`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+        });
 
-    if (!res.ok) {
+        if (!res.ok) {
+            AccessToken.clear();
+            return null;
+        }
+
+        const data = await res.json();
+        const newToken: string = data.access_token;
+        AccessToken.set(newToken);
+        return newToken;
+    } catch {
         AccessToken.clear();
-        window.location.href = '/login';
-        throw new Error('Session expired. Please log in again.');
+        return null;
     }
-
-    const data = await res.json();
-    const newToken: string = data.access_token;
-    AccessToken.set(newToken);
-    return newToken;
 };
 
 // fetch Wrapper
@@ -77,8 +86,9 @@ export async function apiFetch<T>(
             _isRefreshing = true;
             try {
                 const newToken = await refreshAccessToken();
-                drainQueue(newToken);
-            
+
+                if (newToken) drainQueue(newToken);
+
             } finally {
                 _isRefreshing = false;
             }
@@ -88,18 +98,20 @@ export async function apiFetch<T>(
             await new Promise<string>((resolve) => _refreshQueue.push(resolve));
         }
 
-        headers['Authorization'] = `Bearer ${AccessToken.get()}`;
-        res = await fetch(url, {...rest, headers, credentials: 'include', })
+        const refreshed = AccessToken.get();
+        if (refreshed)
+            headers['Authorization'] = `Bearer ${refreshed}`;
+        res = await fetch(url, { ...rest, headers, credentials: 'include', })
     }
 
     if (!res.ok) {
         const errorData: ApiError = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        const message = 
+        const message =
             errorData.error ||
             errorData.detail ||
             Object.values(errorData).flat().join(' ') || 'Something went wrong';
         throw new Error(message);
-            
+
     }
 
     if (res.status === 204) return {} as T;
@@ -124,7 +136,7 @@ export const api = {
         }),
 
     patch: <T>(endpoint: string, body: unknown, options?: FetchOptions) =>
-        apiFetch<T>(endpoint, { 
+        apiFetch<T>(endpoint, {
             method: 'PATCH', body: JSON.stringify(body), ...options,
 
         }),
@@ -134,10 +146,10 @@ export const api = {
             method: 'PUT', body: JSON.stringify(body), ...options,
 
         }),
-        
+
     delete: <T>(endpoint: string, options?: FetchOptions) =>
-        apiFetch<T>(endpoint, { method: 'DELETE', ...options}),
-    
+        apiFetch<T>(endpoint, { method: 'DELETE', ...options }),
+
 
 };
 
@@ -149,14 +161,14 @@ export const endpoints = {
         login: '/auth/login/',
         logout: '/auth/logout/',
         register: '/auth/register/',
-        profile: '/auth/profile',
-        refresh: '/auth/token/refresh',
+        profile: '/auth/profile/',
+        refresh: '/auth/token/refresh/',
         changepassword: '/auth/change-password/',
-        dashboardStats: '/auth/dashboard/stats',
+        dashboardStats: '/auth/dashboard/stats/',
     },
 
     students: {
-        list: '/auth/students',
+        list: '/auth/students/',
         detail: (id: string) => `/auth/students/${id}/`,
         stats: 'auth/students/stats/',
     },
@@ -164,7 +176,7 @@ export const endpoints = {
     teachers: {
         list: '/auth/teachers/',
         detail: (id: string) => `/auth/teacher/${id}`,
-        stats: '/auth/tecahers/stats/'
+        stats: '/auth/teachers/stats/'
     },
 
     parent: {

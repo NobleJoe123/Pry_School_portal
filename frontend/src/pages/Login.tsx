@@ -96,7 +96,7 @@ function LeftPanel() {
 // Login page
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -116,7 +116,7 @@ export default function Login() {
     try {
       await login({ email, password });
 
-      const { user } = useAuth ();
+  
       const destination = from || ROLE_ROUTES[user?.role ?? 'student'];
       navigate(destination, { replace: true });
 

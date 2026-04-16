@@ -37,8 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const restoreSession = async () => {
             try {
-                await refreshAccessToken();
-                await refreshUser();
+                const token = await refreshAccessToken();
+                if (!token) {
+                    setUser(null);
+                    setIsLoading(false);
+                    return;
+                }
+                const data = await api.get<{ user: User }>(endpoints.auth.profile);
+                setUser(data.user);
             } catch {
                 setUser(null);
 
