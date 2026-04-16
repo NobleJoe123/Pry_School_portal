@@ -1,11 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView
 
 
 from .views import (
     RegisterView,
     LoginView,
+    TokenRefreshCookieView,
     LogoutView,
     UserProfileView,
     ChangePasswordView,
@@ -33,18 +33,18 @@ urlpatterns = [
     path('health/', health_check, name='health'),
     
     #Authentication Endpoints
-    path('auth/register/', RegisterView.as_view(), name='register'),
-    path('auth/login/', LoginView.as_view(), name='login'),
-    path('auth/logout/', LogoutView.as_view(), name='logout'),
-    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('register/', RegisterView.as_view(), name='register'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+    path('token/refresh/', TokenRefreshCookieView.as_view(), name='token_refresh'),
     
     #User Profile
-    path('auth/profile/', UserProfileView.as_view(), name='profile'),
-    path('auth/change-password/', ChangePasswordView.as_view(), name='change_password'),
-    path('auth/health', health_check, name='health_check'),
+    path('profile/', UserProfileView.as_view(), name='profile'),
+    path('change-password/', ChangePasswordView.as_view(), name='change_password'),
+    path('health', health_check, name='health_check'),
     #Dashboard
     path('dashboard/stats/', dashboard_stats, name='dashboard_stats'),
     
     
-    path('auth/', include(router.urls)),
+    path('', include(router.urls)),
 ]

@@ -18,11 +18,11 @@ const Placeholder = ({ name }: { name: string }) => (
       <p className="text-slate-600 text-xs mt-1">Comming soon</p>
     </div>
   </div>
-)
+);
 
 
-const TeacherDashboard = () => <div className="p-8 text-white bg-slate-950 min-h-screen"> Teacher Dashboard - Coming Soon</div>;
-const ParentDashboard = () => <div className="p-8 text-white bg-slate-950 min-h-screen"> Parent Dashboard - Coming Soon</div>;
+const TeacherDashboard = () => ( <div className="p-8 text-white bg-slate-950 min-h-screen"> Teacher Dashboard - Coming Soon</div>);
+const ParentDashboard = () => ( <div className="p-8 text-white bg-slate-950 min-h-screen"> Parent Dashboard - Coming Soon</div>);
 
 const NotFound = () => (
   <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -74,10 +74,6 @@ export default function App() {
 
           {/* Catch All - 404 Not Found */}
           <Route path="*" element={<NotFound />} />
-
-
-
-
 
 
         </Routes>

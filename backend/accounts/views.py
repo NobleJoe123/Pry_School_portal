@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import authenticate
 from django.db.models import Count
+from django.utils import timezone
 from datetime import datetime, timedelta
 from .models import User, StudentProfile, TeacherProfile, ParentProfile
 from .serializers import (
@@ -24,11 +25,11 @@ from .permissions import IsAdminOrReadOnly
 REFRESH_COOKIE_NAME = 'refresh_token'
 
 COOKIE_SETTINGS = {
-    'key': REFRESH_COOKIE_NAME,
     'httponly': True,
     'secure' : False,
     'samesite': 'Lax',
-    'path' : '/api/auth/',
+    'max_age': 60 * 60 * 24 * 7, 
+    'path' : '/',
 }
 
 class RegisterView(generics.CreateAPIView):
@@ -47,14 +48,15 @@ class RegisterView(generics.CreateAPIView):
         
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
+        access = str(refresh.access_token)
         
-        return Response({
+        response = Response({
             'user': UserSerializer(user, context={'request': request}).data,
             'access_token': access,
-            'message': 'Registration successful!'
+            'message': 'Registration sucessfull'
         }, status=status.HTTP_201_CREATED)
         
-        response.set_cookie(value=str(refresh), **COOKIE_SETTINGS)
+        response.set_cookie(key=REFRESH_COOKIE_NAME, value=str(refresh), **COOKIE_SETTINGS)
         return response
 
 
@@ -78,17 +80,12 @@ class LoginView(APIView):
         # Authenticate user
         user = User.objects.filter(email=email).first()
         
-        if user is None:
+        if user is None or not user.check_password(password):
             return Response(
                 {'error': 'Invalid credentials.'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
-        if not user.check_password(password):
-            return Response(
-                {'error': 'Invalid credentials.'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
         
         if not user.is_active:
             return Response(
@@ -101,7 +98,9 @@ class LoginView(APIView):
         access = str(refresh.access_token)
         
         # Update last login
+        user.last_login = datetime.now()
         user.save(update_fields=['last_login'])
+        
         
         
         
@@ -110,6 +109,11 @@ class LoginView(APIView):
             'access_token': access,
             'message': 'Login successful!'
         }, status=status.HTTP_200_OK)
+        
+        response.set_cookie(key=REFRESH_COOKIE_NAME, value=str(refresh), **COOKIE_SETTINGS)
+        return response
+
+
 
 
 class LogoutView(APIView):
@@ -121,6 +125,7 @@ class LogoutView(APIView):
     
     def post(self, request):
         refresh_token = request.COOKIES.get(REFRESH_COOKIE_NAME)
+        
         try:
             if refresh_token:
                 token = RefreshToken(refresh_token)
@@ -133,11 +138,11 @@ class LogoutView(APIView):
                 status=status.HTTP_200_OK
         )
         
-        response.delete_cookie(REFRESH_COOKIE_NAME, path='/api/auth/', samesite='Lax')
+        response.delete_cookie(REFRESH_COOKIE_NAME, path='/', samesite='Lax')
         return response
     
 
-class TokenRefreshView(APIView):
+class TokenRefreshCookieView(APIView):
     """"
     POST /api/auth/token/refresh/
     Refresh JWT token
@@ -167,7 +172,7 @@ class TokenRefreshView(APIView):
             
             refresh.set_jti()
             refresh.set_exp()
-            response.set_cookie(value=str(refresh), **COOKIE_SETTINGS)
+            response.set_cookie(key="refresh_token", value=str(refresh), **COOKIE_SETTINGS)
             return response
         
         except TokenError:
@@ -175,14 +180,14 @@ class TokenRefreshView(APIView):
                 {'error': 'Refresh token is invalid or expired. Please log in again'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-            response.delete_cookie(REFRESH_COOKIE_NAME, path='/api/auth')
+            response.delete_cookie(REFRESH_COOKIE_NAME, path='/')
             return response
 
 
 
 class UserProfileView(APIView):
     """
-    GET /api/auth/me/
+    GET /api/auth/profile/
     Get current user profile
     """
     permission_classes = [IsAuthenticated]
@@ -207,9 +212,7 @@ class UserProfileView(APIView):
     
     def patch(self, request):
         """Update user profile"""
-        user = request.user
         serializer = UserSerializer(
-            user,
             data=request.data,
             partial=True,
             context={'request': request}
@@ -277,21 +280,18 @@ class StudentViewSet(viewsets.ModelViewSet):
     ordering = ['-date_joined']
     
     def get_queryset(self):
-        queryset = User.objects.filter(role='student').select_related('student_profile', 'student_profile__parent_profile')
+        queryset = User.objects.filter(role='student').select_related(
+            'student_profile', 'student_profile__parent'
+        )
+        class_name = self.request.query_params.get('class')
+        student_status = self.request.query_params.get('status')
+        parent_id = self.request.query_params.get('parent_id')
         
-        class_name = self.request.query_params.get('class', None)
-        if class_name:
-            queryset = queryset.filter(student_profile__class=class_name)
-        
-        student_status = self.request.query_params.get('status', None)
-        if student_status:
-            queryset = queryset.filter(student_profile__status=student_status)
-            
-        parent_id = self.request.query_params.get('parent_id', None)
-        if parent_id:
-            queryset = queryset.filter(student_profile__parent_id=parent_id)
-            
+        if class_name: queryset = queryset.filter(student_profile__current_class=class_name)
+        if student_status: queryset = queryset.filter(student_profile__status=student_status)
+        if parent_id: queryset = filter(student_profile__parent_id=parent_id)
         return queryset
+        
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -337,15 +337,10 @@ class StudentViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         """Get student statistics"""
         queryset = self.get_queryset()
-        total = queryset.count()
-        active = queryset.filter(student_profile__status='active').count()
-        by_class = queryset.values('student_profile__current_class').annotate(count=Count('id'))
-            
         return Response({
-            'total_students': total,
-            'active_students': active,
-            'by_class': list(by_class)
-            
+            'total_students': queryset.count(),
+            'active_students': queryset.filter(student_profile__status='active').count(),
+            'by_class': list(queryset.values('student_profile__current_class').annotate(count=Count('id')))
         })
     
     
@@ -363,8 +358,6 @@ class TeacherViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = User.objects.filter(role='teacher').select_related('teacher_profile')
-        
-        # Filter by employment status
         employment_status = self.request.query_params.get('employment_status', None)
         if employment_status:
             queryset = queryset.filter(teacher_profile__employment_status=employment_status)
@@ -454,7 +447,7 @@ def dashboard_stats(request):
     }
     
     # Recent registrations (last 7 days)
-    week_ago = datetime.now() - timedelta(days=7)
+    week_ago = timezone.now() - timedelta(days=7)
     recent_students = User.objects.filter(
         role='student',
         date_joined__gte=week_ago

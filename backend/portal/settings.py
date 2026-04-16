@@ -97,6 +97,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
     'http://localhost:3000',
     'http://localhost:5173',
+    "http://127.0.0.1:5173",
 ]
 #Cookie security settings
 SESSION_COOKIE_HTTPONLY = True
@@ -141,7 +142,7 @@ REST_FRAMEWORK = {
 
 # JWT Settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Changed from minutes to hours
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # Changed from minutes to hours
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -180,7 +181,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Africa/Lagos'  # Changed from UTC
+TIME_ZONE = 'UTC'  # Changed from UTC
 USE_I18N = True
 USE_TZ = True
 
