@@ -49,7 +49,7 @@ export interface RegisterRequest {
 
 // Student Types
 
-export type StudentStatus = 'active' | 'graduated' | 'tranferred' | 'suspended';
+export type StudentStatus = 'active' | 'graduated' | 'transferred' | 'suspended';
 export type Gender = 'M' | 'F';
 
 export interface StudentProfile {

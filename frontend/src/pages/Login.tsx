@@ -26,10 +26,10 @@ function LeftPanel() {
     { label: 'Student', color: 'bg-violet-500/20 text-violet-300 border-violet-500' },
   ];
 
-  const stats: { num: string; label: string }[] = [
-    { num: '500+', label: 'Students' },
-    { num: '40+', label: 'Teachers' },
-    { num: '90%', label: 'Uptime' },
+  const stats: { num: string; label: string; color: string }[] = [
+    { num: '500+', label: 'Students', color: 'text-emerald-500 ' },
+    { num: '40+', label: 'Teachers', color: 'text-white-300' },
+    { num: '90%', label: 'Uptime', color: 'text-white-300' },
   ];
 
   return (
