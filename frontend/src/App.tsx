@@ -3,7 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-// import Students from './pages/Students';
+import Students from './pages/Students';
 import DashboardLayout from './components/DashboardLayout';
 
 
@@ -49,7 +49,7 @@ export default function App() {
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
-              {/* <Route path="/students" element={<Students />} /> */}
+              <Route path="/students" element={<Students />} />
               <Route path="/teachers" element={<Placeholder name="Teachers Management" />} />
               <Route path="/parents" element={<Placeholder name="Parents" />} />
               <Route path="/academics" element={<Placeholder name="Academics" />} />
