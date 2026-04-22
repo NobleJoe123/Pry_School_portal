@@ -37,3 +37,29 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
+
+.bg-panel-gradient {
+  background: linear-gradient(135deg, #0d1b2a, #0a1628);
+}
+
+.bg-card-gradient {
+  background: linear-gradient(135deg, #0d1b2a 0%, #0a1628 100%);
+}
+
+/* Button gradient */
+.btn-gradient-amber {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.25);
+}
+
+/* Dark select options (for dropdowns) */
+.select-dark option {
+  background-color: #0d1b2a;
+  color: #e2e8f0;
+}
+
+/* Focus styles for accessibility */
+.select-dark:focus {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
