@@ -1,122 +1,246 @@
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
+import { Field, Input, Select, Textarea, FormSection, SubmitButton } from '../../components/ui/Formfields';
 import { api, endpoints } from '../../utils/api';
-import type { Student, Gender, StudentStatus, CreateStudentRequest } from '../../types';
+import type { Student, CreateStudentRequest } from '../../types';
 
 interface StudentFormProps {
-    student?: Student;
+    student?: Student | null;
     onSuccess: () => void;
     onCancel: () => void;
 }
 
+type FormData = Omit<CreateStudentRequest, 'gender'> & { gender: 'M' | 'F' | ''};
+
+const EMPTY_FORM: FormData = {
+    email: '', username: '', first_name: '', last_name: '',
+    phone: '', date_of_birth: '', address: '',
+    admission_number: '', current_class: '', gender: '',
+    blood_group: '', status: 'active',
+    emergency_contact_name: '', emergency_contact_phone: '',
+    emergency_contact_relationship: '', medical_conditions: '',
+};
+
+// Options
+
+
+const GENDER_OPTIONS = [{ value: 'M', label: 'Male' }, { value: 'F', label: 'Female' }];
+const STATUS_OPTIONS = [
+    { value: 'active', label: 'Active' },
+    { value: 'graduated', label: 'Graduated' },
+    { value: 'transferred', label: 'Transferred' },
+    { value: 'suspended', label: 'Suspended' },
+];
+
+const CLASS_OPTIONS = [
+    'Nursery 1', 'Nursery 2', 'KG 1', 'KG 2',
+    'Primary 1', 'Primary 2', 'Primary 3',
+    'Primary 4', 'Primary 5', 'Primary 6',
+].map((c) => ({ value: c, label: c}));
+const BLOOD_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+    .map((b) => ({ value: b, label: b }));
+const RELATION_OPTIONS = ['Father', 'Mother', 'Guardian', 'SIbling', 'Other']
+    .map((r) => ({ value: r.toLowerCase(), label: r }));
+
+
+//Form
+
 export default function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) {
     const isEdit = !!student;
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
 
-    const [formData, setFormData] = useState<Partial<CreateStudentRequest & { admission_number: string }>>({
-        email: student?.user.email || '',
-        username: student?.user.username || '',
-        first_name: student?.user.first_name || '',
-        last_name: student?.user.last_name || '',
-        phone: student?.user.phone || '',
-        date_of_birth: student?.user.date_of_birth || '',
-        address: student?.user.address || '',
-        admission_number: student?.student_profile.admission_number || '',
-        current_class: student?.student_profile.current_class || '',
-        gender: student?.student_profile.gender || 'M',
-        blood_group: student?.student_profile.blood_group || '',
-        emergency_contact_name: student?.student_profile.emergency_contact_name || '',
-        emergency_contact_phone: student?.student_profile.emergency_contact_phone || '',
-        emergency_contact_relationship: student?.student_profile.emergency_contcat_relationship || '', 
-        medical_conditions: student?.student_profile.medical_codintion || '', 
-        status: student?.student_profile.status || 'active',
+    const [form, setForm] = useState<FormData>(() => {
+        if (!student) return EMPTY_FORM;
+        const u = student.user;
+        const p = student.student_profile;
+        return {
+            email: u.email, username: u.username,
+            first_name: u.first_name, last_name: u.last_name, 
+            phone: u.phone ?? '', date_of_birth: u.date_of_birth ?? '',
+            address: u.address ?? '',
+            admission_number: p.admission_number,
+            current_class: p.current_class ?? '',
+            gender: p.gender,
+            blood_group: p.blood_group ?? '',
+            status: p.status,
+            emergency_contact_name: p.emergency_contact_name ?? '',
+            emergency_contact_phone: p.emergency_contact_phone ?? '',
+            emergency_contact_relationship: p.emergency_contact_relationship ?? '',
+            medical_conditions: p.medical_conditions ?? '',
+        };
     });
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+    const [loading, setLoading] = useState(false);
+    const [apiError, setApiError] = useState('');
+
+    const set = (key: keyof FormData, value: string) => {
+        setForm((f) => ({ ...f, [key]: value }));
+        setErrors((e) => ({ ...e, [key]: '' }));
+    
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+
+    const validate = (): boolean => {
+        const errs: Partial<Record<keyof FormData, string>> = {};
+        if (!form.first_name.trim()) errs.first_name = 'Required';
+        if (!form.last_name.trim()) errs.last_name = 'Required';
+        if (!form.email.trim()) errs.email = 'Required';
+        if (!form.username.trim()) errs.username = 'Required';
+        if (!form.admission_number.trim()) errs.admission_number = 'Required';
+        if (!form.gender.trim()) errs.gender = 'Required';
+        setErrors(errs);
+        return Object.keys(errs).length === 0;
+
+    };
+
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        setError('');
+        if (!validate()) return;
+        setApiError('');
+        setLoading (true);
 
         try {
-            if (isEdit) {
-                await api.patch(endpoints.students.detail(student!.user.id), formData);
+            if (isEdit && student) {
+                await api.patch(
+                    endpoints.students.detail(student.user.id),
+                    {
+                        first_name: form.first_name,
+                        last_name: form.last_name,
+                        phone: form.phone,
+                        date_of_birth: form.date_of_birth || null,
+                        address: form.address,
+                        current_class: form.current_class,
+                        blood_group: form.blood_group,
+                        status: form.status,
+                        emergency_contact_name: form.emergency_contact_name,
+                        emergency_contact_phone: form.emergency_contact_phone,
+                        emergency_contact_relationship: form.emergency_contact_relationship,
+                        medical_conditions: form.medical_conditions,
+                    }
+                );
             } else {
-                await api.post(endpoints.students.list, formData);
+                await api.post(endpoints.students.list, {
+                    ...form,
+                    gender: form.gender as 'M' | 'F',
+                    date_of_birth: form.date_of_birth || undefined,
+                });
             }
+
             onSuccess();
-        } catch (err: any) {
-            setError(err.message || 'Error submitting form');
+        } catch (err: unknown) {
+            setApiError(err instanceof Error ? err.message : 'Something went wrong.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+        <form onSubmit={handleSubmit} className="space-y-5">
+            {apiError && (
                 <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                    {error}
+                    ⚠ {apiError}
                 </div>
             )}
-            
+
+            <FormSection title="Personal Information" />
             <div className="grid grid-cols-2 gap-4">
-                {/* User Info */}
-                <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">First Name</label>
-                    <input required name="first_name" value={formData.first_name} onChange={handleChange} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/30" />
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Last Name</label>
-                    <input required name="last_name" value={formData.last_name} onChange={handleChange} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/30" />
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Email</label>
-                    <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/30" />
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Username</label>
-                    <input required name="username" value={formData.username} onChange={handleChange} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/30" disabled={isEdit} />
-                </div>
-                
-                {/* Profile Info */}
-                <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Admission No.</label>
-                    <input required name="admission_number" value={formData.admission_number || ''} onChange={handleChange} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/30" disabled={isEdit} />
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Class</label>
-                    <select name="current_class" value={formData.current_class} onChange={handleChange} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/30" style={{ colorScheme: 'dark' }}>
-                        <option value="">Select Class</option>
-                        {['Nursery 1', 'Nursery 2', 'KG 1', 'KG 2', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6'].map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Gender</label>
-                    <select name="gender" value={formData.gender} onChange={handleChange} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/30" style={{ colorScheme: 'dark' }}>
-                        <option value="M">Male</option>
-                        <option value="F">Female</option>
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Status</label>
-                    <select name="status" value={formData.status} onChange={handleChange} className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/30" style={{ colorScheme: 'dark' }}>
-                        <option value="active">Active</option>
-                        <option value="graduated">Graduated</option>
-                        <option value="transferred">Transferred</option>
-                        <option value="suspended">Suspended</option>
-                    </select>
-                </div>
+                <Field label="First Name" required error={errors.first_name}>
+                    <Input value={form.first_name} onChange={(e) => set('first_name', e.target.value)}
+                        placeholder="John" error={!!errors.first_name} />
+                </Field>
+                <Field label="Last Name" required error={errors.last_name}>
+                    <Input value={form.last_name} onChange={(e) => set('last_name', e.target.value)}
+                        placeholder="Ade" error={!!errors.last_name} />
+                </Field>
             </div>
 
-            <div className="flex justify-end gap-3 mt-8">
-                <button type="button" onClick={onCancel} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all">Cancel</button>
-                <button type="submit" disabled={loading} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 transition-all disabled:opacity-50 shadow-lg shadow-amber-500/20">
-                    {loading ? 'Saving...' : 'Save Student'}
+            <div className="grid grid-cols-2 gap-4">
+                <Field label="Email" required error={errors.email}>
+                    <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)}
+                        placeholder="john@gmail.com" disabled={isEdit} error={!!errors.email} />
+                </Field>
+                <Field label="Username" required error={errors.username}>
+                    <Input type="email" value={form.username} onChange={(e) => set('username', e.target.value)}
+                        placeholder="johnade001" disabled={isEdit} error={!!errors.username} />
+                </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <Field label="Phone">
+                    <Input value={form.phone} onChange={(e) => set('phone', e.target.value)}
+                        placeholder="+23490........" />
+                </Field>
+                <Field label="Date of Birth">
+                    <Input type="date" value={form.date_of_birth ?? ''}
+                        onChange={(e) => set('date_of_birth', e.target.value)} />
+                </Field>
+            </div>
+            <Field label="Address">
+                <Input value={form.address ?? ''} onChange={(e) => set('address', e.target.value)}
+                    placeholder="123 old pils, Lagos" />
+            </Field>
+            <FormSection title="Academic Information" />
+            <div className="grid grid-cols-2 gap-4">
+                <Field label="Admission Number" required error={errors.admission_number}>
+                    <Input value={form.admission_number}
+                        onChange={(e) => set('admission_number', e.target.value)}
+                        placeholder="STU001" disabled={isEdit} error={!!errors.admission_number} />
+                </Field>
+                <Field label="Current Class">
+                    <Select value={form.current_class ?? ''}
+                        onChange={(e) => set('current_class', e.target.value)}
+                        options={CLASS_OPTIONS} placeholder="Select class" />
+                </Field>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+                <Field label="Gender" required error={errors.gender}>
+                    <Select value={form.gender} onChange={(e) => set('gender', e.target.value)}
+                        options={GENDER_OPTIONS} placeholder="Select" error={!!errors.gender} />
+                </Field>
+                <Field label="Blood Group">
+                    <Select value={form.blood_group ?? ''} onChange={(e) => set('blood_group', e.target.value)}
+                        options={BLOOD_OPTIONS} placeholder="Select" />
+                </Field>
+                <Field label="Status">
+                    <Select value={form.status ?? 'active'} onChange={(e) => set('status', e.target.value as any)}
+                        options={STATUS_OPTIONS} />
+                </Field>
+            </div>
+
+            <FormSection title="Emergency Contact" />
+            <div className="grid grid-cols-2 gap-4">
+                <Field label="Contact Name">
+                    <Input value={form.emergency_contact_name ?? ''}
+                        onChange={(e) => set('emergency_contact_name', e.target.value)}
+                            placeholder="Ade Mary" />
+                </Field>
+                <Field label="Contact Phone">
+                    <Input value={form.emergency_contact_phone ?? ''}
+                        onChange={(e) => set('emergency_contact_phone', e.target.value)}
+                        placeholder="+2345678......" />
+                </Field>
+            </div>
+            <Field label="Relationship">
+                <Select value={form.emergency_contact_relationship ?? ''}
+                    onChange={(e) => set('emergency_contact_relationship', e.target.value)}
+                    options={RELATION_OPTIONS} placeholder="Select relationship" />
+            </Field>
+
+            <FormSection title="Medical Information" />
+            <Field label="Medical Conditions / Allergies">
+                <Textarea value={form.medical_conditions ?? ''}
+                onChange={(e) => set('medical_conditions', e.target.value)}
+                placeholder="List any known conditions or allergies" rows={3} />
+            </Field>
+
+            <div className="flex gap-3 pt-2">
+                <button type="button" onClick={onCancel}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-400 border border-white/10 hover:bg-white/5 hover:text-white transition-all">Cancel
                 </button>
+                <div className="flex-1">
+                    <SubmitButton loading={loading}
+                        label={isEdit ? 'Save Changes' : 'Add Student'}
+                        loadingLabel={isEdit ? 'Saving...' : 'Adding...'} />
+                </div>
             </div>
         </form>
     );
