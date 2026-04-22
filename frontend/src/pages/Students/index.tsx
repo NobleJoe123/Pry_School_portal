@@ -1,11 +1,13 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { UserPlus, Search, Filter, RefreshCw, Pencil, UserX, ChevronLeft, ChevronRight, GraduationCap, CheckCircle, XCircle } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { UserPlus, Search, Filter, RefreshCw, Pencil, UserX, ChevronLeft, ChevronRight, GraduationCap, CheckCircle, XCircle, } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
+import StudentForm from './StudentForm';
 import { api, endpoints } from '../../utils/api';
 import type { Student, StudentStatus } from '../../types';
-import StudentForm from './StudentForm';
 
-// Constants
+
+
+// Constants 
 
 const PAGE_SIZE = 10;
 
@@ -32,10 +34,11 @@ interface ConfirmModalProps {
     loading: boolean;
 }
 
+
 function ConfirmDeactivate({ student, onConfirm, onCancel, loading }: ConfirmModalProps) {
     return (
         <div className="space-y-4">
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 borde bprder-red-500/20">
                 <UserX size={20} className="text-red-400 shrink-0" />
                 <p className="text-red-300 text-sm">
                     This will deactivate {' '}
@@ -45,7 +48,7 @@ function ConfirmDeactivate({ student, onConfirm, onCancel, loading }: ConfirmMod
             </div>
             <div className="flex gap-3">
                 <button onClick={onCancel}
-                    className="flex-1 py-2.5 rounded-xl text-sm text-slate-400 border border-transparent hover:border-white/10 hover:bg-white/5 hover:text-white transition-all">
+                    className="flex-1 py-2.5 rounded-xl text-sm text-slate-400 border-white/10 hover:bg-white/5 hover:text-white transition-all">
                     Cancel
                 </button>
                 <button
@@ -57,8 +60,12 @@ function ConfirmDeactivate({ student, onConfirm, onCancel, loading }: ConfirmMod
 
             </div>
         </div>
+
+
     );
 }
+
+
 
 // Students Page
 
@@ -68,14 +75,15 @@ export default function Students() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // Filters
-    const [searchTerm, setSearchTerm] = useState('');
+    //Filters
+
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState('');
-    const [classFilter, setClassFilter] = useState('');
+    const [statusFilter, setStatus] = useState('');
+    const [classFilter, setClass] = useState('');
     const [page, setPage] = useState(1);
 
     // Modals
+
     const [addOpen, setAddOpen] = useState(false);
     const [editStudent, setEditStudent] = useState<Student | null>(null);
     const [deactivateStudent, setDeactivateTarget] = useState<Student | null>(null);
@@ -89,6 +97,7 @@ export default function Students() {
             const params = new URLSearchParams({
                 page: String(page),
                 page_size: String(PAGE_SIZE),
+
             });
             if (search) params.set('search', search);
             if (statusFilter) params.set('status', statusFilter);
@@ -105,33 +114,21 @@ export default function Students() {
             setError(err instanceof Error ? err.message : 'Failed to load students.');
         } finally {
             setLoading(false);
+
         }
     }, [search, statusFilter, classFilter, page]);
 
     useEffect(() => { fetchStudents(); }, [fetchStudents]);
 
     // Debounce search 
-    const debounceTimeout = useRef<number | null>(null);
 
-    useEffect(() => {
-        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-        debounceTimeout.current = window.setTimeout(() => {
-            setSearch(searchTerm);
-            setPage(1);
-        }, 500);
-
-        return () => {
-            if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-        };
-    }, [searchTerm]);
-
-    // Rest page when filters change
     useEffect(() => {
         setPage(1);
-    }, [statusFilter, classFilter]);
 
+    }, [search, statusFilter, classFilter]);
 
     // Deactivate
+
     const handleDeactivate = async () => {
         if (!deactivateStudent) return;
         setDeactivating(true);
@@ -142,12 +139,13 @@ export default function Students() {
 
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to deactivate student.');
+
         } finally {
             setDeactivating(false);
         }
     };
 
-    const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+    const totalPages = Math.ceil(total / PAGE_SIZE);
     const skeletonRows = Array.from({ length: PAGE_SIZE });
 
     return (
@@ -161,8 +159,8 @@ export default function Students() {
                     </p>
                 </div>
                 <button onClick={() => setAddOpen(true)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-white transition-all active:scale-[0.97]"
-                    style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', boxShadow: '0 4px 20px rgba(245, 158, 11, 0.25)' }}>
+                    className="flex items-center gap-2 px-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-[0.97]"
+                    style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', boxShadow: '0 4px 20px rgba(245, 158, 11, 0.25)', }}>
                     <UserPlus size={16} />
                     Add Student
                 </button>
@@ -170,60 +168,75 @@ export default function Students() {
 
             {/* Error */}
             {error && (
-                <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+                <div className="px-4 py-3 rounded-xl bg-red-500/10 border text-red-400 text-sm flex items-center gap-2">
                     <XCircle size={16} /> {error}
                 </div>
             )}
 
             {/* Filters Bar */}
+
             <div className="rounded-2xl border border-white/5 p-4 flex flex-wrap gap-3"
                 style={{ background: 'linear-gradient(135deg, #0d1b2a, #0a1628)' }}>
 
                 {/* Search */}
+
                 <div className="relative flex-1 min-w-[200px]">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search by name, email, admission no..."
-                        className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/30 focus:border-amber-500/40 transition-all" />
+                    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, email, admission no..."
+                        className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-amber-500/30 focus:border-amber-500/40 transition-all" />
+
                 </div>
 
-                {/* Class filter */}
+                {/* Status filter */}
+
                 <select
-                    value={classFilter} onChange={(e) => setClassFilter(e.target.value)}
-                    className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500/30 focus:border-amber-500/40 transition-all min-w-[130px]"
+                    value={statusFilter} onChange={(e) => setStatus(e.target.value)}
+                    aria-label="Filter by status"
+                    className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all min-w-[130px]"
                     style={{ colorScheme: 'dark' }}>
-                    <option value="" style={{ background: '#0d1b2a' }}>All Classes</option>
+
+                    <option value="" style={{ background: '#0d1b2a' }}> All Classes</option>
+                    <option value="active" style={{ background: '#0d1b2a' }}> Active </option>
+                    <option value="graduated" style={{ background: '#0d1b2a' }}> Graduated </option>
+                    <option value="transferred" style={{ background: '#0d1b2a' }}> Transferred </option>
+                    <option value="suspended" style={{ background: '#0d1b2a' }}> Suspended </option>  
+                </select>
+
+                <select 
+                    value={classFilter}
+                    onChange={(e) => setClass(e.target.value)}
+                    aria-label="Filter by class"
+                    className="py-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all min-w-[130px]"
+                    style={{ colorScheme: 'dark' }}>
+                    <option value="" style={{ background: '#0d1b2a' }}> All Classes</option>
                     {CLASS_OPTIONS.map((c) => (
                         <option key={c} value={c} style={{ background: '#0d1b2a' }}>{c}</option>
                     ))}
                 </select>
 
-                {/* Status filter */}
-                <select
-                    value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm focus:outline-none focus:ring-1 focus:ring-amber-500/30 focus:border-amber-500/40 transition-all min-w-[110px]"
-                    style={{ colorScheme: 'dark' }}>
-                    <option value="" style={{ background: '#0d1b2a' }}>All Statuses</option>
-                    <option value="active" style={{ background: '#0d1b2a' }}>Active</option>
-                    <option value="graduated" style={{ background: '#0d1b2a' }}>Graduated</option>
-                    <option value="transferred" style={{ background: '#0d1b2a' }}>Transferred</option>
-                    <option value="suspended" style={{ background: '#0d1b2a' }}>Suspended</option>
-                </select>
-
                 {/* Refresh */}
+
                 <button
                     onClick={fetchStudents}
-                    className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                    className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
                     title="Refresh">
+
                     <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+
                 </button>
+
+
+
             </div>
 
             {/* Table */}
+
             <div
                 className="rounded-2xl border border-white/5 overflow-hidden"
                 style={{ background: 'linear-gradient(135deg, #0d1b2a, #0a1628)' }}>
 
                 <div className="overflow-x-auto">
+
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-white/5">
@@ -244,6 +257,8 @@ export default function Students() {
                                                 <div className="h-3 bg-white/5 rounded animate-pulse"
                                                     style={{ width: `${60 + Math.random() * 40}%` }} />
                                             </td>
+
+
                                         ))}
                                     </tr>
                                 ))
@@ -266,7 +281,7 @@ export default function Students() {
                                         {/* Profile */}
                                         <td className="px-5 py-3.5">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-emerald-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0 uppercase">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-emerald-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                                                     {s.user.first_name[0]}{s.user.last_name[0]}
                                                 </div>
                                                 <div>
@@ -277,43 +292,44 @@ export default function Students() {
                                         </td>
 
                                         {/* Admission No */}
+
                                         <td className="px-5 py-3.5 text-slate-400 text-xs font-mono">
-                                            {s.student_profile.admission_number || '-'}
+                                            {s.student_profile.admission_number}
                                         </td>
 
-                                        {/* Class */}
+                                        {/* class */}
                                         <td className="px-5 py-3.5 text-slate-400 text-xs">
-                                            {s.student_profile.current_class || '-'}
+                                            {s.student_profile.current_class || '_'}
                                         </td>
 
                                         {/* Status badge */}
+
                                         <td className="px-5 py-3.5">
-                                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full capitalize ${STATUS_COLORS[s.student_profile.status] || STATUS_COLORS.active}`}>
+                                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full capitalize ${STATUS_COLORS[s.student_profile.status]}`}>
                                                 <span className="w-1 h-1 rounded-full bg-current" />
                                                 {s.student_profile.status}
                                             </span>
                                         </td>
 
-                                        {/* Is active */}
+                                        {/* is active */}
                                         <td className="px-5 py-3.5">
                                             {s.user.is_active
                                                 ? <CheckCircle size={15} className="text-emerald-500" />
                                                 : <XCircle size={15} className="text-red-500/60" />}
-                                        </td>
 
-                                        {/* Joined */}
-                                        <td className="px-5 py-3.5 text-slate-400 text-xs">
-                                            {new Date(s.student_profile.admission_date || s.user.date_joined).toLocaleDateString()}
                                         </td>
 
                                         {/* Actions */}
                                         <td className="px-5 py-3.5">
                                             <div className="flex items-center gap-2">
+
                                                 <button
                                                     onClick={() => setEditStudent(s)}
                                                     className="p-1.5 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
                                                     title="Edit student">
+
                                                     <Pencil size={14} />
+
                                                 </button>
 
                                                 {s.user.is_active && (
@@ -321,19 +337,26 @@ export default function Students() {
                                                         onClick={() => setDeactivateTarget(s)}
                                                         className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
                                                         title="Deactivate student">
+
                                                         <UserX size={14} />
+
+
                                                     </button>
                                                 )}
+
                                             </div>
                                         </td>
+
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
+
                 </div>
 
                 {/* Pagination */}
+
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between px-5 py-3.5 border-t border-white/5">
                         <p className="text-slate-500 text-xs">
@@ -343,35 +366,39 @@ export default function Students() {
                             <button
                                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                                 disabled={page === 1}
+                                aria-label="Previous Page"
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                                <ChevronLeft size={15} />
+                                <ChevronLeft size={15} aria-hidden="true" />
+
                             </button>
-                            
                             {Array.from({ length: totalPages }, (_, i) => i + 1)
-                                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                                .filter((p) => p == 1 || p == totalPages || Math.abs(p - page) <= 1)
                                 .map((p, idx, arr) => (
-                                    <span key={p} className="flex items-center gap-1">
+                                    <>
                                         {idx > 0 && arr[idx - 1] !== p - 1 && (
-                                            <span className="text-slate-600 text-xs px-1">...</span>
+                                            <span key={`ellipsis-${p}`} className="text-slate-600 text-xs px-1">...</span>
                                         )}
                                         <button
+                                            key={p}
                                             onClick={() => setPage(p)}
                                             className={`w-7 h-7 rounded-lg text-xs font-semibold transition-all ${p === page ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}>
                                             {p}
                                         </button>
-                                    </span>
+                                    </>
                                 ))
                             }
-
-                            <button
+                            <button 
                                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                                 disabled={page === totalPages}
+                                aria-label="Next Page"
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                                <ChevronRight size={15} />
+                                <ChevronRight size={15} aria-hidden="true" />
                             </button>
                         </div>
                     </div>
+
                 )}
+
             </div>
 
             <Modal
@@ -381,12 +408,10 @@ export default function Students() {
                 subtitle="Fill in the details to register a new student."
                 size="lg">
 
-                {addOpen && (
-                    <StudentForm
-                        onSuccess={() => { setAddOpen(false); fetchStudents(); }}
-                        onCancel={() => setAddOpen(false)}
-                    />
-                )}
+                <StudentForm
+                    onSuccess={() => { setAddOpen(false); fetchStudents(); }}
+                    onCancel={() => setAddOpen(false)}
+                />
             </Modal>
 
             {/* Edit Student Modal */}
@@ -403,9 +428,11 @@ export default function Students() {
                         onSuccess={() => { setEditStudent(null); fetchStudents(); }}
                         onCancel={() => setEditStudent(null)} />
                 )}
+
             </Modal>
 
             {/* Deactivate Confirm Modal */}
+
             <Modal
                 isOpen={!!deactivateStudent}
                 onClose={() => setDeactivateTarget(null)}
@@ -418,7 +445,9 @@ export default function Students() {
                         onConfirm={handleDeactivate}
                         onCancel={() => setDeactivateTarget(null)}
                         loading={deactivating} />
+
                 )}
+
             </Modal>
 
         </div>
