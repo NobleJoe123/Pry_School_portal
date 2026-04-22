@@ -62,8 +62,8 @@ export interface StudentProfile {
     status: StudentStatus;
     emergency_contact_name: string | null;
     emergency_contact_phone: string | null;
-    emergency_contcat_relationship: string | null;
-    medical_codintion: string | null;
+    emergency_contact_relationship: string | null;
+    medical_conditions: string | null;
     parent: string | null;
     created_at: string;
     updated_at: string;
@@ -88,6 +88,7 @@ export interface CreateStudentRequest {
     gender: Gender;
     blood_group?: string;
     admission_date?: string;
+    admission_number: string;
     parent_id?: string;
     emergency_contact_name?: string;
     emergency_contact_phone?: string;
