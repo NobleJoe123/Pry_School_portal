@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { UserPlus, Search, Filter, RefreshCw, Pencil, UserX, ChevronLeft, ChevronRight, GraduationCap, CheckCircle, XCircle, } from 'lucide-react';
+import { UserPlus, Search, RefreshCw, Pencil, UserX, ChevronLeft, ChevronRight, GraduationCap, CheckCircle, XCircle, } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import StudentForm from './StudentForm';
 import { api, endpoints } from '../../utils/api';
-import type { Student, StudentStatus } from '../../types';
+import type { User, StudentStatus } from '../../types';
 
 
 
@@ -25,10 +25,20 @@ const CLASS_OPTIONS = [
 ];
 
 
+type StudentUser = User & {
+    student_profile?: {
+        admission_number: string;
+        current_class: string | null;
+        status: StudentStatus;
+        gender: string;
+    };
+};
+
+
 // Deactivate dialog
 
 interface ConfirmModalProps {
-    student: Student;
+    student: StudentUser;
     onConfirm: () => void;
     onCancel: () => void;
     loading: boolean;
@@ -42,7 +52,7 @@ function ConfirmDeactivate({ student, onConfirm, onCancel, loading }: ConfirmMod
                 <UserX size={20} className="text-red-400 shrink-0" />
                 <p className="text-red-300 text-sm">
                     This will deactivate {' '}
-                    <span className="font-bold">{student.user.full_name}</span>'s account.
+                    <span className="font-bold">{student.full_name}</span>'s account.
                     They will no longer be able to login.
                 </p>
             </div>
@@ -70,7 +80,7 @@ function ConfirmDeactivate({ student, onConfirm, onCancel, loading }: ConfirmMod
 // Students Page
 
 export default function Students() {
-    const [students, setStudents] = useState<Student[]>([]);
+    const [students, setStudents] = useState<StudentUser[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -85,8 +95,8 @@ export default function Students() {
     // Modals
 
     const [addOpen, setAddOpen] = useState(false);
-    const [editStudent, setEditStudent] = useState<Student | null>(null);
-    const [deactivateStudent, setDeactivateTarget] = useState<Student | null>(null);
+    const [editTarget, setEditTarget] = useState<StudentUser | null>(null);
+    const [deactivateTarget, setDeactivateTarget] = useState<StudentUser | null>(null);
     const [deactivating, setDeactivating] = useState(false);
 
     // Fetch
@@ -103,7 +113,7 @@ export default function Students() {
             if (statusFilter) params.set('status', statusFilter);
             if (classFilter) params.set('class', classFilter);
 
-            const data = await api.get<{ results: Student[]; count: number }>(
+            const data = await api.get<{ results: StudentUser[]; count: number }>(
                 `${endpoints.students.list}?${params}`
             );
 
@@ -130,10 +140,10 @@ export default function Students() {
     // Deactivate
 
     const handleDeactivate = async () => {
-        if (!deactivateStudent) return;
+        if (!deactivateTarget) return;
         setDeactivating(true);
         try {
-            await api.delete(endpoints.students.detail(deactivateStudent.user.id));
+            await api.delete(endpoints.students.detail(deactivateTarget.id));
             setDeactivateTarget(null);
             fetchStudents();
 
@@ -147,6 +157,20 @@ export default function Students() {
 
     const totalPages = Math.ceil(total / PAGE_SIZE);
     const skeletonRows = Array.from({ length: PAGE_SIZE });
+
+    // Helps
+
+    const getStatus = (s: StudentUser): StudentStatus =>
+        s.student_profile?.status ?? 'active';
+
+    const getClass = (s: StudentUser): string =>
+        s.student_profile?.current_class ?? '-';
+
+    const getAdmissionNo = (s: StudentUser): string =>
+        s.student_profile?.admission_number ?? '-';
+
+    const getInitials = (s: StudentUser): string =>
+        `${s.first_name?.[0] ?? ''}${s.last_name?.[0] ?? ''}`.toUpperCase();
 
     return (
         <div className="space-y-5 max-w-screen-xl">
@@ -275,18 +299,18 @@ export default function Students() {
                             ) : (
                                 students.map((s) => (
                                     <tr
-                                        key={s.user.id}
+                                        key={s.id}
                                         className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
 
                                         {/* Profile */}
                                         <td className="px-5 py-3.5">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-emerald-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                                                    {s.user.first_name[0]}{s.user.last_name[0]}
+                                                    {getInitials(s)}
                                                 </div>
                                                 <div>
-                                                    <p className="text-white text-xs font-semibold">{s.user.full_name}</p>
-                                                    <p className="text-slate-500 text-[11px]">{s.user.email}</p>
+                                                    <p className="text-white text-xs font-semibold">{s.full_name}</p>
+                                                    <p className="text-slate-500 text-[11px]">{s.email}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -294,26 +318,26 @@ export default function Students() {
                                         {/* Admission No */}
 
                                         <td className="px-5 py-3.5 text-slate-400 text-xs font-mono">
-                                            {s.student_profile.admission_number}
+                                            {getAdmissionNo(s)}
                                         </td>
 
                                         {/* class */}
                                         <td className="px-5 py-3.5 text-slate-400 text-xs">
-                                            {s.student_profile.current_class || '_'}
+                                            {getClass(s)}
                                         </td>
 
                                         {/* Status badge */}
 
                                         <td className="px-5 py-3.5">
-                                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full capitalize ${STATUS_COLORS[s.student_profile.status]}`}>
+                                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full capitalize ${STATUS_COLORS[getStatus(s)]}`}>
                                                 <span className="w-1 h-1 rounded-full bg-current" />
-                                                {s.student_profile.status}
+                                                {getStatus(s)}
                                             </span>
                                         </td>
 
                                         {/* is active */}
                                         <td className="px-5 py-3.5">
-                                            {s.user.is_active
+                                            {s.is_active
                                                 ? <CheckCircle size={15} className="text-emerald-500" />
                                                 : <XCircle size={15} className="text-red-500/60" />}
 
@@ -324,7 +348,7 @@ export default function Students() {
                                             <div className="flex items-center gap-2">
 
                                                 <button
-                                                    onClick={() => setEditStudent(s)}
+                                                    onClick={() => setEditTarget(s)}
                                                     className="p-1.5 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
                                                     title="Edit student">
 
@@ -332,7 +356,7 @@ export default function Students() {
 
                                                 </button>
 
-                                                {s.user.is_active && (
+                                                {s.is_active && (
                                                     <button
                                                         onClick={() => setDeactivateTarget(s)}
                                                         className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
@@ -416,17 +440,17 @@ export default function Students() {
 
             {/* Edit Student Modal */}
             <Modal
-                isOpen={!!editStudent}
-                onClose={() => setEditStudent(null)}
+                isOpen={!!editTarget}
+                onClose={() => setEditTarget(null)}
                 title="Edit Student"
-                subtitle={editStudent?.user.full_name}
+                subtitle={editTarget?.full_name}
                 size="lg">
 
-                {editStudent && (
+                {editTarget && (
                     <StudentForm
-                        student={editStudent}
-                        onSuccess={() => { setEditStudent(null); fetchStudents(); }}
-                        onCancel={() => setEditStudent(null)} />
+                        studentId={editTarget.id}
+                        onSuccess={() => { setEditTarget(null); fetchStudents(); }}
+                        onCancel={() => setEditTarget(null)} />
                 )}
 
             </Modal>
@@ -434,14 +458,14 @@ export default function Students() {
             {/* Deactivate Confirm Modal */}
 
             <Modal
-                isOpen={!!deactivateStudent}
+                isOpen={!!deactivateTarget}
                 onClose={() => setDeactivateTarget(null)}
                 title="Deactivate Student"
                 size="sm">
 
-                {deactivateStudent && (
+                {deactivateTarget && (
                     <ConfirmDeactivate
-                        student={deactivateStudent}
+                        student={deactivateTarget}
                         onConfirm={handleDeactivate}
                         onCancel={() => setDeactivateTarget(null)}
                         loading={deactivating} />
