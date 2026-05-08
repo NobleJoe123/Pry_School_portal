@@ -1,10 +1,10 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { Field, Input, Select, Textarea, FormSection, SubmitButton } from '../../components/ui/Formfields';
 import { api, endpoints } from '../../utils/api';
 import type { Student, CreateStudentRequest } from '../../types';
 
 interface StudentFormProps {
-    student?: Student | null;
+    studentId?: string;
     onSuccess: () => void;
     onCancel: () => void;
 }
@@ -44,33 +44,51 @@ const RELATION_OPTIONS = ['Father', 'Mother', 'Guardian', 'SIbling', 'Other']
 
 //Form
 
-export default function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) {
-    const isEdit = !!student;
+export default function StudentForm({ studentId, onSuccess, onCancel }: StudentFormProps) {
+    const isEdit = !!studentId;
 
-    const [form, setForm] = useState<FormData>(() => {
-        if (!student) return EMPTY_FORM;
-        const u = student.user;
-        const p = student.student_profile;
-        return {
-            email: u.email, username: u.username,
-            first_name: u.first_name, last_name: u.last_name, 
-            phone: u.phone ?? '', date_of_birth: u.date_of_birth ?? '',
-            address: u.address ?? '',
-            admission_number: p.admission_number,
-            current_class: p.current_class ?? '',
-            gender: p.gender,
-            blood_group: p.blood_group ?? '',
-            status: p.status,
-            emergency_contact_name: p.emergency_contact_name ?? '',
-            emergency_contact_phone: p.emergency_contact_phone ?? '',
-            emergency_contact_relationship: p.emergency_contact_relationship ?? '',
-            medical_conditions: p.medical_conditions ?? '',
-        };
-    });
+    const [form, setForm] = useState<FormData>(EMPTY_FORM);
 
     const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
     const [loading, setLoading] = useState(false);
+    const [fetching, setFetching] = useState(false);
     const [apiError, setApiError] = useState('');
+
+    useEffect(() => {
+        if (!studentId) return;
+        setFetching(true);
+        api.get<Student>(endpoints.students.detail(studentId))
+            .then((data) => {
+                const u = data.user;
+                const p = data.student_profile;
+                setForm({
+                    email:      u.email,
+                    username:   u.username,
+                    first_name:  u.first_name,
+                    last_name:   u.last_name,
+                    phone:       u.phone ?? '',
+                    date_of_birth: u.date_of_birth ?? '',
+                    address:     u.address ?? '',
+                    admission_number: p.admission_number ?? '',
+                    current_class: p.current_class ?? '',
+                    gender:      p.gender,
+                    blood_group: p.blood_group ?? '',
+                    status:      p.status ?? 'active',
+                    emergency_contact_name: p.emergency_contact_name ?? '',
+                    emergency_contact_phone: p.emergency_contact_phone ?? '',
+                    emergency_contact_relationship: p.emergency_contact_relationship ?? '',
+                    medical_conditions: p.medical_conditions ?? '',
+
+
+
+
+                });
+            })
+            .catch(() => setApiError('Failed to load student details.'))
+            .finally(() => setFetching(false));
+        }, [studentId]);
+
+
 
     const set = (key: keyof FormData, value: string) => {
         setForm((f) => ({ ...f, [key]: value }));
@@ -99,9 +117,9 @@ export default function StudentForm({ student, onSuccess, onCancel }: StudentFor
         setLoading (true);
 
         try {
-            if (isEdit && student) {
+            if (isEdit && studentId) {
                 await api.patch(
-                    endpoints.students.detail(student.user.id),
+                    endpoints.students.detail(studentId),
                     {
                         first_name: form.first_name,
                         last_name: form.last_name,
@@ -132,6 +150,14 @@ export default function StudentForm({ student, onSuccess, onCancel }: StudentFor
             setLoading(false);
         }
     };
+
+    if (fetching) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-amber-500 animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <form onSubmit={handleSubmit} className="space-y-5">
