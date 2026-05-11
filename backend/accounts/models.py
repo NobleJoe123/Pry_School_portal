@@ -27,6 +27,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150)
+    middle_name = models.CharField(max_length=150, blank=True, null=True)
     last_name = models.CharField(max_length=150)
 
     ROLE_CHOICES = [
@@ -88,9 +89,17 @@ class StudentProfile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     admission_number = models.CharField(max_length=20, unique=True)
+    state_of_origin = models.CharField(max_length=100, blank=True, null=True)
+    place_of_birth = models.CharField(max_length=100, blank=True, null=True)
     
-    # We'll link to Class model later in academics app
-    current_class = models.CharField(max_length=50, blank=True, null=True)  # Temporary - will be ForeignKey
+    # We'll link to Class model in academics app
+    current_class = models.ForeignKey(
+        'academics.SchoolClass',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='students'
+    )
     
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, default='M')
     blood_group = models.CharField(max_length=5, blank=True, null=True)
@@ -160,7 +169,13 @@ class TeacherProfile(models.Model):
     
     # Additional Info
     is_class_teacher = models.BooleanField(default=False)
-    assigned_class = models.CharField(max_length=50, blank=True, null=True)  # Temporary - will be ForeignKey
+    assigned_class = models.ForeignKey(
+        'academics.SchoolClass',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='class_teacher'
+    )
     
     # Emergency Contact
     emergency_contact_name = models.CharField(max_length=150, blank=True, null=True)
