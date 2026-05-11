@@ -138,6 +138,7 @@ class CreateStudentSerializer(serializers.Serializer):
     email = serializers.EmailField()
     username = serializers.CharField(max_length=150)
     first_name = serializers.CharField(max_length=150)
+    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150)
     phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
@@ -145,6 +146,8 @@ class CreateStudentSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, required=False)
     
     admission_number = serializers.CharField(max_length=50)
+    state_of_origin = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    place_of_birth = serializers.CharField(max_length=100, required=False, allow_blank=True)
     current_class = serializers.CharField(max_length=50, required=False, allow_blank=True)
     gender = serializers.ChoiceField(choices=['M', 'F'])
     blood_group = serializers.CharField(max_length=5, required=False, allow_blank=True)
@@ -177,10 +180,21 @@ class CreateStudentSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        password = validated_data.pop('password', 'student123')
+        import secrets
+        import string
+        
+        # Generate random password if not provided
+        password = validated_data.pop('password', None)
+        if not password:
+            alphabet = string.ascii_letters + string.digits
+            password = ''.join(secrets.choice(alphabet) for i in range(8))
+        
+        self.context['generated_password'] = password  # Store to print in view
         
         profile_fields ={
             'admission_number': validated_data.pop('admission_number'),
+            'state_of_origin': validated_data.pop('state_of_origin', ''),
+            'place_of_birth': validated_data.pop('place_of_birth', ''),
             'current_class': validated_data.pop('current_class', ''),
             'gender': validated_data.pop('gender'),
             'blood_group': validated_data.pop('blood_group', ''),

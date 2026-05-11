@@ -307,9 +307,22 @@ class StudentViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         
+        password = serializer.context.get('generated_password')
+        admission_number = user.student_profile.admission_number
+        
+        print("\n" + "="*50)
+        print(f"NEW STUDENT CREATED: {user.full_name}")
+        print(f"ADMISSION NUMBER: {admission_number}")
+        print(f"PASSWORD: {password}")
+        print("="*50 + "\n")
+        
         return Response({
             'message': 'Student created successfully!',
-            'student': UserSerializer(user, context={'request': request}).data
+            'student': UserSerializer(user, context={'request': request}).data,
+            'credentials': {
+                'admission_number': admission_number,
+                'password': password
+            }
         }, status=status.HTTP_201_CREATED)
         
     def update(self, request, *args, **kwargs):
