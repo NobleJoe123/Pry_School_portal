@@ -179,8 +179,8 @@ export const endpoints = {
         stats: '/auth/teachers/stats/'
     },
 
-    parent: {
-        list: '/atuh/parents/',
+    parents: {
+        list: '/auth/parents/',
         detail: (id: string) => `/auth/parents/${id}/`,
     },
 

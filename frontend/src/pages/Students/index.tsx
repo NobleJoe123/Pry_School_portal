@@ -177,14 +177,14 @@ export default function Students() {
             {/* Page Header */}
             <div className="flex items-start justify-between flex-wrap gap-4">
                 <div>
-                    <h2 className="text-white text-2xl font-black" style={{ fontFamily: "'DM Serif Display', serif" }}> Students </h2>
+                    <h2 className="text-white text-2xl font-black font-serif"> Students </h2>
                     <p className="text-slate-500 text-sm mt-0.5">
                         {total > 0 ? `${total} students registered` : 'No students yet'}
                     </p>
                 </div>
                 <button onClick={() => setAddOpen(true)}
-                    className="flex items-center gap-2 px-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-[0.97]"
-                    style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', boxShadow: '0 4px 20px rgba(245, 158, 11, 0.25)', }}>
+                    className="flex items-center gap-2 px-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-[0.97] bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/25"
+                >
                     <UserPlus size={16} />
                     Add Student
                 </button>
@@ -199,8 +199,7 @@ export default function Students() {
 
             {/* Filters Bar */}
 
-            <div className="rounded-2xl border border-white/5 p-4 flex flex-wrap gap-3"
-                style={{ background: 'linear-gradient(135deg, #0d1b2a, #0a1628)' }}>
+            <div className="rounded-2xl border border-white/5 p-4 flex flex-wrap gap-3 bg-gradient-to-br from-[#0d1b2a] to-[#0a1628]">
 
                 {/* Search */}
 
@@ -214,27 +213,27 @@ export default function Students() {
                 {/* Status filter */}
 
                 <select
-                    value={statusFilter} onChange={(e) => setStatus(e.target.value)}
+                    value={statusFilter} 
+                    onChange={(e) => setStatus(e.target.value)}
                     aria-label="Filter by status"
                     className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all min-w-[130px]"
-                    style={{ colorScheme: 'dark' }}>
-
-                    <option value="" style={{ background: '#0d1b2a' }}> All Classes</option>
-                    <option value="active" style={{ background: '#0d1b2a' }}> Active </option>
-                    <option value="graduated" style={{ background: '#0d1b2a' }}> Graduated </option>
-                    <option value="transferred" style={{ background: '#0d1b2a' }}> Transferred </option>
-                    <option value="suspended" style={{ background: '#0d1b2a' }}> Suspended </option>  
+                >
+                    <option value="" className="bg-[#0d1b2a]"> All Statuses</option>
+                    <option value="active" className="bg-[#0d1b2a]"> Active </option>
+                    <option value="graduated" className="bg-[#0d1b2a]"> Graduated </option>
+                    <option value="transferred" className="bg-[#0d1b2a]"> Transferred </option>
+                    <option value="suspended" className="bg-[#0d1b2a]"> Suspended </option>  
                 </select>
 
                 <select 
                     value={classFilter}
                     onChange={(e) => setClass(e.target.value)}
                     aria-label="Filter by class"
-                    className="py-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all min-w-[130px]"
-                    style={{ colorScheme: 'dark' }}>
-                    <option value="" style={{ background: '#0d1b2a' }}> All Classes</option>
+                    className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all min-w-[130px]"
+                >
+                    <option value="" className="bg-[#0d1b2a]"> All Classes</option>
                     {CLASS_OPTIONS.map((c) => (
-                        <option key={c} value={c} style={{ background: '#0d1b2a' }}>{c}</option>
+                        <option key={c} value={c} className="bg-[#0d1b2a]">{c}</option>
                     ))}
                 </select>
 
@@ -256,8 +255,8 @@ export default function Students() {
             {/* Table */}
 
             <div
-                className="rounded-2xl border border-white/5 overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, #0d1b2a, #0a1628)' }}>
+                className="rounded-2xl border border-white/5 overflow-hidden bg-gradient-to-br from-[#0d1b2a] to-[#0a1628]"
+            >
 
                 <div className="overflow-x-auto">
 
@@ -278,8 +277,7 @@ export default function Students() {
                                     <tr key={i} className="border-b border-white/[0.04]">
                                         {[1, 2, 3, 4, 5, 6, 7].map((j) => (
                                             <td key={j} className="px-5 py-4">
-                                                <div className="h-3 bg-white/5 rounded animate-pulse"
-                                                    style={{ width: `${60 + Math.random() * 40}%` }} />
+                                                <div className="h-3 bg-white/5 rounded animate-pulse w-24" />
                                             </td>
 
 
