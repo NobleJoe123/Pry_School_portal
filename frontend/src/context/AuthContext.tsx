@@ -9,7 +9,7 @@ interface AuthContextValue {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (credentials: LoginRequest) => Promise<void>;
+    login: (credentials: LoginRequest) => Promise<User>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
 }
@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         AccessToken.set(data.access_token);
         setUser(data.user);
+        return data.user;
     }, []);
 
 

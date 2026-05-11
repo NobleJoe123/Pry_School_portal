@@ -9,12 +9,13 @@ interface StudentFormProps {
     onCancel: () => void;
 }
 
-type FormData = Omit<CreateStudentRequest, 'gender'> & { gender: 'M' | 'F' | ''};
+type FormData = Omit<CreateStudentRequest, 'gender'> & { gender: 'M' | 'F' | '', admission_number?: string };
 
 const EMPTY_FORM: FormData = {
-    email: '', username: '', first_name: '', last_name: '',
+    email: '', username: '', first_name: '', middle_name: '', last_name: '',
     phone: '', date_of_birth: '', address: '',
-    admission_number: '', current_class: '', gender: '',
+    current_class: '', gender: '', admission_number: '',
+    state_of_origin: '', place_of_birth: '',
     blood_group: '', status: 'active',
     emergency_contact_name: '', emergency_contact_phone: '',
     emergency_contact_relationship: '', medical_conditions: '',
@@ -56,6 +57,7 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
 
     useEffect(() => {
         if (!studentId) return;
+        
         setFetching(true);
         api.get<Student>(endpoints.students.detail(studentId))
             .then((data) => {
@@ -65,6 +67,7 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
                     email:      u.email,
                     username:   u.username,
                     first_name:  u.first_name,
+                    middle_name: u.middle_name ?? '',
                     last_name:   u.last_name,
                     phone:       u.phone ?? '',
                     date_of_birth: u.date_of_birth ?? '',
@@ -72,28 +75,31 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
                     admission_number: p.admission_number ?? '',
                     current_class: p.current_class ?? '',
                     gender:      p.gender,
+                    state_of_origin: p.state_of_origin ?? '',
+                    place_of_birth: p.place_of_birth ?? '',
                     blood_group: p.blood_group ?? '',
                     status:      p.status ?? 'active',
                     emergency_contact_name: p.emergency_contact_name ?? '',
                     emergency_contact_phone: p.emergency_contact_phone ?? '',
                     emergency_contact_relationship: p.emergency_contact_relationship ?? '',
                     medical_conditions: p.medical_conditions ?? '',
-
-
-
-
                 });
             })
             .catch(() => setApiError('Failed to load student details.'))
             .finally(() => setFetching(false));
-        }, [studentId]);
+    }, [studentId]);
 
 
 
     const set = (key: keyof FormData, value: string) => {
-        setForm((f) => ({ ...f, [key]: value }));
+        // Enforce 10 character limit for specific fields
+        let processedValue = value;
+        if (['last_name', 'date_of_birth', 'address'].includes(key)) {
+            processedValue = value.slice(0, 10);
+        }
+
+        setForm((f) => ({ ...f, [key]: processedValue }));
         setErrors((e) => ({ ...e, [key]: '' }));
-    
     };
 
 
@@ -103,7 +109,6 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
         if (!form.last_name.trim()) errs.last_name = 'Required';
         if (!form.email.trim()) errs.email = 'Required';
         if (!form.username.trim()) errs.username = 'Required';
-        if (!form.admission_number.trim()) errs.admission_number = 'Required';
         if (!form.gender.trim()) errs.gender = 'Required';
         setErrors(errs);
         return Object.keys(errs).length === 0;
@@ -122,6 +127,7 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
                     endpoints.students.detail(studentId),
                     {
                         first_name: form.first_name,
+                        middle_name: form.middle_name,
                         last_name: form.last_name,
                         phone: form.phone,
                         date_of_birth: form.date_of_birth || null,
@@ -136,8 +142,10 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
                     }
                 );
             } else {
+                // For creation, admission_number is handled by backend
+                const { admission_number, ...createData } = form;
                 await api.post(endpoints.students.list, {
-                    ...form,
+                    ...createData,
                     gender: form.gender as 'M' | 'F',
                     date_of_birth: form.date_of_birth || undefined,
                 });
@@ -175,7 +183,45 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
                 </Field>
                 <Field label="Last Name" required error={errors.last_name}>
                     <Input value={form.last_name} onChange={(e) => set('last_name', e.target.value)}
-                        placeholder="Ade" error={!!errors.last_name} />
+                        placeholder="Ade" error={!!errors.last_name} maxLength={10} />
+                </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <Field label="Middle Name">
+                    <Input value={form.middle_name} onChange={(e) => set('middle_name', e.target.value)}
+                        placeholder="Emeka" />
+                </Field>
+                <Field label="Gender" required error={errors.gender}>
+                    <Select value={form.gender} onChange={(e) => set('gender', e.target.value)}
+                        options={GENDER_OPTIONS} placeholder="Select" error={!!errors.gender} />
+                </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <Field label="State of Origin">
+                    <Input value={form.state_of_origin} onChange={(e) => set('state_of_origin', e.target.value)}
+                        placeholder="Lagos" />
+                </Field>
+                <Field label="Place of Birth">
+                    <Input value={form.place_of_birth} onChange={(e) => set('place_of_birth', e.target.value)}
+                        placeholder="Ikeja" />
+                </Field>
+            </div>
+
+            <Field label="Address">
+                <Input value={form.address ?? ''} onChange={(e) => set('address', e.target.value)}
+                    placeholder="123 old pils, Lagos" maxLength={10} />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-4">
+                <Field label="Date of Birth">
+                    <Input type="date" value={form.date_of_birth ?? ''}
+                        onChange={(e) => set('date_of_birth', e.target.value)} maxLength={10} />
+                </Field>
+                <Field label="Phone">
+                    <Input value={form.phone} onChange={(e) => set('phone', e.target.value)}
+                        placeholder="+23490........" />
                 </Field>
             </div>
 
@@ -185,42 +231,23 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
                         placeholder="john@gmail.com" disabled={isEdit} error={!!errors.email} />
                 </Field>
                 <Field label="Username" required error={errors.username}>
-                    <Input type="email" value={form.username} onChange={(e) => set('username', e.target.value)}
+                    <Input value={form.username} onChange={(e) => set('username', e.target.value)}
                         placeholder="johnade001" disabled={isEdit} error={!!errors.username} />
                 </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <Field label="Phone">
-                    <Input value={form.phone} onChange={(e) => set('phone', e.target.value)}
-                        placeholder="+23490........" />
+            {isEdit && (
+                <Field label="Admission Number">
+                    <Input value={form.admission_number} disabled placeholder="STU001" />
                 </Field>
-                <Field label="Date of Birth">
-                    <Input type="date" value={form.date_of_birth ?? ''}
-                        onChange={(e) => set('date_of_birth', e.target.value)} />
-                </Field>
-            </div>
-            <Field label="Address">
-                <Input value={form.address ?? ''} onChange={(e) => set('address', e.target.value)}
-                    placeholder="123 old pils, Lagos" />
-            </Field>
+            )}
+
             <FormSection title="Academic Information" />
-            <div className="grid grid-cols-2 gap-4">
-                <Field label="Admission Number" required error={errors.admission_number}>
-                    <Input value={form.admission_number}
-                        onChange={(e) => set('admission_number', e.target.value)}
-                        placeholder="STU001" disabled={isEdit} error={!!errors.admission_number} />
-                </Field>
+            <div className="grid grid-cols-3 gap-4">
                 <Field label="Current Class">
                     <Select value={form.current_class ?? ''}
                         onChange={(e) => set('current_class', e.target.value)}
                         options={CLASS_OPTIONS} placeholder="Select class" />
-                </Field>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-                <Field label="Gender" required error={errors.gender}>
-                    <Select value={form.gender} onChange={(e) => set('gender', e.target.value)}
-                        options={GENDER_OPTIONS} placeholder="Select" error={!!errors.gender} />
                 </Field>
                 <Field label="Blood Group">
                     <Select value={form.blood_group ?? ''} onChange={(e) => set('blood_group', e.target.value)}

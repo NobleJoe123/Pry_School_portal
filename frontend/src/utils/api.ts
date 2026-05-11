@@ -184,4 +184,27 @@ export const endpoints = {
         detail: (id: string) => `/auth/parents/${id}/`,
     },
 
+    academics: {
+        years: '/academics/years/',
+        terms: '/academics/terms/',
+        levels: '/academics/levels/',
+        classes: '/academics/classes/',
+        subjects: '/academics/subjects/',
+        assessmentTypes: '/academics/assessment-types/',
+        assessments: '/academics/assessments/',
+        scores: '/academics/scores/',
+    },
+
+    finance: {
+        feeTypes: '/finance/fee-types/',
+        studentFees: '/finance/student-fees/',
+        payments: '/finance/payments/',
+        payrolls: '/finance/payrolls/',
+    },
+
+    attendance: {
+        students: '/attendance/students/',
+        teachers: '/attendance/teachers/',
+    },
+
 };

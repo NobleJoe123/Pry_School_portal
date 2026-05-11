@@ -114,10 +114,10 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login({ email, password });
+      const loggedInUser = await login({ email, password });
 
   
-      const destination = from || ROLE_ROUTES[user?.role ?? 'student'];
+      const destination = from || ROLE_ROUTES[loggedInUser.role];
       navigate(destination, { replace: true });
 
     } catch (err: unknown) {

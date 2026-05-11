@@ -6,18 +6,22 @@ import Navbar from './Navbar';
 // Map route for paging titles
 
 const PAGE_TITLES: Record<string, string> = {
-    '/dahboard': 'Admin Dashboard',
+    '/dashboard': 'Overview',
     '/students': 'Students',
     '/teachers': 'Teachers',
-    '//parents': 'Parents',
+    '/parents': 'Parents',
     '/academics': 'Academics',
+    '/finance': 'Finance',
     '/attendance': 'Attendance',
     '/settings': 'Settings',
     '/notifications': 'Notifications',
-    // '/reports': 'Reports',
-    // '/profile': 'Profile',
-    // '/help': 'Help Center',
-    // '/logout': 'Logout',
+    '/teacher': 'Teacher Dashboard',
+    '/teacher/class': 'My Class',
+    '/teacher/attendance': 'Class Attendance',
+    '/teacher/scores': 'Enter Scores',
+    '/parent': 'Parent Portal',
+    '/parent/children': 'My Children',
+    '/parent/fees': 'Fee Payments',
 };
 
 export default function DashboardLayout() {
