@@ -9,7 +9,8 @@ import {
     Filter, 
     ChevronRight,
     Save,
-    RotateCcw
+    RotateCcw,
+    AlertCircle
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import type { StudentAttendance, SchoolClass, User } from '../../types';

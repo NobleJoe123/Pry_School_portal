@@ -10,12 +10,14 @@ from django.contrib.auth import authenticate
 from django.db.models import Count
 from django.utils import timezone
 from datetime import datetime, timedelta
-from .models import User, StudentProfile, TeacherProfile, ParentProfile
+from django.db import transaction
+from .models import User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest
 from .serializers import (
     UserSerializer, RegisterSerializer, StudentProfileSerializer,
-    TeacherProfileSerializer, ParentProfileSerializer, ChangePasswordSerializer,
-    CreateStudentSerializer, StudentDetailSerializer, UpdateStudentSerializer,
-    CreateTeacherSerializer, TeacherDetailSerializer, ParentDetailSerializer
+    TeacherProfileSerializer, ParentProfileSerializer, EnrollmentRequestSerializer,
+    ChangePasswordSerializer, CreateStudentSerializer, StudentDetailSerializer, 
+    UpdateStudentSerializer, CreateTeacherSerializer, TeacherDetailSerializer, 
+    ParentDetailSerializer
 )
 
 from .permissions import IsAdminOrReadOnly
@@ -438,6 +440,32 @@ class ParentViewSet(viewsets.ReadOnlyModelViewSet):
             return ParentDetailSerializer
         return UserSerializer
 
+    @action(detail=False, methods=['post'])
+    def link_students(self, request):
+        admission_numbers = request.data.get('admission_numbers', [])
+        if not admission_numbers:
+            return Response({'error': 'No admission numbers provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user = request.user
+        if user.role != 'parent':
+            return Response({'error': 'Only parents can link students'}, status=status.HTTP_403_FORBIDDEN)
+            
+        linked_count = 0
+        not_found = []
+        for adm in admission_numbers:
+            try:
+                student_profile = StudentProfile.objects.get(admission_number__iexact=adm)
+                student_profile.parent = user
+                student_profile.save()
+                linked_count += 1
+            except StudentProfile.DoesNotExist:
+                not_found.append(adm)
+                
+        return Response({
+            'message': f'Successfully linked {linked_count} student(s).',
+            'not_found': not_found
+        })
+
 
 # DASHBOARD VIEWS
 
@@ -454,12 +482,12 @@ def dashboard_stats(request):
     total_parents = User.objects.filter(role='parent').count()
     
     # Students by class
-    students_by_class = StudentProfile.objects.exclude(current_class__isnull=True).exclude(current_class='').values('current_class').annotate(
+    students_by_class = StudentProfile.objects.exclude(current_class=None).values('current_class__name').annotate(
         count=Count('id')
     ).order_by('-count')
     
     students_by_class_dict = {
-        item['current_class']: item['count'] for item in students_by_class
+        item['current_class__name']: item['count'] for item in students_by_class
     }
     
     # Recent registrations (last 7 days)
@@ -477,4 +505,115 @@ def dashboard_stats(request):
         'students_by_class': students_by_class_dict,
         'recent_registrations': recent_students
     })
-            
+
+from django.contrib.auth.hashers import make_password
+from rest_framework.decorators import action
+
+class EnrollmentRequestViewSet(viewsets.ModelViewSet):
+    queryset = EnrollmentRequest.objects.all()
+    serializer_class = EnrollmentRequestSerializer
+    
+    def get_permissions(self):
+        if self.action == 'create':
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAdminUser()]
+
+    def perform_create(self, serializer):
+        # Hash the password before saving
+        password = self.request.data.get('password')
+        hashed_password = make_password(password)
+        serializer.save(password=hashed_password)
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        enrollment = self.get_object()
+        if enrollment.status != 'pending':
+            return Response({'error': 'Can only approve pending requests.'}, status=400)
+        
+        try:
+            with transaction.atomic():
+                # 1. Create Parent User
+                parent_user = User.objects.create_user(
+                    email=enrollment.parent_email,
+                    username=enrollment.parent_email.split('@')[0],
+                    password=enrollment.password,
+                    first_name=enrollment.parent_first_name,
+                    last_name=enrollment.parent_last_name,
+                    phone=enrollment.parent_phone,
+                    address=enrollment.parent_address,
+                    role='parent'
+                )
+                
+                # 2. Create Parent Profile
+                ParentProfile.objects.create(
+                    user=parent_user,
+                    relationship_to_student=enrollment.relationship_to_student,
+                    occupation=enrollment.employment_details
+                )
+
+                # 3. Create Students
+                from academics.models import SchoolClass
+                import uuid
+                created_students = []
+                for student_data in enrollment.students_data:
+                    admission_number = f"ADM{timezone.now().year}{uuid.uuid4().hex[:6].upper()}"
+                    
+                    # Use provided email and username or fallback to generated ones
+                    s_email = student_data.get('email') or f"{admission_number.lower()}@school.local"
+                    s_username = student_data.get('username') or admission_number.lower()
+
+                    student_user = User.objects.create_user(
+                        email=s_email,
+                        username=s_username,
+                        password="password123",
+                        first_name=student_data.get('first_name'),
+                        middle_name=student_data.get('middle_name', ''),
+                        last_name=student_data.get('last_name'),
+                        address=enrollment.parent_address, # Shared address
+                        role='student'
+                    )
+
+                    # Find class if specified
+                    school_class = None
+                    class_name = student_data.get('class')
+                    if class_name:
+                        school_class = SchoolClass.objects.filter(name__icontains=class_name).first()
+                    
+                    StudentProfile.objects.create(
+                        user=student_user,
+                        admission_number=admission_number,
+                        parent=parent_user,
+                        gender=student_data.get('gender', 'M'),
+                        state_of_origin=student_data.get('state_of_origin', ''),
+                        place_of_birth=student_data.get('place_of_birth', ''),
+                        blood_group=student_data.get('blood_group', ''),
+                        emergency_contact_name=student_data.get('emergency_contact_name', ''),
+                        emergency_contact_phone=student_data.get('emergency_contact_phone', ''),
+                        emergency_contact_relationship=student_data.get('emergency_contact_relationship', ''),
+                        medical_conditions=student_data.get('medical_conditions', ''),
+                        current_class=school_class
+                    )
+                    created_students.append(admission_number)
+                
+                enrollment.status = 'approved'
+                enrollment.save()
+                
+                # Note: Email sending logic would go here
+                
+                return Response({
+                    'message': 'Enrollment approved.',
+                    'parent_email': parent_user.email,
+                    'admission_numbers': created_students
+                })
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+    @action(detail=True, methods=['post'])
+    def deny(self, request, pk=None):
+        enrollment = self.get_object()
+        if enrollment.status != 'pending':
+            return Response({'error': 'Can only deny pending requests.'}, status=400)
+        
+        enrollment.status = 'denied'
+        enrollment.save()
+        return Response({'message': 'Enrollment denied.'})

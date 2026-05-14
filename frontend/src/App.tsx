@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import AdminLogin from './pages/AdminLogin';
+import Enrollment from './pages/Enrollment';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
 import Teachers from './pages/Teachers';
@@ -46,6 +47,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/enrol" element={<Enrollment />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
 
@@ -77,13 +79,6 @@ export default function App() {
                 <Route path="/parent" element={<Dashboard />} />
                 <Route path="/parent/children" element={<Placeholder name="My Children" />} />
                 <Route path="/parent/fees" element={<Placeholder name="Fee Payments" />} />
-              </Route>
-
-              {/* Student Only Routes */}
-              <Route element={<ProtectedRoute allowedRoles={['student']} />}>
-                <Route path="/student" element={<Dashboard />} />
-                <Route path="/student/results" element={<Placeholder name="My Results" />} />
-                <Route path="/student/attendance" element={<Placeholder name="My Attendance" />} />
               </Route>
 
               {/* Common Routes */}

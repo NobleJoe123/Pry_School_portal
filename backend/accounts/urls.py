@@ -18,7 +18,9 @@ from .views import (
     ParentViewSet,
     
     # Dashboard Views
-    dashboard_stats
+    dashboard_stats,
+    
+    EnrollmentRequestViewSet
 )
 
 
@@ -26,6 +28,7 @@ router = DefaultRouter()
 router.register(r'students', StudentViewSet, basename='student')
 router.register(r'teachers', TeacherViewSet, basename='teacher')
 router.register(r'parents', ParentViewSet, basename='parent')
+router.register(r'enrollment', EnrollmentRequestViewSet, basename='enrollment')
 
 app_name = 'accounts'
 

@@ -1,20 +1,21 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import User, StudentProfile, TeacherProfile, ParentProfile
+from .models import User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest, EnrollmentRequest
 from django.db import transaction
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model - used for responses"""
     full_name = serializers.CharField(read_only=True)
     profile_photo_url = serializers.SerializerMethodField()
+    children = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'full_name', 'role', 'phone', 'date_of_birth', 'address',
-            'profile_photo_url', 'is_active', 'date_joined'
+            'profile_photo_url', 'is_active', 'date_joined', 'children'
         ]
         read_only_fields = ['id', 'date_joined']
     
@@ -24,6 +25,24 @@ class UserSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.profile_photo.url)
             return obj.profile_photo.url
+        return None
+
+    def get_children(self, obj):
+        if obj.role == 'parent' and hasattr(obj, 'children'):
+            children = obj.children.all()
+            return [
+                {
+                    'user': {
+                        'id': child.user.id,
+                        'full_name': child.user.full_name,
+                        'profile_photo_url': self.get_profile_photo_url(child.user)
+                    },
+                    'profile': {
+                        'admission_number': child.admission_number,
+                        'current_class': {'name': child.current_class.name} if child.current_class else None
+                    }
+                } for child in children
+            ]
         return None
 
 
@@ -386,3 +405,11 @@ class ParentDetailSerializer(serializers.ModelSerializer):
                     'profile': StudentProfileSerializer(child.student_profile).data
                 })
         return children_data  
+
+class EnrollmentRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnrollmentRequest
+        fields = '__all__'
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }

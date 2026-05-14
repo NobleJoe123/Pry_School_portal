@@ -94,7 +94,7 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
     const set = (key: keyof FormData, value: string) => {
         // Enforce 10 character limit for specific fields
         let processedValue = value;
-        if (['last_name', 'date_of_birth', 'address'].includes(key)) {
+        if (['date_of_birth'].includes(key)) {
             processedValue = value.slice(0, 10);
         }
 
@@ -183,7 +183,7 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
                 </Field>
                 <Field label="Last Name" required error={errors.last_name}>
                     <Input value={form.last_name} onChange={(e) => set('last_name', e.target.value)}
-                        placeholder="Ade" error={!!errors.last_name} maxLength={10} />
+                        placeholder="Ade" error={!!errors.last_name} />
                 </Field>
             </div>
 
@@ -211,7 +211,7 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
 
             <Field label="Address">
                 <Input value={form.address ?? ''} onChange={(e) => set('address', e.target.value)}
-                    placeholder="123 old pils, Lagos" maxLength={10} />
+                    placeholder="123 old pils, Lagos" />
             </Field>
 
             <div className="grid grid-cols-2 gap-4">

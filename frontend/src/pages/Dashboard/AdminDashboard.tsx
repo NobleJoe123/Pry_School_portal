@@ -113,20 +113,91 @@ function RecentTable({ students, loading }: { students: RecentStudent[]; loading
     );
 }
 
+function EnrollmentTable({ 
+    enrollments, 
+    loading, 
+    onApprove, 
+    onDeny 
+}: { 
+    enrollments: any[]; 
+    loading: boolean;
+    onApprove: (id: string) => void;
+    onDeny: (id: string) => void;
+}) {
+    const pending = enrollments.filter(e => e.status === 'pending');
+    
+    if (loading) return null;
+    if (pending.length === 0) return null; // Hide if no pending requests
+
+    return (
+        <div className="rounded-2xl border border-amber-500/30 overflow-hidden" style={{ background: 'linear-gradient(135deg, #2a1b0d 0%, #1a1005 100%)' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-amber-500/20 bg-amber-500/5">
+                <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <h3 className="text-amber-400 font-bold text-sm">Action Required: Pending Enrollments</h3>
+                </div>
+                <span className="text-xs font-bold bg-amber-500/20 text-amber-500 px-2.5 py-1 rounded-full">{pending.length} Requests</span>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="border-b border-amber-500/10">
+                            <th className="text-left px-5 py-3 text-amber-500/60 text-[10px] font-bold uppercase tracking-widest">Parent Name</th>
+                            <th className="text-left px-5 py-3 text-amber-500/60 text-[10px] font-bold uppercase tracking-widest">Students Count</th>
+                            <th className="text-left px-5 py-3 text-amber-500/60 text-[10px] font-bold uppercase tracking-widest">Submitted</th>
+                            <th className="text-right px-5 py-3 text-amber-500/60 text-[10px] font-bold uppercase tracking-widest">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {pending.map((req) => (
+                            <tr key={req.id} className="border-b border-amber-500/5 hover:bg-amber-500/5 transition-colors">
+                                <td className="px-5 py-4">
+                                    <p className="text-amber-100 text-sm font-bold">{req.parent_first_name} {req.parent_last_name}</p>
+                                    <p className="text-amber-500/60 text-xs font-mono mt-0.5">{req.parent_email}</p>
+                                </td>
+                                <td className="px-5 py-4 text-amber-200/80 text-sm font-semibold">
+                                    {req.students_data?.length || 0} Student(s)
+                                </td>
+                                <td className="px-5 py-4 text-amber-500/60 text-xs">
+                                    {new Date(req.created_at).toLocaleDateString()}
+                                </td>
+                                <td className="px-5 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button onClick={() => onDeny(req.id)} className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-lg transition-all">
+                                            Deny
+                                        </button>
+                                        <button onClick={() => onApprove(req.id)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-emerald-950 text-xs font-black rounded-lg transition-all shadow-lg shadow-emerald-500/20">
+                                            Verify & Enroll
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+
+
 export default function AdminDashboard() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [recentStudents, setRecent] = useState<RecentStudent[]>([]);
+    const [enrollments, setEnrollments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [refreshing, setRefreshing] = useState(false);
 
     const fetchData = async () => {
         try {
-            const [statsData, studentsData] = await Promise.all([
+            const [statsData, studentsData, enrollData] = await Promise.all([
                 api.get<DashboardStats>(endpoints.auth.dashboardStats),
                 api.get<{ results: User[]; count: number }>(
                     `${endpoints.students.list}?ordering=-date_joined&page_size=8`
                 ),
+                api.get<{ results: any[] }>(`${endpoints.auth.enrollment}`)
             ]);
             setStats(statsData);
             setRecent(
@@ -138,11 +209,33 @@ export default function AdminDashboard() {
                     is_active: u.is_active,
                 }))
             );
+            // DefaultRouter usually returns { count, next, previous, results } if paginated, 
+            // or just an array if not paginated. Let's handle both.
+            setEnrollments(Array.isArray(enrollData) ? enrollData : enrollData.results || []);
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
         } finally {
             setLoading(false);
             setRefreshing(false);
+        }
+    };
+
+    const handleApprove = async (id: string) => {
+        try {
+            await api.post(`${endpoints.auth.enrollment}${id}/approve/`, {});
+            fetchData();
+        } catch (err: any) {
+            alert(err.message || 'Failed to approve');
+        }
+    };
+
+    const handleDeny = async (id: string) => {
+        if (!window.confirm("Are you sure you want to deny this enrollment?")) return;
+        try {
+            await api.post(`${endpoints.auth.enrollment}${id}/deny/`, {});
+            fetchData();
+        } catch (err: any) {
+            alert(err.message || 'Failed to deny');
         }
     };
 
@@ -269,6 +362,7 @@ export default function AdminDashboard() {
                     </BarChart>
                 </ResponsiveContainer>
             </div>
+            <EnrollmentTable enrollments={enrollments} loading={loading} onApprove={handleApprove} onDeny={handleDeny} />
             <RecentTable students={recentStudents} loading={loading} />
         </div>
     );

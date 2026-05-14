@@ -165,6 +165,7 @@ export const endpoints = {
         refresh: '/auth/token/refresh/',
         changepassword: '/auth/change-password/',
         dashboardStats: '/auth/dashboard/stats/',
+        enrollment: '/auth/enrollment/',
     },
 
     students: {
@@ -182,6 +183,7 @@ export const endpoints = {
     parents: {
         list: '/auth/parents/',
         detail: (id: string) => `/auth/parents/${id}/`,
+        linkStudents: '/auth/parents/link_students/',
     },
 
     academics: {

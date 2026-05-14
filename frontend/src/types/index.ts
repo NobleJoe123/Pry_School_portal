@@ -17,6 +17,7 @@ export interface User {
     profile_photo_url: string | null;
     is_active: boolean;
     date_joined: string;
+    children?: any[];
 }
 
 export interface AuthTokens {
@@ -283,6 +284,7 @@ export interface PaymentRecord {
     date: string;
     received_by: string | null;
     received_by_name?: string;
+    student_name?: string;
 }
 
 export interface Payroll {
