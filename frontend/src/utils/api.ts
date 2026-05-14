@@ -199,7 +199,7 @@ export const endpoints = {
         feeTypes: '/finance/fee-types/',
         studentFees: '/finance/student-fees/',
         payments: '/finance/payments/',
-        payrolls: '/finance/payrolls/',
+        payroll: '/finance/payroll/',
     },
 
     attendance: {

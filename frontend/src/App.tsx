@@ -2,8 +2,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
+import Teachers from './pages/Teachers';
+import Parents from './pages/Parents';
 import Academics from './pages/Academics';
 import Finance from './pages/Finance';
 import Attendance from './pages/Attendance';
@@ -43,6 +46,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Shared Protected Routes (Dashboard Layout) */}
@@ -53,8 +57,8 @@ export default function App() {
               {/* Admin Only Routes */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                 <Route path="/students" element={<Students />} />
-                <Route path="/teachers" element={<Placeholder name="Teachers Management" />} />
-                <Route path="/parents" element={<Placeholder name="Parents" />} />
+                <Route path="/teachers" element={<Teachers />} />
+                <Route path="/parents" element={<Parents />} />
                 <Route path="/academics" element={<Academics />} />
                 <Route path="/finance" element={<Finance />} />
                 <Route path="/attendance" element={<Attendance />} />
@@ -73,6 +77,13 @@ export default function App() {
                 <Route path="/parent" element={<Dashboard />} />
                 <Route path="/parent/children" element={<Placeholder name="My Children" />} />
                 <Route path="/parent/fees" element={<Placeholder name="Fee Payments" />} />
+              </Route>
+
+              {/* Student Only Routes */}
+              <Route element={<ProtectedRoute allowedRoles={['student']} />}>
+                <Route path="/student" element={<Dashboard />} />
+                <Route path="/student/results" element={<Placeholder name="My Results" />} />
+                <Route path="/student/attendance" element={<Placeholder name="My Attendance" />} />
               </Route>
 
               {/* Common Routes */}

@@ -6,7 +6,7 @@ router = DefaultRouter()
 router.register(r'fee-types', FeeTypeViewSet)
 router.register(r'student-fees', StudentFeeViewSet)
 router.register(r'payments', PaymentRecordViewSet)
-router.register(r'payrolls', PayrollViewSet)
+router.register(r'payroll', PayrollViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

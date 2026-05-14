@@ -63,29 +63,35 @@ class RegisterView(generics.CreateAPIView):
 class LoginView(APIView):
     """
     POST /api/auth/login/
-    Login with email and password
+    Login with email, username, or admission number
     """
     permission_classes = [AllowAny]
     
     def post(self, request):
-        email = request.data.get('email', '').lower()
+        identifier = request.data.get('identifier', request.data.get('email', '')).strip()
         password = request.data.get('password')
         
-        if not email or not password:
+        if not identifier or not password:
             return Response(
-                {'error': 'Please provide both email and password.'},
+                {'error': 'Please provide both credentials and password.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Authenticate user
-        user = User.objects.filter(email=email).first()
+        # Authenticate user - try Email, then Username, then Admission Number
+        user = User.objects.filter(email__iexact=identifier).first()
+        
+        if not user:
+            user = User.objects.filter(username__iexact=identifier).first()
+            
+        if not user:
+            # Check if it's an admission number
+            user = User.objects.filter(student_profile__admission_number__iexact=identifier).first()
         
         if user is None or not user.check_password(password):
             return Response(
                 {'error': 'Invalid credentials.'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-        
         
         if not user.is_active:
             return Response(
@@ -98,11 +104,8 @@ class LoginView(APIView):
         access = str(refresh.access_token)
         
         # Update last login
-        user.last_login = datetime.now()
+        user.last_login = timezone.now()
         user.save(update_fields=['last_login'])
-        
-        
-        
         
         response = Response({
             'user': UserSerializer(user, context={'request': request}).data,

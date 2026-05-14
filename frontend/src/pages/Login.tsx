@@ -100,7 +100,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -114,7 +114,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const loggedInUser = await login({ email, password });
+      const loggedInUser = await login({ identifier, password });
 
   
       const destination = from || ROLE_ROUTES[loggedInUser.role];
@@ -154,7 +154,7 @@ export default function Login() {
             <h2 className="text-3xl font-black text-slate-900 mb-2" style={{ fontFamily: "'DM Serif Display', serif" }}>
               Sign in
             </h2>
-            <p className="text-slate-500 text-sm"> Enter your credentials to continue.</p>
+            <p className="text-slate-500 text-sm"> Students use Admission Number; Staff use Email.</p>
           </div>
 
 
@@ -162,10 +162,15 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-widest mb-2"> Email Address
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-widest mb-2"> 
+                Admission No / Email
               </label>
-              <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="stan@school.com"
+              <input 
+                type="text" 
+                required 
+                value={identifier} 
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="e.g. ADM/2024/001 or parent@email.com"
                 className="w-full px-4 py-3.5 rounded-xl border text-slate-800 text-sm bg-white border-slate-200 placeholder-slate-300
                 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 transition-all duration-200"/>
 
