@@ -85,7 +85,7 @@ function ParentDetail({ parent }: { parent: ParentUser }) {
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400
                                   to-emerald-500 flex items-center justify-center
                                   text-white text-[10px] font-bold shrink-0">
-                    {child.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                    {child.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                   </div>
                   <div>
                     <p className="text-white text-xs font-semibold">{child.full_name}</p>

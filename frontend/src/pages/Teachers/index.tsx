@@ -50,7 +50,7 @@ function ConfirmDeactivate({ teacher, onConfirm, onCancel, loading, }: {
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-                <UserX size={20} className="text-red-400 shring-0" />
+                <UserX size={20} className="text-red-400 shrink-0" />
                 <p className="text-red-300 text-sm"> This will deactivate{' '}
                     <span className="font-bold">{teacher.full_name}</span>'s account.
                     They will no longer be able to login.
@@ -62,7 +62,7 @@ function ConfirmDeactivate({ teacher, onConfirm, onCancel, loading, }: {
                     Cancel
                 </button>
                 <button onClick={onConfirm} disabled={loading}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-500/80 hover:bg-red-500 transaction-all disabled:opacity-50">
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-500/80 hover:bg-red-500 transition-all disabled:opacity-50">
                     {loading ? 'Deactivating...' : 'Deactivate'}
 
                 </button>
@@ -155,7 +155,7 @@ export default function Teachers() {
 
                 <div>
                     <h2 className="text-white text-2xl font-black font-serif"> Teachers </h2>
-                    <p className="text-slate-500 text-sma mt-0.5">
+                    <p className="text-slate-500 text-sm mt-0.5">
                         {total > 0 ? `${total} teachers on staff` : 'No teachers yet'}
                     </p>
 
@@ -182,7 +182,7 @@ export default function Teachers() {
             <div className="rounded-2xl border border-white/5 p-4 flex flex-wrap gap-3 bg-white/5">
 
                 <div className="relative flex-1 min-w-[200px]">
-                    <Search size={14} className="absolute let-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search by name. email, staff ID..."
                         className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500/40 transition-all" />
@@ -213,7 +213,7 @@ export default function Teachers() {
                         <thead>
                             <tr className="border-b border-white/5">
                                 {['Teacher', 'Staff ID', 'Subjects', 'Class', 'Status', 'Active', 'Actions'].map((h) => (
-                                    <th key={h} className="text-left px-5 py py-3.5 text-slate-500 text-xs font-semibold uppercase tracking-wide whitspace-nowrap">
+                                    <th key={h} className="text-left px-5 py-3.5 text-slate-500 text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
                                         {h}
                                     </th>
                                 ))}
@@ -250,7 +250,7 @@ export default function Teachers() {
                                         {/* Name & Profile */}
                                         <td className="px-5 py-3.5">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-emerald-5000 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-emerald-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                                                     {getInitials(t)}
                                                 </div>
                                                 <div>
@@ -273,7 +273,7 @@ export default function Teachers() {
                                         <td className="px-5 py-3.5 text-slate-400 text-xs max-w-[160px] truncate">{getSubjects(t)}</td>
                                         <td className="px-5 py-3.5 text-slate-400 text-xs">{getClass(t)}</td>
                                         <td className="px-5 py-3.5">
-                                            <span className={`inline-flex items-cener gap-1 text-[10px] font-semibold px-2 -y-1 rounded-full ${STATUS_COLORS[getStatus(t)]}`}>
+                                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full ${STATUS_COLORS[getStatus(t)]}`}>
                                                 <span className="w-1 h-1 rounded-full  bg-current" />
                                                 {STATUS_LABELS[getStatus(t)]}
                                             </span>
