@@ -183,12 +183,13 @@ export default function Students() {
                     </p>
                 </div>
                 <button onClick={() => setAddOpen(true)}
-                    className="flex items-center gap-2 px-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-[0.97] bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/25"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/25 transition-all active:scale-[0.97]"
                 >
                     <UserPlus size={16} />
                     Add Student
                 </button>
             </div>
+
 
             {/* Error */}
             {error && (
@@ -213,7 +214,7 @@ export default function Students() {
                 {/* Status filter */}
 
                 <select
-                    value={statusFilter} 
+                    value={statusFilter}
                     onChange={(e) => setStatus(e.target.value)}
                     aria-label="Filter by status"
                     className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all min-w-[130px]"
@@ -222,10 +223,10 @@ export default function Students() {
                     <option value="active" className="bg-[#0d1b2a]"> Active </option>
                     <option value="graduated" className="bg-[#0d1b2a]"> Graduated </option>
                     <option value="transferred" className="bg-[#0d1b2a]"> Transferred </option>
-                    <option value="suspended" className="bg-[#0d1b2a]"> Suspended </option>  
+                    <option value="suspended" className="bg-[#0d1b2a]"> Suspended </option>
                 </select>
 
-                <select 
+                <select
                     value={classFilter}
                     onChange={(e) => setClass(e.target.value)}
                     aria-label="Filter by class"
@@ -409,7 +410,7 @@ export default function Students() {
                                     </>
                                 ))
                             }
-                            <button 
+                            <button
                                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                                 disabled={page === totalPages}
                                 aria-label="Next Page"

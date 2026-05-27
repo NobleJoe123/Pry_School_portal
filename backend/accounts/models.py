@@ -230,6 +230,7 @@ class ParentProfile(models.Model):
     def children_count(self):
         return self.user.children.count()
 
+
 # Enrollment Request Model
 class EnrollmentRequest(models.Model):
     STATUS_CHOICES = [
@@ -237,9 +238,8 @@ class EnrollmentRequest(models.Model):
         ('approved', 'Approved'),
         ('denied', 'Denied'),
     ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    
-    # Parent Data
     parent_first_name = models.CharField(max_length=150)
     parent_last_name = models.CharField(max_length=150)
     parent_email = models.EmailField()
@@ -247,13 +247,8 @@ class EnrollmentRequest(models.Model):
     parent_address = models.TextField()
     relationship_to_student = models.CharField(max_length=50)
     employment_details = models.TextField(blank=True, null=True)
-    
-    # Auth Data (Hashed password stored temporarily)
     password = models.CharField(max_length=128)
-    
-    # Students Data (JSON array of student dicts)
-    students_data = models.JSONField(default=list) 
-    
+    students_data = models.JSONField(default=list)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -262,4 +257,4 @@ class EnrollmentRequest(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Enrollment: {self.parent_first_name} {self.parent_last_name} ({self.status})"
+        return f"Enrollment Request from {self.parent_first_name} {self.parent_last_name} ({self.status})"

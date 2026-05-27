@@ -146,10 +146,29 @@ services:
     networks:
       - app_network
 
+  # pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: primary_portal_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@portal.com
+      PGADMIN_DEFAULT_PASSWORD: admin_secure_password
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
+
 volumes:
   postgres_data:
   static_volume:
   media_volume:
+  pgadmin_data:
 
 networks:
   app_network:
