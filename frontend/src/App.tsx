@@ -14,8 +14,10 @@ import Attendance from './pages/Attendance';
 import DashboardLayout from './components/DashboardLayout';
 
 
-// PlaceHolders Pages
+import Scores from './pages/Scores';
+import StudentGrades from './pages/StudentGrades';
 
+// PlaceHolders Pages
 
 const Placeholder = ({ name }: { name: string }) => (
   <div className="flex items-center justify-center h-64 rounded-2xl border border-white/5"
@@ -27,7 +29,6 @@ const Placeholder = ({ name }: { name: string }) => (
   </div>
 );
 
-
 const NotFound = () => (
   <div className="min-h-screen bg-slate-950 flex items-center justify-center">
     <div className="text-center">
@@ -37,7 +38,6 @@ const NotFound = () => (
     </div>
   </div>
 );
-
 
 // App
 
@@ -70,8 +70,8 @@ export default function App() {
               <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
                 <Route path="/teacher" element={<Dashboard />} /> {/* Or a specific teacher home */}
                 <Route path="/teacher/class" element={<Placeholder name="My Class" />} />
-                <Route path="/teacher/attendance" element={<Placeholder name="Class Attendance" />} />
-                <Route path="/teacher/scores" element={<Placeholder name="Record Scores" />} />
+                <Route path="/teacher/attendance" element={<Attendance />} />
+                <Route path="/teacher/scores" element={<Scores />} />
               </Route>
 
               {/* Parent Only Routes */}
@@ -84,7 +84,7 @@ export default function App() {
               {/* Student Only Routes */}
               <Route element={<ProtectedRoute allowedRoles={['student']} />}>
                 <Route path="/student" element={<Dashboard />} />
-                <Route path="/student/grades" element={<Placeholder name="My Grades" />} />
+                <Route path="/student/grades" element={<StudentGrades />} />
                 <Route path="/student/attendance" element={<Placeholder name="My Attendance" />} />
               </Route>
 
