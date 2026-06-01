@@ -28,10 +28,17 @@ export default function Attendance() {
 
     useEffect(() => {
         // Fetch classes for the teacher/admin
-        api.get<SchoolClass[]>(endpoints.academics.classes)
-            .then(data => {
-                setClasses(data);
-                if (data.length > 0) setSelectedClass(data[0].id);
+        api.get<any>(endpoints.academics.classes)
+            .then(res => {
+                const getList = (val: any) => {
+                    if (!val) return [];
+                    if (Array.isArray(val)) return val;
+                    if (val.results && Array.isArray(val.results)) return val.results;
+                    return [];
+                };
+                const classList = getList(res);
+                setClasses(classList);
+                if (classList.length > 0) setSelectedClass(classList[0].id);
                 setLoading(false);
             });
     }, []);
@@ -41,15 +48,41 @@ export default function Attendance() {
         setLoading(true);
         // Fetch students in the selected class
         api.get<any>(`${endpoints.students.list}?class=${classes.find(c => c.id === selectedClass)?.name}`)
-            .then(data => {
-                const studentList = data.results || [];
+            .then(async data => {
+                const getList = (val: any) => {
+                    if (!val) return [];
+                    if (Array.isArray(val)) return val;
+                    if (val.results && Array.isArray(val.results)) return val.results;
+                    return [];
+                };
+                const studentList = getList(data);
                 setStudents(studentList);
-                // Initialize attendance records
-                const initial: Record<string, { status: AttendanceStatus, remarks: string }> = {};
-                studentList.forEach((s: User) => {
-                    initial[s.id] = { status: 'present', remarks: '' };
-                });
-                setAttendanceRecords(initial);
+                
+                // Fetch today's attendance for this class
+                const today = new Date().toISOString().split('T')[0];
+                try {
+                    const attendanceRes = await api.get<any>(`${endpoints.attendance.students}?date=${today}&school_class=${selectedClass}`);
+                    const existingAttendance = getList(attendanceRes);
+                    
+                    // Initialize attendance records
+                    const initial: Record<string, { status: AttendanceStatus, remarks: string }> = {};
+                    studentList.forEach((s: User) => {
+                        // The backend serializer might return student as an ID or an object, checking both
+                        const existing = existingAttendance.find((a: any) => a.student === s.id || (a.student && a.student.id === s.id) || a.student_id === s.id);
+                        initial[s.id] = { 
+                            status: existing ? existing.status : 'present', 
+                            remarks: existing ? (existing.remarks || '') : '' 
+                        };
+                    });
+                    setAttendanceRecords(initial);
+                } catch (err) {
+                    console.error("Error fetching attendance", err);
+                    const initial: Record<string, { status: AttendanceStatus, remarks: string }> = {};
+                    studentList.forEach((s: User) => {
+                        initial[s.id] = { status: 'present', remarks: '' };
+                    });
+                    setAttendanceRecords(initial);
+                }
                 setLoading(false);
             });
     }, [selectedClass, classes]);

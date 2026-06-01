@@ -43,7 +43,21 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
 
 function ParentDetail({ parent }: { parent: ParentUser }) {
   const profile  = parent.parent_profile;
-  const children = parent.children ?? [];
+  const children = (parent.children ?? []).map((child: any) => {
+    if (child.user) {
+      return {
+        id: child.user.id || child.id,
+        full_name: child.user.full_name || '',
+        is_active: child.user.is_active !== undefined ? child.user.is_active : true,
+        student_profile: {
+          admission_number: child.profile?.admission_number || '',
+          current_class: child.profile?.current_class?.name || 'No class',
+          status: child.profile?.status || 'active'
+        }
+      };
+    }
+    return child;
+  });
 
   return (
     <div className="space-y-5">
@@ -85,7 +99,7 @@ function ParentDetail({ parent }: { parent: ParentUser }) {
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400
                                   to-emerald-500 flex items-center justify-center
                                   text-white text-[10px] font-bold shrink-0">
-                    {child.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                    {(child.full_name || '').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                   </div>
                   <div>
                     <p className="text-white text-xs font-semibold">{child.full_name}</p>

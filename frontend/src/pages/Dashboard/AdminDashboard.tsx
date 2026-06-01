@@ -86,7 +86,7 @@ function RecentTable({ students, loading }: { students: RecentStudent[]; loading
                                     <td className="px-5 py-3.5">
                                         <div className="flex items-center gap-2.5">
                                             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-emerald-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                                                {s.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                                                {(s.full_name || '').split(' ').map((n) => n[0]).join('').slice(0, 2)}
                                             </div>
                                             <span className="text-white text-xs font-medium">{s.full_name}</span>
                                         </div>

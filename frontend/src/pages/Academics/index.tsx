@@ -19,13 +19,25 @@ export default function Academics() {
     useEffect(() => {
         setLoading(true);
         Promise.all([
-            api.get<AcademicYear[]>(endpoints.academics.years),
-            api.get<Term[]>(endpoints.academics.terms),
-            api.get<ClassLevel[]>(endpoints.academics.levels),
-            api.get<SchoolClass[]>(endpoints.academics.classes),
-            api.get<Subject[]>(endpoints.academics.subjects),
+            api.get<any>(endpoints.academics.years),
+            api.get<any>(endpoints.academics.terms),
+            api.get<any>(endpoints.academics.levels),
+            api.get<any>(endpoints.academics.classes),
+            api.get<any>(endpoints.academics.subjects),
         ]).then(([years, terms, levels, classes, subjects]) => {
-            setData({ years, terms, levels, classes, subjects });
+            const getList = (res: any) => {
+                if (!res) return [];
+                if (Array.isArray(res)) return res;
+                if (res.results && Array.isArray(res.results)) return res.results;
+                return [];
+            };
+            setData({
+                years: getList(years),
+                terms: getList(terms),
+                levels: getList(levels),
+                classes: getList(classes),
+                subjects: getList(subjects)
+            });
             setLoading(false);
         }).catch(err => {
             console.error("Failed to fetch academics data", err);

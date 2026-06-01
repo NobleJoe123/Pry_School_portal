@@ -38,13 +38,24 @@ export default function Finance() {
         setLoading(true);
         Promise.all([
             api.get<any>(`${endpoints.finance.studentFees}summary/`),
-            api.get<FeeType[]>(endpoints.finance.feeTypes),
-            api.get<StudentFee[]>(endpoints.finance.studentFees),
-            api.get<PaymentRecord[]>(endpoints.finance.payments),
-            api.get<Payroll[]>(endpoints.finance.payroll),
+            api.get<any>(endpoints.finance.feeTypes),
+            api.get<any>(endpoints.finance.studentFees),
+            api.get<any>(endpoints.finance.payments),
+            api.get<any>(endpoints.finance.payroll),
         ]).then(([summary, feeTypes, studentFees, payments, payroll]) => {
             setStats(summary);
-            setData({ feeTypes, studentFees, payments, payroll });
+            const getList = (res: any) => {
+                if (!res) return [];
+                if (Array.isArray(res)) return res;
+                if (res.results && Array.isArray(res.results)) return res.results;
+                return [];
+            };
+            setData({
+                feeTypes: getList(feeTypes),
+                studentFees: getList(studentFees),
+                payments: getList(payments),
+                payroll: getList(payroll)
+            });
             setLoading(false);
         }).catch(err => {
             console.error("Failed to fetch finance data", err);
