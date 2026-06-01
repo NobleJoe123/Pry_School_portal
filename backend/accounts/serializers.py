@@ -359,14 +359,15 @@ class CreateTeacherSerializer(serializers.Serializer):
             'date_of_joining': validated_data.pop('date_of_joining', None),
             'highest_qualification': validated_data.pop('highest_qualification', ''),
             'specialization': validated_data.pop('specialization', ''),
-            'years_of_experience': validated_data.pop('years_of experience', 0 ),
-            'subjects_taught': validated_data.pop('subjects_taught'),
+            'years_of_experience': validated_data.pop('years_of_experience', 0),
+            'subjects_taught': validated_data.pop('subjects_taught', ''),
             'monthly_salary': validated_data.pop('monthly_salary', None),
             'is_class_teacher': validated_data.pop('is_class_teacher', False),
-            'assigned_class': validated_data.pop('assigned_class', ''),
-            'emergency_contact_name':validated_data.pop('emergency_contact_name', ''),
+            'emergency_contact_name': validated_data.pop('emergency_contact_name', ''),
             'emergency_contact_phone': validated_data.pop('emergency_contact_phone', ''),
         }
+        
+        assigned_class_name = validated_data.pop('assigned_class', '')
         
         user = User.objects.create_user(
             **validated_data,
@@ -379,6 +380,17 @@ class CreateTeacherSerializer(serializers.Serializer):
             user=user,
             **profile_fields
         )
+        
+        if assigned_class_name:
+            from academics.models import SchoolClass
+            try:
+                school_class = SchoolClass.objects.filter(name=assigned_class_name).first()
+                if school_class:
+                    school_class.teacher = user
+                    school_class.save()
+            except Exception:
+                pass
+                
         return user
     
     # Parent Details Serializers

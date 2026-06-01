@@ -52,7 +52,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Shared Protected Routes (Dashboard Layout) */}
-          <Route element={<ProtectedRoute allowedRoles={['admin', 'teacher', 'parent']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'teacher', 'parent', 'student']} />}>
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               
@@ -79,6 +79,13 @@ export default function App() {
                 <Route path="/parent" element={<Dashboard />} />
                 <Route path="/parent/children" element={<Placeholder name="My Children" />} />
                 <Route path="/parent/fees" element={<Placeholder name="Fee Payments" />} />
+              </Route>
+
+              {/* Student Only Routes */}
+              <Route element={<ProtectedRoute allowedRoles={['student']} />}>
+                <Route path="/student" element={<Dashboard />} />
+                <Route path="/student/grades" element={<Placeholder name="My Grades" />} />
+                <Route path="/student/attendance" element={<Placeholder name="My Attendance" />} />
               </Route>
 
               {/* Common Routes */}

@@ -292,10 +292,11 @@ class StudentViewSet(viewsets.ModelViewSet):
         student_status = self.request.query_params.get('status')
         parent_id = self.request.query_params.get('parent_id')
         
-        if class_name: queryset = queryset.filter(student_profile__current_class=class_name)
+        if class_name: queryset = queryset.filter(student_profile__current_class__name=class_name)
         if student_status: queryset = queryset.filter(student_profile__status=student_status)
-        if parent_id: queryset = filter(student_profile__parent_id=parent_id)
+        if parent_id: queryset = queryset.filter(student_profile__parent_id=parent_id)
         return queryset
+
         
     
     def get_serializer_class(self):

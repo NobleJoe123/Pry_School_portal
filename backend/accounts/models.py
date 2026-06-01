@@ -169,13 +169,7 @@ class TeacherProfile(models.Model):
     
     # Additional Info
     is_class_teacher = models.BooleanField(default=False)
-    assigned_class = models.ForeignKey(
-        'academics.SchoolClass',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='class_teacher'
-    )
+
     
     # Emergency Contact
     emergency_contact_name = models.CharField(max_length=150, blank=True, null=True)

@@ -1,6 +1,8 @@
+from datetime import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from django.utils import timezone
 from .models import StudentAttendance, TeacherAttendance
 from .serializers import StudentAttendanceSerializer, TeacherAttendanceSerializer
 
@@ -11,15 +13,24 @@ class StudentAttendanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        queryset = StudentAttendance.objects.all()
+
         if user.role == 'student':
-            return StudentAttendance.objects.filter(student=user)
+            queryset = queryset.filter(student=user)
         elif user.role == 'parent':
-            return StudentAttendance.objects.filter(student__student_profile__parent=user)
+            queryset = queryset.filter(student__student_profile__parent=user)
         elif user.role == 'teacher':
-            # Teachers see attendance for their assigned class
-            if hasattr(user, 'teacher_profile') and user.teacher_profile.assigned_class:
-                return StudentAttendance.objects.filter(school_class__name=user.teacher_profile.assigned_class)
-        return StudentAttendance.objects.all()
+            queryset = queryset.filter(school_class__teacher=user)
+
+        date = self.request.query_params.get('date')
+        if date:
+            queryset = queryset.filter(date=date)
+
+        school_class = self.request.query_params.get('school_class')
+        if school_class:
+            queryset = queryset.filter(school_class_id=school_class)
+
+        return queryset
 
     @action(detail=False, methods=['post'])
     def bulk_mark(self, request):
@@ -27,6 +38,13 @@ class StudentAttendanceViewSet(viewsets.ModelViewSet):
         data = request.data
         class_id = data.get('school_class')
         term_id = data.get('term')
+        if not term_id or term_id == 'REPLACE_WITH_CURRENT_TERM_ID':
+            from academics.models import Term
+            current_term = Term.objects.filter(is_current=True).first()
+            if not current_term:
+                return Response({'error': 'No current term configured in academics.'}, status=status.HTTP_400_BAD_REQUEST)
+            term_id = current_term.id
+
         date = data.get('date', timezone.now().date())
         attendance_records = data.get('records', []) # List of {student_id, status, remarks}
 

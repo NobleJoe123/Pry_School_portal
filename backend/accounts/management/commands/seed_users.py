@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from accounts.models import User, StudentProfile, TeacherProfile, ParentProfile
-from academics.models import AcademicYear, ClassLevel, SchoolClass
+from academics.models import AcademicYear, ClassLevel, SchoolClass, Subject, AssessmentType
 from django.utils import timezone
 
 class Command(BaseCommand):
@@ -19,9 +19,39 @@ class Command(BaseCommand):
             }
         )
 
+        # 1.5 Create Term
+        from academics.models import Term
+        term, _ = Term.objects.get_or_create(
+            academic_year=year,
+            name='1st Term',
+            defaults={
+                'start_date': '2025-09-01',
+                'end_date': '2025-12-15',
+                'is_current': True
+            }
+        )
+
         # 2. Create Class Levels
         level1, _ = ClassLevel.objects.get_or_create(name='Primary 1', defaults={'numeric_level': 1})
         level4, _ = ClassLevel.objects.get_or_create(name='Primary 4', defaults={'numeric_level': 4})
+
+        # 2.5 Create Subjects and AssessmentTypes
+        subj1, _ = Subject.objects.get_or_create(
+            name='Mathematics', code='MTH', level=level4
+        )
+        subj2, _ = Subject.objects.get_or_create(
+            name='English Language', code='ENG', level=level4
+        )
+        
+        ca1, _ = AssessmentType.objects.get_or_create(
+            name='CA 1', defaults={'max_score': 20, 'weight': 20.00}
+        )
+        ca2, _ = AssessmentType.objects.get_or_create(
+            name='CA 2', defaults={'max_score': 20, 'weight': 20.00}
+        )
+        exam, _ = AssessmentType.objects.get_or_create(
+            name='Exam', defaults={'max_score': 60, 'weight': 60.00}
+        )
 
         # 3. Create Admin
         admin_email = 'admin@school.com'
@@ -55,8 +85,7 @@ class Command(BaseCommand):
             )
             TeacherProfile.objects.create(
                 user=teacher_user,
-                staff_id='TCH001',
-                assigned_class=s_class
+                staff_id='TCH001'
             )
             self.stdout.write(self.style.SUCCESS(f'Teacher created: {teacher_email} / password123'))
 
