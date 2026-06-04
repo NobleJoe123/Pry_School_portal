@@ -302,7 +302,7 @@ class TeacherDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'role', 'phone', 'date_birth', 'address', 'is_active', 'date_joined', 'teacher_profile']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'role', 'phone', 'date_of_birth', 'address', 'is_active', 'date_joined', 'teacher_profile']
         
 class CreateTeacherSerializer(serializers.Serializer):
     """Serializer for creating a new teacher"""
@@ -323,7 +323,7 @@ class CreateTeacherSerializer(serializers.Serializer):
     
     date_of_joining = serializers.DateField(required=False, allow_null=False)
     highest_qualification = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    specilaization = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    specialization = serializers.CharField(max_length=100, required=False, allow_blank=True)
     years_of_experience = serializers.IntegerField(default=0)
     subjects_taught = serializers.CharField(required=False, allow_blank=True)
     monthly_salary = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
@@ -403,8 +403,8 @@ class ParentDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'lastname',
-                  'role', 'phone',  'is_active', 'date_joined' 'parent_profile', 'children']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name',
+                  'role', 'phone',  'is_active', 'date_joined', 'parent_profile', 'children']
         
     
     def get_children(self, obj):

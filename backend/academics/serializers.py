@@ -49,6 +49,15 @@ class AssessmentSerializer(serializers.ModelSerializer):
         model = Assessment
         fields = '__all__'
 
+class AssessmentNestedSerializer(serializers.ModelSerializer):
+    assessment_type = AssessmentTypeSerializer(read_only=True)
+    subject = SubjectSerializer(read_only=True)
+    term = TermSerializer(read_only=True)
+
+    class Meta:
+        model = Assessment
+        fields = ['id', 'name', 'assessment_type', 'subject', 'term']
+
 class StudentScoreSerializer(serializers.ModelSerializer):
     student_name = serializers.ReadOnlyField(source='student.full_name')
     assessment_name = serializers.ReadOnlyField(source='assessment.name')
@@ -56,3 +65,8 @@ class StudentScoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentScore
         fields = '__all__'
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['assessment'] = AssessmentNestedSerializer(instance.assessment).data
+        return rep

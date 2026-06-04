@@ -4,17 +4,35 @@ set -e
 
 echo "=== Primary Portal Backend Starting ==="
 
+# Give Docker networking a moment to settle
+sleep 2
+
 # Wait for PostgreSQL
 echo "Waiting for PostgreSQL..."
-while ! nc -z $DB_HOST 5432; do
-  sleep 0.1
+MAX_RETRIES=60
+RETRY=0
+while ! nc -z "$DB_HOST" 5432 2>/dev/null; do
+  RETRY=$((RETRY+1))
+  if [ $RETRY -ge $MAX_RETRIES ]; then
+    echo "ERROR: Could not connect to PostgreSQL after ${MAX_RETRIES} retries."
+    exit 1
+  fi
+  echo "  PostgreSQL not ready yet (attempt $RETRY/$MAX_RETRIES)..."
+  sleep 2
 done
 echo "✓ PostgreSQL is ready"
 
 # Wait for Redis
 echo "Waiting for Redis..."
-while ! nc -z redis 6379; do
-  sleep 0.1
+RETRY=0
+while ! nc -z redis 6379 2>/dev/null; do
+  RETRY=$((RETRY+1))
+  if [ $RETRY -ge $MAX_RETRIES ]; then
+    echo "ERROR: Could not connect to Redis after ${MAX_RETRIES} retries."
+    exit 1
+  fi
+  echo "  Redis not ready yet (attempt $RETRY/$MAX_RETRIES)..."
+  sleep 2
 done
 echo "✓ Redis is ready"
 
