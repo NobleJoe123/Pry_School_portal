@@ -28,7 +28,6 @@ export default function StudentGrades() {
     const [selectedTerm, setSelectedTerm] = useState<string>('');
 
     useEffect(() => {
-        setLoading(true);
         // Fetch terms and scores
         Promise.all([
             api.get<any>(endpoints.academics.terms),

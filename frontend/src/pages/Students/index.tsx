@@ -342,6 +342,11 @@ export default function Students() {
 
                                         </td>
 
+                                        {/* Joined */}
+                                        <td className="px-5 py-3.5 text-slate-400 text-xs">
+                                            {s.date_joined ? new Date(s.date_joined).toLocaleDateString() : '-'}
+                                        </td>
+
                                         {/* Actions */}
                                         <td className="px-5 py-3.5">
                                             <div className="flex items-center gap-2">

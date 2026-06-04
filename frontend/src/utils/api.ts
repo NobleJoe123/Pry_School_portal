@@ -171,12 +171,12 @@ export const endpoints = {
     students: {
         list: '/auth/students/',
         detail: (id: string) => `/auth/students/${id}/`,
-        stats: 'auth/students/stats/',
+        stats: '/auth/students/stats/',
     },
 
     teachers: {
         list: '/auth/teachers/',
-        detail: (id: string) => `/auth/teacher/${id}`,
+        detail: (id: string) => `/auth/teachers/${id}/`,
         stats: '/auth/teachers/stats/'
     },
 

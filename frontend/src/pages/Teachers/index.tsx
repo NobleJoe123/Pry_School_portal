@@ -56,7 +56,7 @@ function ConfirmDeactivate({ teacher, onConfirm, onCancel, loading, }: {
                     They will no longer be able to login.
                 </p>
             </div>
-            <div className="flex-1 py-2.5">
+            <div className="flex gap-3 mt-4">
                 <button onClick={onCancel}
                     className="flex-1 py-2.5 rounded-xl text-sm text-slate-400 border border-white/10 hover:bg-white/5 hover:text-white transition-all" >
                     Cancel
