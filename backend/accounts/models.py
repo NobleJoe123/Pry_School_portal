@@ -169,6 +169,14 @@ class TeacherProfile(models.Model):
     
     # Additional Info
     is_class_teacher = models.BooleanField(default=False)
+    
+    TITLE_CHOICES = [
+        ('Mr', 'Mr.'),
+        ('Mrs', 'Mrs.'),
+        ('Ms', 'Ms.'),
+        ('Dr', 'Dr.'),
+    ]
+    title = models.CharField(max_length=10, choices=TITLE_CHOICES, default='Mr')
 
     
     # Emergency Contact

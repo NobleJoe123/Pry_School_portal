@@ -113,6 +113,14 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         model = StudentProfile
         fields = '__all__'
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.current_class:
+            representation['current_class'] = instance.current_class.name
+        else:
+            representation['current_class'] = None
+        return representation
+
 
 class TeacherProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -210,11 +218,17 @@ class CreateStudentSerializer(serializers.Serializer):
         
         self.context['generated_password'] = password  # Store to print in view
         
+        current_class_name = validated_data.pop('current_class', '')
+        school_class = None
+        if current_class_name:
+            from academics.models import SchoolClass
+            school_class = SchoolClass.objects.filter(name__iexact=current_class_name).first()
+
         profile_fields ={
             'admission_number': validated_data.pop('admission_number'),
             'state_of_origin': validated_data.pop('state_of_origin', ''),
             'place_of_birth': validated_data.pop('place_of_birth', ''),
-            'current_class': validated_data.pop('current_class', ''),
+            'current_class': school_class,
             'gender': validated_data.pop('gender'),
             'blood_group': validated_data.pop('blood_group', ''),
             'admission_date': validated_data.pop('admission_date', None),
@@ -272,7 +286,7 @@ class UpdateStudentSerializer(serializers.Serializer):
         
         profile = instance.student_profile
         profile_fields = [
-            'current_class', 'blood_group', 'emergency_contact_name',
+            'blood_group', 'emergency_contact_name',
             'emergency_contact_phone', 'emergency_contact_relationship',
             'medical_conditions', 'status'
         ]
@@ -280,6 +294,15 @@ class UpdateStudentSerializer(serializers.Serializer):
         for field in profile_fields:
             if field in validated_data:
                 setattr(profile, field, validated_data[field])
+        
+        if 'current_class' in validated_data:
+            current_class_name = validated_data['current_class']
+            if current_class_name:
+                from academics.models import SchoolClass
+                school_class = SchoolClass.objects.filter(name__iexact=current_class_name).first()
+                profile.current_class = school_class
+            else:
+                profile.current_class = None
         
         if 'parent_id' in validated_data:
             parent_id = validated_data['parent_id']

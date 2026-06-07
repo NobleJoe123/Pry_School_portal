@@ -161,7 +161,7 @@ export default function Teachers() {
 
                 </div>
                 <button onClick={() => setAddOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/25 transition-all active:scale-[0.97]"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/25 transition-all hover:scale-[1.02] active:scale-[0.97]"
                 >
                     <UserPlus size={16} />
                     Add Teacher
@@ -185,13 +185,13 @@ export default function Teachers() {
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search by name. email, staff ID..."
-                        className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500/40 transition-all" />
+                        className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/40 transition-all" />
                 </div>
 
                 <select 
                     value={statusFilter} 
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500/40 transition-all min-w-[140px]"
+                    className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/40 transition-all min-w-[140px]"
                     title="Filter by Employment Status"
                 >
                     <option value="" className="bg-[#0d1b2a]">All Statuses</option>
@@ -257,7 +257,7 @@ export default function Teachers() {
                                                     <div className="flex items-center gap-1.5">
                                                         <p className="text-white text-xs font-semibold">{t.full_name}</p>
                                                         {isClassTeacher(t) && (
-                                                            <span className="text [9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-semibold">
+                                                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-400 font-semibold">
                                                                 Class Teacher
                                                             </span>
                                                         )}
@@ -288,7 +288,7 @@ export default function Teachers() {
                                             <div className="flex items-center gap-2">
                                                 <button 
                                                     onClick={() => setEditTarget(t)}
-                                                    className="p-1.5 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 transition-all" 
+                                                    className="p-1.5 rounded-lg text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 transition-all" 
                                                     title="Edit teacher"
                                                     aria-label={`Edit ${t.full_name}`}
                                                 >
@@ -333,7 +333,7 @@ export default function Teachers() {
                                 <button key={p} onClick={() => setPage(p)}
                                     className={`w-7 h-7 rounded-lg text-xs font-semibold transition-all
                     ${p === page
-                                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                            ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                                             : 'text-slate-400 hover:text-white hover:bg-white/10'}`}>
                                     {p}
                                 </button>

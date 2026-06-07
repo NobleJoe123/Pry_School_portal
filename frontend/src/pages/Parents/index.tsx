@@ -96,8 +96,8 @@ function ParentDetail({ parent }: { parent: ParentUser }) {
                 className="flex items-center justify-between px-4 py-3 rounded-xl
                            bg-white/5 border border-white/5">
                 <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400
-                                  to-emerald-500 flex items-center justify-center
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400
+                                  to-blue-500 flex items-center justify-center
                                   text-white text-[10px] font-bold shrink-0">
                     {(child.full_name || '').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                   </div>
@@ -205,7 +205,7 @@ export default function Parents() {
             placeholder="Search by name, email, phone…"
             className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl
                        text-white text-sm placeholder-slate-600 focus:outline-none
-                       focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500/40 transition-all" />
+                       focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/40 transition-all" />
         </div>
         <button 
           onClick={fetchParents}
@@ -289,7 +289,7 @@ export default function Parents() {
                     {/* Children count */}
                     <td className="px-5 py-3.5">
                       <span className="inline-flex items-center gap-1.5 text-xs text-slate-300">
-                        <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400
+                        <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400
                                          text-[10px] font-bold flex items-center justify-center">
                           {getChildCount(p)}
                         </span>
@@ -346,7 +346,7 @@ export default function Parents() {
                 <button key={p} onClick={() => setPage(p)}
                   className={`w-7 h-7 rounded-lg text-xs font-semibold transition-all
                     ${p === page
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                       : 'text-slate-400 hover:text-white hover:bg-white/10'}`}>
                   {p}
                 </button>

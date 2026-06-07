@@ -15,7 +15,7 @@ export function Field({ label, error, required, children }: FieldProps) {
         <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
                 {label}
-                {required && <span className="text-amber-500 ml-1">*</span>}
+                {required && <span className="text-sky-400 ml-1">*</span>}
             </label>
             {children}
             {error && <p className="text-red-400 text-xs">{error}</p>}
@@ -29,7 +29,7 @@ export function Field({ label, error, required, children }: FieldProps) {
 
 
 const inputClass = `w-full px-3.5 py-2.5 rounded-xl border text-white text-sm bg-white/5 border-white/10
-                    placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus :border-amber-500/40`.trim();
+                    placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/40`.trim();
 
 
 // Text Input
@@ -123,8 +123,8 @@ export function SubmitButton({ loading, label, loadingLabel = 'Saving...' }: Sub
             style={{
                 background: loading
                     ? '#334155'
-                    : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                boxShadow: loading ? 'none' : '0 4px 20px rgba(245, 158, 11, 0.25)',
+                    : 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)',
+                boxShadow: loading ? 'none' : '0 4px 20px rgba(56, 189, 248, 0.25)',
             }}>
 
             {loading ? (

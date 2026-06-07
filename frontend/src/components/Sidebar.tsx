@@ -60,7 +60,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     };
 
     const linkBase = 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 relative group';
-    const activeClass = 'bg-amber-500/15 text-amber-400 border border-amber-500/20';
+    const activeClass = 'bg-sky-500/15 text-sky-400 border border-sky-500/20';
     const inactiveClass = 'text-slate-400 hover:text-white hover:bg-white/5';
 
     return (
@@ -71,7 +71,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="flex items-center justify-between px-4 py-5 border-b border-white/5">
                 {!collapsed && (
                     <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-sky-400 shrink-0">
                             <GraduationCap size={16} />
                         </div>
                         <div>
@@ -81,7 +81,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     </div>
                 )}
                 {collapsed && (
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-amber-400 mx-auto">
+                    <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-sky-400 mx-auto">
                         <GraduationCap size={16} />
                     </div>
                 )}
@@ -97,11 +97,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         <span className="shrink-0">{item.icon}</span>
                         {!collapsed && <span className="truncate">{item.label}</span>}
                         {item.badge && !collapsed && (
-                            <span className="ml-auto bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{item.badge}</span>
+                            <span className="ml-auto bg-sky-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{item.badge}</span>
                         )}
 
                         {item.badge && collapsed && (
-                            <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />
+                            <span className="absolute top-1 right-1 w-2 h-2 bg-sky-500 rounded-full" />
                         )}
                         {/* Tooltip */}
                         {collapsed && (
@@ -123,7 +123,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         title={collapsed ? item.label : undefined}>
                         <span className="shrink-0">{item.icon}</span>
                         {item.badge && !collapsed && (
-                            <span className="ml-auto bg-amber-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                            <span className="ml-auto bg-sky-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                                 {item.badge}
                             </span>
                         )}
@@ -143,7 +143,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <div className="px-3 pb-4 pt-2 border-t border-white/5">
                     <div className="flex items-center gap-2.5 px-2.5 rounded-xl bg-white/5">
                         <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-emerald-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
                                 {user.first_name[0]}{user.last_name[0]}
                             </div>
                             <div className="min-w-0">

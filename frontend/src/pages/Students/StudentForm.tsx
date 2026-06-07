@@ -5,6 +5,7 @@ import type { Student, CreateStudentRequest } from '../../types';
 
 interface StudentFormProps {
     studentId?: string;
+    defaultClass?: string;
     onSuccess: () => void;
     onCancel: () => void;
 }
@@ -45,7 +46,7 @@ const RELATION_OPTIONS = ['Father', 'Mother', 'Guardian', 'SIbling', 'Other']
 
 //Form
 
-export default function StudentForm({ studentId, onSuccess, onCancel }: StudentFormProps) {
+export default function StudentForm({ studentId, defaultClass, onSuccess, onCancel }: StudentFormProps) {
     const isEdit = !!studentId;
 
     const [form, setForm] = useState<FormData>(EMPTY_FORM);
@@ -56,7 +57,12 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
     const [apiError, setApiError] = useState('');
 
     useEffect(() => {
-        if (!studentId) return;
+        if (!studentId) {
+            if (defaultClass) {
+                setForm(f => ({ ...f, current_class: defaultClass }));
+            }
+            return;
+        }
         
         setFetching(true);
         api.get<Student>(endpoints.students.detail(studentId))
@@ -162,7 +168,7 @@ export default function StudentForm({ studentId, onSuccess, onCancel }: StudentF
     if (fetching) {
         return (
             <div className="flex items-center justify-center py-12">
-                <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-amber-500 animate-spin" />
+                <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-sky-500 animate-spin" />
             </div>
         );
     }

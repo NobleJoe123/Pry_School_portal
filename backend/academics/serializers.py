@@ -22,10 +22,16 @@ class ClassLevelSerializer(serializers.ModelSerializer):
 class SchoolClassSerializer(serializers.ModelSerializer):
     level_name = serializers.ReadOnlyField(source='level.name')
     teacher_name = serializers.ReadOnlyField(source='teacher.full_name')
+    teacher_title = serializers.SerializerMethodField()
     
     class Meta:
         model = SchoolClass
         fields = '__all__'
+
+    def get_teacher_title(self, obj):
+        if obj.teacher and hasattr(obj.teacher, 'teacher_profile'):
+            return obj.teacher.teacher_profile.title
+        return 'Mr'
 
 class SubjectSerializer(serializers.ModelSerializer):
     level_name = serializers.ReadOnlyField(source='level.name')

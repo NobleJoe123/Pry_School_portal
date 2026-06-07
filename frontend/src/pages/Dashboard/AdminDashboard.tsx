@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { GraduationCap, UserCheck, Users, UserPlus, BookOpen, TrendingUp, RefreshCw, } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, } from 'recharts';
 import StatsCard from '../../components/ui/StatsCard';
@@ -24,7 +25,7 @@ const attendanceData = [
     { day: 'Fri', present: 85, absent: 15 },
 ];
 
-const PIE_COLORS = ['#f59e0b', '#10b981', '#38bdf8', '#a78bfa'];
+const PIE_COLORS = ['#38bdf8', '#0284c7', '#6366f1', '#a5b4fc'];
 
 const ChartTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
@@ -49,7 +50,7 @@ interface RecentStudent {
 function RecentTable({ students, loading }: { students: RecentStudent[]; loading: boolean }) {
     const skeletonRows = Array.from({ length: 5 });
     return (
-        <div className="rounded-2xl border border-white/5 overflow-hidden" style={{ background: 'linear-gradient(135deg, #0d1b2a 0%, #0a1628 100%)' }}>
+        <div className="rounded-2xl border border-white/5 overflow-hidden" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
                 <h3 className="text-white font-semibold text-sm"> Recent Registrations </h3>
                 <span className="text-xs text-slate-500">Last 7 days</span>
@@ -85,7 +86,7 @@ function RecentTable({ students, loading }: { students: RecentStudent[]; loading
                                 <tr key={s.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                                     <td className="px-5 py-3.5">
                                         <div className="flex items-center gap-2.5">
-                                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-emerald-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                                                 {(s.full_name || '').split(' ').map((n) => n[0]).join('').slice(0, 2)}
                                             </div>
                                             <span className="text-white text-xs font-medium">{s.full_name}</span>
@@ -130,35 +131,35 @@ function EnrollmentTable({
     if (pending.length === 0) return null; // Hide if no pending requests
 
     return (
-        <div className="rounded-2xl border border-amber-500/30 overflow-hidden" style={{ background: 'linear-gradient(135deg, #2a1b0d 0%, #1a1005 100%)' }}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-amber-500/20 bg-amber-500/5">
+        <div className="rounded-2xl border border-sky-500/30 overflow-hidden" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-sky-500/20 bg-sky-500/5">
                 <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                    <h3 className="text-amber-400 font-bold text-sm">Action Required: Pending Enrollments</h3>
+                    <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                    <h3 className="text-sky-400 font-bold text-sm">Action Required: Pending Enrollments</h3>
                 </div>
-                <span className="text-xs font-bold bg-amber-500/20 text-amber-500 px-2.5 py-1 rounded-full">{pending.length} Requests</span>
+                <span className="text-xs font-bold bg-sky-500/20 text-sky-400 px-2.5 py-1 rounded-full">{pending.length} Requests</span>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="border-b border-amber-500/10">
-                            <th className="text-left px-5 py-3 text-amber-500/60 text-[10px] font-bold uppercase tracking-widest">Parent Name</th>
-                            <th className="text-left px-5 py-3 text-amber-500/60 text-[10px] font-bold uppercase tracking-widest">Students Count</th>
-                            <th className="text-left px-5 py-3 text-amber-500/60 text-[10px] font-bold uppercase tracking-widest">Submitted</th>
-                            <th className="text-right px-5 py-3 text-amber-500/60 text-[10px] font-bold uppercase tracking-widest">Actions</th>
+                        <tr className="border-b border-sky-500/10">
+                            <th className="text-left px-5 py-3 text-sky-500/60 text-[10px] font-bold uppercase tracking-widest">Parent Name</th>
+                            <th className="text-left px-5 py-3 text-sky-500/60 text-[10px] font-bold uppercase tracking-widest">Students Count</th>
+                            <th className="text-left px-5 py-3 text-sky-500/60 text-[10px] font-bold uppercase tracking-widest">Submitted</th>
+                            <th className="text-right px-5 py-3 text-sky-500/60 text-[10px] font-bold uppercase tracking-widest">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {pending.map((req) => (
-                            <tr key={req.id} className="border-b border-amber-500/5 hover:bg-amber-500/5 transition-colors">
+                            <tr key={req.id} className="border-b border-sky-500/5 hover:bg-sky-500/5 transition-colors">
                                 <td className="px-5 py-4">
-                                    <p className="text-amber-100 text-sm font-bold">{req.parent_first_name} {req.parent_last_name}</p>
-                                    <p className="text-amber-500/60 text-xs font-mono mt-0.5">{req.parent_email}</p>
+                                    <p className="text-sky-100 text-sm font-bold">{req.parent_first_name} {req.parent_last_name}</p>
+                                    <p className="text-sky-500/60 text-xs font-mono mt-0.5">{req.parent_email}</p>
                                 </td>
-                                <td className="px-5 py-4 text-amber-200/80 text-sm font-semibold">
+                                <td className="px-5 py-4 text-sky-200/80 text-sm font-semibold">
                                     {req.students_data?.length || 0} Student(s)
                                 </td>
-                                <td className="px-5 py-4 text-amber-500/60 text-xs">
+                                <td className="px-5 py-4 text-sky-500/60 text-xs">
                                     {new Date(req.created_at).toLocaleDateString()}
                                 </td>
                                 <td className="px-5 py-4 text-right">
@@ -166,7 +167,7 @@ function EnrollmentTable({
                                         <button onClick={() => onDeny(req.id)} className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-lg transition-all">
                                             Deny
                                         </button>
-                                        <button onClick={() => onApprove(req.id)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-emerald-950 text-xs font-black rounded-lg transition-all shadow-lg shadow-emerald-500/20">
+                                        <button onClick={() => onApprove(req.id)} className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-sky-950 text-xs font-black rounded-lg transition-all shadow-lg shadow-sky-500/20">
                                             Verify & Enroll
                                         </button>
                                     </div>
@@ -249,11 +250,9 @@ export default function AdminDashboard() {
     const classPieData = stats ? Object.entries(stats.students_by_class).map(([name, value]) => ({ name, value })) : [];
     
     const statsCards = [
-        { label: 'Total Students', value: stats?.total_students ?? 0, icon: <GraduationCap size={18} />, iconBg: 'bg-amber-500/15', iconColor: 'text-amber-400', trend: { value: 4.2, label: 'vs last term' } },
-        { label: 'Active Students', value: stats?.active_students ?? 0, icon: <BookOpen size={18} />, iconBg: 'bg-emerald-500/15', iconColor: 'text-emerald-400', trend: { value: 2.1, label: 'attendance rate' } },
-        { label: 'Teachers', value: stats?.total_teachers ?? 0, icon: <UserCheck size={18} />, iconBg: 'bg-sky-500/15', iconColor: 'text-sky-400', trend: { value: 0, label: 'no change' } },
-        { label: 'Parents', value: stats?.total_parents ?? 0, icon: <Users size={18} />, iconBg: 'bg-violet-500/15', iconColor: 'text-violet-400', trend: { value: 1.5, label: 'newly registered' } },
-        { label: 'New This Week', value: stats?.recent_registrations ?? 0, icon: <UserPlus size={18} />, iconBg: 'bg-rose-500/15', iconColor: 'text-rose-400' },
+        { label: 'Total Students', value: stats?.total_students ?? 0, icon: <GraduationCap size={18} />, iconBg: 'bg-sky-500/15', iconColor: 'text-sky-400', trend: { value: 4.2, label: 'vs last term' }, to: '/students' },
+        { label: 'Total Teachers', value: stats?.total_teachers ?? 0, icon: <UserCheck size={18} />, iconBg: 'bg-blue-500/15', iconColor: 'text-blue-400', trend: { value: 0, label: 'no change' }, to: '/teachers' },
+        { label: 'Total Parents', value: stats?.total_parents ?? 0, icon: <Users size={18} />, iconBg: 'bg-indigo-500/15', iconColor: 'text-indigo-400', trend: { value: 1.5, label: 'newly registered' }, to: '/parents' },
     ];
 
     return (
@@ -273,19 +272,21 @@ export default function AdminDashboard() {
                     {error}
                 </div>
             )}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {statsCards.map((card) => (
-                    <StatsCard key={card.label} {...card} loading={loading} />
+                    <Link key={card.label} to={card.to} className="block transition-transform hover:scale-[1.02] active:scale-[0.98]">
+                        <StatsCard {...card} loading={loading} />
+                    </Link>
                 ))}
             </div>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                <div className="xl:col-span-2 rounded-2xl border border-white/5 p-5" style={{ background: 'linear-gradient(135deg, #0d1b2a 0%, #0a1628 100%)' }}>
+                <div className="xl:col-span-2 rounded-2xl border border-white/5 p-5" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
                     <div className="flex items-center justify-between mb-5">
                         <div>
                             <h3 className="text-white font-semibold text-sm"> Enrollment Trend</h3>
                             <p className="text-slate-500 text-xs mt-0.5">Student count over the school year</p>
                         </div>
-                        <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-lg">
+                        <div className="flex items-center gap-1.5 text-sky-400 text-xs font-semibold bg-sky-500/10 px-2.5 py-1 rounded-lg">
                             <TrendingUp size={12} /> +19.5%
                         </div>
                     </div>
@@ -293,19 +294,19 @@ export default function AdminDashboard() {
                         <AreaChart data={enrollmentData} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
                             <defs>
                                 <linearGradient id="enrollGrad" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                             <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
                             <Tooltip content={<ChartTooltip />} />
-                            <Area type="monotone" dataKey="students" stroke="#f59e0b" strokeWidth={2} fill="url(#enrollGrad)" dot={false} activeDot={{ r: 4, fill: '#f59e0b' }} />
+                            <Area type="monotone" dataKey="students" stroke="#38bdf8" strokeWidth={2} fill="url(#enrollGrad)" dot={false} activeDot={{ r: 4, fill: '#38bdf8' }} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
-                <div className="rounded-2xl border border-white/5 p-5" style={{ background: 'linear-gradient(135deg, #0d1b2a 0%, #0a1628 100%)' }}>
+                <div className="rounded-2xl border border-white/5 p-5" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
                     <h3 className="text-white font-semibold text-sm mb-1">Students by Class</h3>
                     <p className="text-slate-500 text-xs mb-5"> Distribution across classes</p>
                     {classPieData.length > 0 ? (
@@ -336,7 +337,7 @@ export default function AdminDashboard() {
                     )}
                 </div>
             </div>
-            <div className="rounded-2xl border border-white/5 p-5" style={{ background: 'linear-gradient(135deg, #0d1b2a 0%, #0a1628 100%)' }} >
+            <div className="rounded-2xl border border-white/5 p-5" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }} >
                 <div className="flex items-center justify-between mb-5">
                     <div>
                         <h3 className="text-white font-semibold text-sm"> Weekly Attendance </h3>
