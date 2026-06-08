@@ -359,7 +359,12 @@ class StudentViewSet(viewsets.ModelViewSet):
         return Response({
             'total_students': queryset.count(),
             'active_students': queryset.filter(student_profile__status='active').count(),
-            'by_class': list(queryset.values('student_profile__current_class').annotate(count=Count('id')))
+            'by_class': list(
+                queryset
+                .exclude(student_profile__current_class=None)
+                .values('student_profile__current_class__name')
+                .annotate(count=Count('id'))
+            )
         })
     
     

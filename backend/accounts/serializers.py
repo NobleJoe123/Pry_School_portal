@@ -56,7 +56,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     )
     password_confirm = serializers.CharField(
         write_only=True,
-        required=True,
+        required=False,
         style={'input_type': 'password'}
     )
     
@@ -68,7 +68,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
     
     def validate(self, attrs):
-        if attrs['password'] != attrs['password_confirm']:
+        if 'password_confirm' in attrs and attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError(
                 {"password_confirm": "Password fields didn't match."}
             )
@@ -85,7 +85,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value.lower()
     
     def create(self, validated_data):
-        validated_data.pop('password_confirm')
+        validated_data.pop('password_confirm', None)
         validated_data['role'] = 'parent'  # Default role for self-registration
         
         user = User.objects.create_user(
@@ -172,7 +172,7 @@ class CreateStudentSerializer(serializers.Serializer):
     address = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, required=False)
     
-    admission_number = serializers.CharField(max_length=50)
+    admission_number = serializers.CharField(max_length=50, required=False, allow_blank=True)
     state_of_origin = serializers.CharField(max_length=100, required=False, allow_blank=True)
     place_of_birth = serializers.CharField(max_length=100, required=False, allow_blank=True)
     current_class = serializers.CharField(max_length=50, required=False, allow_blank=True)
@@ -224,8 +224,14 @@ class CreateStudentSerializer(serializers.Serializer):
             from academics.models import SchoolClass
             school_class = SchoolClass.objects.filter(name__iexact=current_class_name).first()
 
-        profile_fields ={
-            'admission_number': validated_data.pop('admission_number'),
+        # Auto-generate admission number if not provided
+        import uuid as _uuid
+        from django.utils import timezone as _tz
+        raw_adm = validated_data.pop('admission_number', '') or ''
+        adm_num = raw_adm.strip() or f"ADM{_tz.now().year}{_uuid.uuid4().hex[:6].upper()}"
+
+        profile_fields = {
+            'admission_number': adm_num,
             'state_of_origin': validated_data.pop('state_of_origin', ''),
             'place_of_birth': validated_data.pop('place_of_birth', ''),
             'current_class': school_class,
@@ -319,13 +325,15 @@ class UpdateStudentSerializer(serializers.Serializer):
 # TEACHER MANAGEMENT SERIALIZERS
 
 class TeacherDetailSerializer(serializers.ModelSerializer):
-    """Complete teacher data including user info"""
-    user = UserSerializer(read_only=True)
+    """Complete teacher data including user info - model IS User so no nested 'user' field"""
     teacher_profile = TeacherProfileSerializer(read_only=True)
+    full_name = serializers.CharField(read_only=True)
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'role', 'phone', 'date_of_birth', 'address', 'is_active', 'date_joined', 'teacher_profile']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name',
+                  'role', 'phone', 'date_of_birth', 'address', 'is_active',
+                  'date_joined', 'last_login', 'teacher_profile']
         
 class CreateTeacherSerializer(serializers.Serializer):
     """Serializer for creating a new teacher"""

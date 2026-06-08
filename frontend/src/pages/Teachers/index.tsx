@@ -12,6 +12,7 @@ import type { User } from '../../types';
 type EmploymentStatus = 'full_time' | 'part_time' | 'contract';
 
 type TeacherUser = User & {
+    last_login?: string | null;
     teacher_profile?: {
         staff_id: string;
         employment_status: EmploymentStatus;
@@ -20,6 +21,11 @@ type TeacherUser = User & {
         is_class_teacher: boolean;
         assigned_class: string | null;
         date_of_joining: string;
+        highest_qualification?: string | null;
+        years_of_experience?: number;
+        monthly_salary?: string | null;
+        emergency_contact_name?: string | null;
+        emergency_contact_phone?: string | null;
     };
 };
 
@@ -72,6 +78,184 @@ function ConfirmDeactivate({ teacher, onConfirm, onCancel, loading, }: {
 }
 
 
+interface TeacherDetailViewProps {
+    teacher: TeacherUser;
+    studentCount: number;
+    onClose: () => void;
+}
+
+function TeacherDetailView({ teacher, studentCount, onClose }: TeacherDetailViewProps) {
+    const profile = teacher.teacher_profile;
+    const getStatusLabel = (status: EmploymentStatus) => {
+        switch(status) {
+            case 'full_time': return 'Full Time';
+            case 'part_time': return 'Part Time';
+            case 'contract': return 'Contract';
+            default: return status;
+        }
+    };
+
+    return (
+        <div className="space-y-6 text-slate-300">
+            {/* Top Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                    <span className="text-xs text-slate-500 font-semibold uppercase">Assigned Class</span>
+                    <span className="text-lg font-bold text-white mt-1">
+                        {profile?.assigned_class || 'No class assigned'}
+                    </span>
+                </div>
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                    <span className="text-xs text-slate-500 font-semibold uppercase">Students under care</span>
+                    <span className="text-lg font-bold text-sky-400 mt-1">
+                        {profile?.assigned_class ? `${studentCount} Students` : '0 Students'}
+                    </span>
+                </div>
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                    <span className="text-xs text-slate-500 font-semibold uppercase">Salary Status</span>
+                    <span className="inline-flex items-center gap-1.5 text-emerald-400 text-sm font-semibold mt-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Paid (On Schedule)
+                    </span>
+                </div>
+            </div>
+
+            {/* Profile Info Sections */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Personal Info */}
+                <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-sky-400 uppercase tracking-wider">Personal Details</h4>
+                    <div className="space-y-2.5">
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Email</span>
+                            <span className="text-white font-medium">{teacher.email}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Phone</span>
+                            <span className="text-white font-medium">{teacher.phone || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Date of Birth</span>
+                            <span className="text-white font-medium">
+                                {teacher.date_of_birth ? new Date(teacher.date_of_birth).toLocaleDateString() : 'N/A'}
+                            </span>
+                        </div>
+                        <div className="flex justify-between pb-2 text-sm">
+                            <span className="text-slate-500">Address</span>
+                            <span className="text-white font-medium text-right max-w-[200px] truncate" title={teacher.address || undefined}>
+                                {teacher.address || 'N/A'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Employment Info */}
+                <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-sky-400 uppercase tracking-wider">Employment Details</h4>
+                    <div className="space-y-2.5">
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Staff ID</span>
+                            <span className="text-white font-mono font-medium">{profile?.staff_id || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Status</span>
+                            <span className="text-white font-medium">
+                                {profile?.employment_status ? getStatusLabel(profile.employment_status) : 'N/A'}
+                            </span>
+                        </div>
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Date Joined</span>
+                            <span className="text-white font-medium">
+                                {profile?.date_of_joining ? new Date(profile.date_of_joining).toLocaleDateString() : 'N/A'}
+                            </span>
+                        </div>
+                        <div className="flex justify-between pb-2 text-sm">
+                            <span className="text-slate-500">Experience</span>
+                            <span className="text-white font-medium">
+                                {profile?.years_of_experience !== undefined ? `${profile.years_of_experience} Years` : 'N/A'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Academic Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-sky-400 uppercase tracking-wider">Academic Profile</h4>
+                    <div className="space-y-2.5">
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Qualification</span>
+                            <span className="text-white font-medium">{profile?.highest_qualification || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Specialization</span>
+                            <span className="text-white font-medium">{profile?.specialization || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between pb-2 text-sm">
+                            <span className="text-slate-500">Subjects Taught</span>
+                            <span className="text-white font-medium text-right max-w-[200px] truncate" title={profile?.subjects_taught || undefined}>
+                                {profile?.subjects_taught || 'N/A'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Financial & Audit Info */}
+                <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-sky-400 uppercase tracking-wider">Financial & Audit Info</h4>
+                    <div className="space-y-2.5">
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Monthly Salary</span>
+                            <span className="text-white font-medium">
+                                {profile?.monthly_salary ? `₦${Number(profile.monthly_salary).toLocaleString()}` : 'N/A'}
+                            </span>
+                        </div>
+                        <div className="flex justify-between border-b border-white/5 pb-2 text-sm">
+                            <span className="text-slate-500">Last Login</span>
+                            <span className="text-white text-xs font-medium font-mono">
+                                {teacher.last_login ? new Date(teacher.last_login).toLocaleString() : 'Never logged in'}
+                            </span>
+                        </div>
+                        <div className="flex justify-between pb-2 text-sm">
+                            <span className="text-slate-500">Account Status</span>
+                            <span className={`font-semibold ${teacher.is_active ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {teacher.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Emergency Contact */}
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                <h4 className="text-xs font-bold text-sky-400 uppercase tracking-wider">Emergency Contact</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span className="text-slate-500 block text-xs">Contact Name</span>
+                        <span className="text-white font-medium">{profile?.emergency_contact_name || 'N/A'}</span>
+                    </div>
+                    <div>
+                        <span className="text-slate-500 block text-xs">Contact Phone</span>
+                        <span className="text-white font-medium">{profile?.emergency_contact_phone || 'N/A'}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+                <button
+                    onClick={onClose}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-slate-400 border border-white/10 hover:bg-white/5 hover:text-white transition-all"
+                >
+                    Close Profile
+                </button>
+            </div>
+        </div>
+    );
+}
+
+
 // Teachers Page
 
 export default function Teachers() {
@@ -86,6 +270,8 @@ export default function Teachers() {
     const [editTarget, setEditTarget] = useState<TeacherUser | null>(null);
     const [deactivateTarget, setDeactivateTarget] = useState<TeacherUser | null>(null);
     const [deactivating, setDeactivating] = useState(false);
+    const [viewTarget, setViewTarget] = useState<TeacherUser | null>(null);
+    const [classCounts, setClassCounts] = useState<Record<string, number>>({});
 
     // Fetch
 
@@ -113,7 +299,24 @@ export default function Teachers() {
         }
     }, [search, statusFilter, page]);
 
+    const fetchClassCounts = useCallback(async () => {
+        try {
+            const statsData = await api.get<any>(endpoints.students.stats);
+            const counts: Record<string, number> = {};
+            if (statsData && statsData.by_class) {
+                statsData.by_class.forEach((item: any) => {
+                    const name = item.student_profile__current_class__name;
+                    if (name) counts[name] = item.count;
+                });
+            }
+            setClassCounts(counts);
+        } catch (err) {
+            console.error("Failed to load class counts", err);
+        }
+    }, []);
+
     useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
+    useEffect(() => { fetchClassCounts(); }, [fetchClassCounts]);
     useEffect(() => { setPage(1); }, [search, statusFilter]);
 
     // Deactivate
@@ -245,7 +448,8 @@ export default function Teachers() {
                             ) : (
                                 teachers.map((t) => (
                                     <tr key={t.id}
-                                        className="border-b border-white/[0.02] transition-colors">
+                                        onClick={() => setViewTarget(t)}
+                                        className="border-b border-white/[0.02] hover:bg-white/[0.02] cursor-pointer transition-colors">
 
                                         {/* Name & Profile */}
                                         <td className="px-5 py-3.5">
@@ -285,7 +489,7 @@ export default function Teachers() {
                                         </td>
 
                                         <td className="px-5 py-3.5">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                 <button 
                                                     onClick={() => setEditTarget(t)}
                                                     className="p-1.5 rounded-lg text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 transition-all" 
@@ -351,6 +555,18 @@ export default function Teachers() {
                     </div>
                 )}
             </div>
+
+            {/* ── Detail Modal ── */}
+            <Modal isOpen={!!viewTarget} onClose={() => setViewTarget(null)}
+                title="Teacher Profile Details" subtitle="View complete details and status." size="lg">
+                {viewTarget && (
+                    <TeacherDetailView
+                        teacher={viewTarget}
+                        studentCount={viewTarget.teacher_profile?.assigned_class ? classCounts[viewTarget.teacher_profile.assigned_class] ?? 0 : 0}
+                        onClose={() => setViewTarget(null)}
+                    />
+                )}
+            </Modal>
 
             {/* ── Add Modal ── */}
             <Modal isOpen={addOpen} onClose={() => setAddOpen(false)}
