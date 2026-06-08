@@ -124,10 +124,15 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
 class TeacherProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    assigned_class = serializers.SerializerMethodField()
     
     class Meta:
         model = TeacherProfile
         fields = '__all__'
+
+    def get_assigned_class(self, obj):
+        assigned_class = obj.user.assigned_classes.first()
+        return assigned_class.name if assigned_class else None
 
 
 class ParentProfileSerializer(serializers.ModelSerializer):
@@ -423,7 +428,199 @@ class CreateTeacherSerializer(serializers.Serializer):
                 pass
                 
         return user
+
+
+class UpdateTeacherSerializer(serializers.Serializer):
+    """Serializer for updating an existing teacher"""
+    first_name = serializers.CharField(max_length=150, required=False)
+    last_name = serializers.CharField(max_length=150, required=False)
+    phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    is_active = serializers.BooleanField(required=False)
     
+    employment_status = serializers.ChoiceField(
+        choices=['full_time', 'part_time', 'contract'],
+        required=False
+    )
+    highest_qualification = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    specialization = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    years_of_experience = serializers.IntegerField(required=False)
+    subjects_taught = serializers.CharField(required=False, allow_blank=True)
+    monthly_salary = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+    is_class_teacher = serializers.BooleanField(required=False)
+    assigned_class = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    emergency_contact_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    emergency_contact_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        user_fields = ['first_name', 'last_name', 'phone', 'date_of_birth', 'address', 'is_active']
+        for field in user_fields:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+        instance.save()
+        
+        profile = instance.teacher_profile
+        profile_fields = [
+            'employment_status', 'highest_qualification', 'specialization',
+            'years_of_experience', 'subjects_taught', 'monthly_salary',
+            'is_class_teacher', 'emergency_contact_name', 'emergency_contact_phone'
+        ]
+        for field in profile_fields:
+            if field in validated_data:
+                setattr(profile, field, validated_data[field])
+        profile.save()
+        
+        if 'assigned_class' in validated_data:
+            assigned_class_name = validated_data['assigned_class']
+            from academics.models import SchoolClass
+            
+            # Remove this teacher from any classes they were previously assigned to
+            SchoolClass.objects.filter(teacher=instance).update(teacher=None)
+            
+            if assigned_class_name:
+                school_class = SchoolClass.objects.filter(name__iexact=assigned_class_name).first()
+                if school_class:
+                    school_class.teacher = instance
+                    school_class.save()
+                    
+        return instance
+
+
+class CreateParentSerializer(serializers.Serializer):
+    """Serializer for creating a new parent by admin"""
+    email = serializers.EmailField()
+    username = serializers.CharField(max_length=150)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, required=False)
+    
+    relationship_to_student = serializers.ChoiceField(
+        choices=['father', 'mother', 'guardian', 'other'],
+        default='guardian'
+    )
+    occupation = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    employer = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    office_address = serializers.CharField(required=False, allow_blank=True)
+    office_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    alternate_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    
+    student_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False
+    )
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value.lower()).exists():
+            raise serializers.ValidationError("This email already exists.")
+        return value.lower()
+    
+    def validate_username(self, value):
+        if User.objects.filter(username=value.lower()).exists():
+            raise serializers.ValidationError("This username already exists.")
+        return value.lower()
+
+    @transaction.atomic
+    def create(self, validated_data):
+        import secrets
+        import string
+        
+        password = validated_data.pop('password', None)
+        if not password:
+            alphabet = string.ascii_letters + string.digits
+            password = ''.join(secrets.choice(alphabet) for i in range(8))
+            
+        student_ids = validated_data.pop('student_ids', [])
+        
+        profile_fields = {
+            'relationship_to_student': validated_data.pop('relationship_to_student', 'guardian'),
+            'occupation': validated_data.pop('occupation', ''),
+            'employer': validated_data.pop('employer', ''),
+            'office_address': validated_data.pop('office_address', ''),
+            'office_phone': validated_data.pop('office_phone', ''),
+            'alternate_phone': validated_data.pop('alternate_phone', ''),
+        }
+        
+        user_fields = {
+            'email': validated_data['email'],
+            'username': validated_data['username'],
+            'first_name': validated_data['first_name'],
+            'last_name': validated_data['last_name'],
+            'phone': validated_data.get('phone', ''),
+            'date_of_birth': validated_data.get('date_of_birth'),
+            'address': validated_data.get('address', ''),
+            'role': 'parent',
+        }
+        
+        user = User.objects.create_user(**user_fields, password=password)
+        
+        ParentProfile.objects.create(
+            user=user,
+            **profile_fields
+        )
+        
+        if student_ids:
+            StudentProfile.objects.filter(user_id__in=student_ids).update(parent=user)
+            
+        return user
+
+
+class UpdateParentSerializer(serializers.Serializer):
+    """Serializer for updating an existing parent by admin"""
+    first_name = serializers.CharField(max_length=150, required=False)
+    last_name = serializers.CharField(max_length=150, required=False)
+    phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    is_active = serializers.BooleanField(required=False)
+    
+    relationship_to_student = serializers.ChoiceField(
+        choices=['father', 'mother', 'guardian', 'other'],
+        required=False
+    )
+    occupation = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    employer = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    office_address = serializers.CharField(required=False, allow_blank=True)
+    office_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    alternate_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    
+    student_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False
+    )
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        user_fields = ['first_name', 'last_name', 'phone', 'date_of_birth', 'address', 'is_active']
+        for field in user_fields:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+        instance.save()
+        
+        profile, created = ParentProfile.objects.get_or_create(user=instance)
+        profile_fields = [
+            'relationship_to_student', 'occupation', 'employer',
+            'office_address', 'office_phone', 'alternate_phone'
+        ]
+        for field in profile_fields:
+            if field in validated_data:
+                setattr(profile, field, validated_data[field])
+        profile.save()
+        
+        if 'student_ids' in validated_data:
+            student_ids = validated_data['student_ids']
+            # Unlink previous students
+            StudentProfile.objects.filter(parent=instance).update(parent=None)
+            if student_ids:
+                StudentProfile.objects.filter(user_id__in=student_ids).update(parent=instance)
+                
+        return instance
+
+
     # Parent Details Serializers
     
 class ParentDetailSerializer(serializers.ModelSerializer):

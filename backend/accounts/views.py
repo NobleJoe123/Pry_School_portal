@@ -17,7 +17,8 @@ from .serializers import (
     TeacherProfileSerializer, ParentProfileSerializer, EnrollmentRequestSerializer,
     ChangePasswordSerializer, CreateStudentSerializer, StudentDetailSerializer, 
     UpdateStudentSerializer, CreateTeacherSerializer, TeacherDetailSerializer, 
-    ParentDetailSerializer
+    ParentDetailSerializer, UpdateTeacherSerializer, CreateParentSerializer,
+    UpdateParentSerializer
 )
 
 from .permissions import IsAdminOrReadOnly
@@ -391,6 +392,8 @@ class TeacherViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'create':
             return CreateTeacherSerializer
+        elif self.action in ['update', 'partial_update']:
+            return UpdateTeacherSerializer
         elif self.action == 'retrieve':
             return TeacherDetailSerializer
         return UserSerializer
@@ -404,6 +407,18 @@ class TeacherViewSet(viewsets.ModelViewSet):
             'message': 'Teacher created successfully!',
             'teacher': UserSerializer(user, context={'request': request}).data
         }, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        return Response({
+            'message': 'Teacher updated successfully!',
+            'teacher': UserSerializer(user, context={'request': request}).data
+        })
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -429,11 +444,11 @@ class TeacherViewSet(viewsets.ModelViewSet):
 
 # PARENT MANAGEMENT VIEWS
 
-class ParentViewSet(viewsets.ReadOnlyModelViewSet):
+class ParentViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for viewing parents
+    ViewSet for managing parents
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['first_name', 'last_name', 'email', 'phone']
     ordering = ['-date_joined']
@@ -442,9 +457,44 @@ class ParentViewSet(viewsets.ReadOnlyModelViewSet):
         return User.objects.filter(role='parent').select_related('parent_profile').prefetch_related('children')
     
     def get_serializer_class(self):
-        if self.action == 'retrieve':
+        if self.action == 'create':
+            return CreateParentSerializer
+        elif self.action in ['update', 'partial_update']:
+            return UpdateParentSerializer
+        elif self.action == 'retrieve':
             return ParentDetailSerializer
         return UserSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        return Response({
+            'message': 'Parent created successfully!',
+            'parent': UserSerializer(user, context={'request': request}).data
+        }, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        return Response({
+            'message': 'Parent updated successfully!',
+            'parent': UserSerializer(user, context={'request': request}).data
+        })
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        
+        return Response({
+            'message': 'Parent deactivated successfully!'
+        }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'])
     def link_students(self, request):
