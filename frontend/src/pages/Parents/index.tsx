@@ -2,18 +2,21 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Search, RefreshCw, ChevronLeft, ChevronRight,
   Users, XCircle, CheckCircle, Eye, ChevronDown, ChevronUp,
+  Edit2, Plus
 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import { api, endpoints } from '../../utils/api';
 import type { User } from '../../types';
+import ParentForm from './ParentForm';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type ParentUser = User & {
+export type ParentUser = User & {
   parent_profile?: {
     relationship_to_student: string;
     occupation:              string | null;
     employer:                string | null;
+    office_address:          string | null;
     office_phone:            string | null;
     alternate_phone:         string | null;
   };
@@ -135,6 +138,8 @@ export default function Parents() {
   const [page,         setPage]         = useState(1);
   const [viewTarget,   setViewTarget]   = useState<ParentUser | null>(null);
   const [expandedRow,  setExpandedRow]  = useState<string | null>(null);
+  const [isFormOpen,   setIsFormOpen]   = useState(false);
+  const [editParentId, setEditParentId] = useState<string | undefined>(undefined);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchParents = useCallback(async () => {
@@ -183,10 +188,15 @@ export default function Parents() {
             {total > 0 ? `${total} parents registered` : 'No parents yet'}
           </p>
         </div>
-        {/* Parents self-register — no Add button needed */}
-        <div className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-xs">
-          Parents register via the portal
-        </div>
+        <button
+          onClick={() => {
+            setEditParentId(undefined);
+            setIsFormOpen(true);
+          }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-violet-500/25 hover:shadow-violet-500/35 hover:-translate-y-0.5 active:translate-y-0 transition-all"
+        >
+          <Plus size={14} /> Add Parent
+        </button>
       </div>
 
       {/* ── Error ── */}
@@ -313,11 +323,21 @@ export default function Parents() {
 
                     {/* Actions */}
                     <td className="px-5 py-3.5">
-                      <button onClick={() => setViewTarget(p)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-sky-400
-                                   hover:bg-sky-500/10 transition-all" title="View details">
-                        <Eye size={14} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setViewTarget(p)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-sky-400
+                                     hover:bg-sky-500/10 transition-all" title="View details">
+                          <Eye size={14} />
+                        </button>
+                        <button onClick={() => {
+                          setEditParentId(p.id);
+                          setIsFormOpen(true);
+                        }}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400
+                                     hover:bg-violet-500/10 transition-all" title="Edit parent">
+                          <Edit2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -371,6 +391,21 @@ export default function Parents() {
         subtitle={viewTarget?.email}
         size="lg">
         {viewTarget && <ParentDetail parent={viewTarget} />}
+      </Modal>
+
+      {/* ── Parent Add/Edit Modal ── */}
+      <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)}
+        title={editParentId ? 'Edit Parent' : 'Add Parent'}
+        subtitle={editParentId ? 'Modify parent details' : 'Register a new parent'}
+        size="lg">
+        <ParentForm
+          parentId={editParentId}
+          onSuccess={() => {
+            setIsFormOpen(false);
+            fetchParents();
+          }}
+          onCancel={() => setIsFormOpen(false)}
+        />
       </Modal>
     </div>
   );
