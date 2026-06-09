@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest
+from .models import User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest, Notification
 from django.db import transaction
 
 class UserSerializer(serializers.ModelSerializer):
@@ -215,13 +215,8 @@ class CreateStudentSerializer(serializers.Serializer):
         import secrets
         import string
         
-        # Generate random password if not provided
         password = validated_data.pop('password', None)
-        if not password:
-            alphabet = string.ascii_letters + string.digits
-            password = ''.join(secrets.choice(alphabet) for i in range(8))
-        
-        self.context['generated_password'] = password  # Store to print in view
+        self.context['generated_password'] = password
         
         current_class_name = validated_data.pop('current_class', '')
         school_class = None
@@ -260,6 +255,9 @@ class CreateStudentSerializer(serializers.Serializer):
             password=password,
             role='student',
         )
+        if not password:
+            user.set_unusable_password()
+            user.save(update_fields=['password'])
         
         StudentProfile.objects.create(
             user=user,
@@ -652,4 +650,73 @@ class EnrollmentRequestSerializer(serializers.ModelSerializer):
         fields = '__all__'
         extra_kwargs = {
             'password': {'write_only': True}
-        }
+        }
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source='sender.full_name', read_only=True)
+    recipient_name = serializers.CharField(source='recipient.full_name', read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'sender', 'sender_name', 'recipient', 'recipient_name',
+            'title', 'message', 'category', 'audience', 'is_read',
+            'created_at', 'read_at'
+        ]
+        read_only_fields = ['id', 'sender', 'recipient', 'created_at', 'read_at']
+
+
+class NotificationCreateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=180)
+    message = serializers.CharField()
+    category = serializers.ChoiceField(
+        choices=['general', 'attendance', 'finance', 'academics', 'enrollment'],
+        default='general',
+        required=False
+    )
+    audience = serializers.ChoiceField(
+        choices=['selected', 'all_teachers', 'all_parents', 'all_students', 'all_staff'],
+        default='selected'
+    )
+    recipient_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_empty=True
+    )
+
+    def validate(self, attrs):
+        audience = attrs.get('audience', 'selected')
+        recipient_ids = attrs.get('recipient_ids', [])
+        if audience == 'selected' and not recipient_ids:
+            raise serializers.ValidationError({'recipient_ids': 'Select at least one recipient.'})
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context['request']
+        audience = validated_data.get('audience', 'selected')
+        recipient_ids = validated_data.get('recipient_ids', [])
+
+        if audience == 'all_teachers':
+            recipients = User.objects.filter(role='teacher', is_active=True)
+        elif audience == 'all_parents':
+            recipients = User.objects.filter(role='parent', is_active=True)
+        elif audience == 'all_students':
+            recipients = User.objects.filter(role='student', is_active=True)
+        elif audience == 'all_staff':
+            recipients = User.objects.filter(role__in=['admin', 'teacher'], is_active=True)
+        else:
+            recipients = User.objects.filter(id__in=recipient_ids, is_active=True)
+
+        notifications = [
+            Notification(
+                sender=request.user,
+                recipient=recipient,
+                title=validated_data['title'],
+                message=validated_data['message'],
+                category=validated_data.get('category', 'general'),
+                audience=audience
+            )
+            for recipient in recipients.exclude(id=request.user.id)
+        ]
+        return Notification.objects.bulk_create(notifications)

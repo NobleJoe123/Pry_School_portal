@@ -260,3 +260,53 @@ class EnrollmentRequest(models.Model):
 
     def __str__(self):
         return f"Enrollment Request from {self.parent_first_name} {self.parent_last_name} ({self.status})"
+
+
+class Notification(models.Model):
+    CATEGORY_CHOICES = [
+        ('general', 'General'),
+        ('attendance', 'Attendance'),
+        ('finance', 'Finance'),
+        ('academics', 'Academics'),
+        ('enrollment', 'Enrollment'),
+    ]
+
+    AUDIENCE_CHOICES = [
+        ('selected', 'Selected Users'),
+        ('all_teachers', 'All Teachers'),
+        ('all_parents', 'All Parents'),
+        ('all_students', 'All Students'),
+        ('all_staff', 'All Staff'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sent_notifications'
+    )
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    title = models.CharField(max_length=180)
+    message = models.TextField()
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='general')
+    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES, default='selected')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read']),
+            models.Index(fields=['category']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} -> {self.recipient.full_name}"

@@ -20,7 +20,8 @@ from .views import (
     # Dashboard Views
     dashboard_stats,
     
-    EnrollmentRequestViewSet
+    EnrollmentRequestViewSet,
+    NotificationViewSet
 )
 
 
@@ -29,6 +30,7 @@ router.register(r'students', StudentViewSet, basename='student')
 router.register(r'teachers', TeacherViewSet, basename='teacher')
 router.register(r'parents', ParentViewSet, basename='parent')
 router.register(r'enrollment', EnrollmentRequestViewSet, basename='enrollment')
+router.register(r'notifications', NotificationViewSet, basename='notification')
 
 app_name = 'accounts'
 

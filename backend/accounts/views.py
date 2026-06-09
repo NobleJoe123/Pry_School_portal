@@ -11,14 +11,14 @@ from django.db.models import Count
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db import transaction
-from .models import User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest
+from .models import User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest, Notification
 from .serializers import (
     UserSerializer, RegisterSerializer, StudentProfileSerializer,
     TeacherProfileSerializer, ParentProfileSerializer, EnrollmentRequestSerializer,
     ChangePasswordSerializer, CreateStudentSerializer, StudentDetailSerializer, 
     UpdateStudentSerializer, CreateTeacherSerializer, TeacherDetailSerializer, 
     ParentDetailSerializer, UpdateTeacherSerializer, CreateParentSerializer,
-    UpdateParentSerializer
+    UpdateParentSerializer, NotificationSerializer, NotificationCreateSerializer
 )
 
 from .permissions import IsAdminOrReadOnly
@@ -314,13 +314,15 @@ class StudentViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         
-        password = serializer.context.get('generated_password')
         admission_number = user.student_profile.admission_number
         
         print("\n" + "="*50)
         print(f"NEW STUDENT CREATED: {user.full_name}")
         print(f"ADMISSION NUMBER: {admission_number}")
-        print(f"PASSWORD: {password}")
+        if serializer.context.get('generated_password'):
+            print("PASSWORD: Provided by admin")
+        else:
+            print("LOGIN: Disabled; managed through parent account")
         print("="*50 + "\n")
         
         return Response({
@@ -328,7 +330,7 @@ class StudentViewSet(viewsets.ModelViewSet):
             'student': UserSerializer(user, context={'request': request}).data,
             'credentials': {
                 'admission_number': admission_number,
-                'password': password
+                'login_enabled': bool(serializer.context.get('generated_password'))
             }
         }, status=status.HTTP_201_CREATED)
         
@@ -589,16 +591,17 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
         try:
             with transaction.atomic():
                 # 1. Create Parent User
-                parent_user = User.objects.create_user(
+                parent_user = User(
                     email=enrollment.parent_email,
                     username=enrollment.parent_email.split('@')[0],
-                    password=enrollment.password,
                     first_name=enrollment.parent_first_name,
                     last_name=enrollment.parent_last_name,
                     phone=enrollment.parent_phone,
                     address=enrollment.parent_address,
                     role='parent'
                 )
+                parent_user.password = enrollment.password
+                parent_user.save()
                 
                 # 2. Create Parent Profile
                 ParentProfile.objects.create(
@@ -621,13 +624,15 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                     student_user = User.objects.create_user(
                         email=s_email,
                         username=s_username,
-                        password="password123",
+                        password=None,
                         first_name=student_data.get('first_name'),
                         middle_name=student_data.get('middle_name', ''),
                         last_name=student_data.get('last_name'),
                         address=enrollment.parent_address, # Shared address
                         role='student'
                     )
+                    student_user.set_unusable_password()
+                    student_user.save(update_fields=['password'])
 
                     # Find class if specified
                     school_class = None
@@ -672,4 +677,47 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
         
         enrollment.status = 'denied'
         enrollment.save()
-        return Response({'message': 'Enrollment denied.'})
+        return Response({'message': 'Enrollment denied.'})
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Notification.objects.select_related('sender', 'recipient')
+        if user.role == 'admin':
+            scope = self.request.query_params.get('scope')
+            if scope == 'sent':
+                return queryset.filter(sender=user)
+        return queryset.filter(recipient=user)
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return NotificationCreateSerializer
+        return NotificationSerializer
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role != 'admin':
+            return Response({'error': 'Only admins can send notifications.'}, status=status.HTTP_403_FORBIDDEN)
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        notifications = serializer.save()
+        return Response({
+            'message': f'Sent {len(notifications)} notification(s).',
+            'count': len(notifications),
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.read_at = timezone.now()
+        notification.save(update_fields=['is_read', 'read_at'])
+        return Response({'message': 'Notification marked as read.'})
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        updated = self.get_queryset().filter(is_read=False).update(is_read=True, read_at=timezone.now())
+        return Response({'message': f'Marked {updated} notification(s) as read.'})
