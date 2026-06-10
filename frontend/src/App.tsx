@@ -11,6 +11,7 @@ import Parents from './pages/Parents';
 import Academics from './pages/Academics';
 import Finance from './pages/Finance';
 import Attendance from './pages/Attendance';
+import Notifications from './pages/Notifications';
 import DashboardLayout from './components/DashboardLayout';
 
 
@@ -90,7 +91,7 @@ export default function App() {
 
               {/* Common Routes */}
               <Route path="/settings" element={<Placeholder name="Settings" />} />
-              <Route path="/notifications" element={<Placeholder name="Notifications" />} />
+              <Route path="/notifications" element={<Notifications />} />
             </Route>
           </Route>
 

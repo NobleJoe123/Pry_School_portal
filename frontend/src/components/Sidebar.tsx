@@ -39,7 +39,7 @@ const NAV_ITEMS: NavItem[] = [
 
 
 const BOTTOM_ITEMS = [
-    { label: 'Notifications', icon: <Bell size={18} />, to: '/notifications', badge: 3 },
+    { label: 'Notifications', icon: <Bell size={18} />, to: '/notifications' },
     { label: 'Settings', icon: <Settings size={18} />, to: '/settings' },
 ];
 
@@ -122,12 +122,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     }
                         title={collapsed ? item.label : undefined}>
                         <span className="shrink-0">{item.icon}</span>
-                        {item.badge && !collapsed && (
-                            <span className="ml-auto bg-sky-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                                {item.badge}
-                            </span>
-                        )}
-
+                        {!collapsed && <span className="truncate">{item.label}</span>}
                     </NavLink>
                 ))}
 

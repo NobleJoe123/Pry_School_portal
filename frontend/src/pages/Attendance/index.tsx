@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
 import { 
     CalendarCheck, 
     Users, 
@@ -10,14 +11,118 @@ import {
     ChevronRight,
     Save,
     RotateCcw,
-    AlertCircle
+    AlertCircle,
+    Bell,
+    Send
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import type { StudentAttendance, SchoolClass, User } from '../../types';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
+const getList = <T,>(value: any): T[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (Array.isArray(value.results)) return value.results;
+    return [];
+};
+
+function AdminNoticePanel() {
+    const [audience, setAudience] = useState('all_parents');
+    const [title, setTitle] = useState('Attendance notice');
+    const [message, setMessage] = useState('');
+    const [people, setPeople] = useState<User[]>([]);
+    const [recipientIds, setRecipientIds] = useState<string[]>([]);
+    const [sending, setSending] = useState(false);
+    const [sent, setSent] = useState('');
+
+    useEffect(() => {
+        if (audience !== 'selected') return;
+        Promise.all([
+            api.get<any>(endpoints.teachers.list),
+            api.get<any>(endpoints.parents.list),
+            api.get<any>(endpoints.students.list),
+        ]).then(([teachers, parents, students]) => {
+            setPeople([...getList<User>(teachers), ...getList<User>(parents), ...getList<User>(students)]);
+        });
+    }, [audience]);
+
+    const toggleRecipient = (id: string) => {
+        setRecipientIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+    };
+
+    const sendNotice = async (event: FormEvent) => {
+        event.preventDefault();
+        setSending(true);
+        setSent('');
+        try {
+            const response = await api.post<{ message: string }>(endpoints.auth.notifications, {
+                audience,
+                category: 'attendance',
+                title,
+                message,
+                recipient_ids: audience === 'selected' ? recipientIds : [],
+            });
+            setSent(response.message);
+            setMessage('');
+            setRecipientIds([]);
+        } finally {
+            setSending(false);
+        }
+    };
+
+    return (
+        <form onSubmit={sendNotice} className="p-5 bg-sky-500/[0.04] border border-sky-500/20 rounded-2xl space-y-4">
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center">
+                        <Bell size={18} />
+                    </div>
+                    <div>
+                        <h2 className="text-white font-bold text-sm">Attendance Notifications</h2>
+                        <p className="text-slate-500 text-xs">Send dashboard notices to parents, teachers, students, or selected people.</p>
+                    </div>
+                </div>
+                {sent && <span className="text-emerald-400 text-xs font-bold">{sent}</span>}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select value={audience} onChange={(e) => setAudience(e.target.value)} className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500/50">
+                    <option value="all_parents">All parents</option>
+                    <option value="all_teachers">All teachers</option>
+                    <option value="all_students">All students</option>
+                    <option value="all_staff">All staff</option>
+                    <option value="selected">Specific people</option>
+                </select>
+                <input value={title} onChange={(e) => setTitle(e.target.value)} required className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500/50" />
+            </div>
+
+            {audience === 'selected' && (
+                <div className="max-h-36 overflow-y-auto rounded-xl border border-white/10 bg-slate-950/50 p-2 space-y-1">
+                    {people.map((person) => (
+                        <label key={person.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer">
+                            <input type="checkbox" checked={recipientIds.includes(person.id)} onChange={() => toggleRecipient(person.id)} />
+                            <span className="text-sm text-white">{person.full_name}</span>
+                            <span className="text-[10px] uppercase text-slate-500 ml-auto">{person.role}</span>
+                        </label>
+                    ))}
+                </div>
+            )}
+
+            <div className="flex flex-col md:flex-row gap-3">
+                <textarea value={message} onChange={(e) => setMessage(e.target.value)} required rows={2} placeholder="Notice message..." className="flex-1 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500/50 resize-none" />
+                <button disabled={sending || (audience === 'selected' && recipientIds.length === 0)} className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-slate-950 text-sm font-black transition-all">
+                    <Send size={16} />
+                    {sending ? 'Sending...' : 'Send'}
+                </button>
+            </div>
+        </form>
+    );
+}
+
 export default function Attendance() {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [classes, setClasses] = useState<SchoolClass[]>([]);
     const [selectedClass, setSelectedClass] = useState<string>('');
@@ -134,6 +239,8 @@ export default function Attendance() {
                     </div>
                 </div>
             </div>
+
+            {user?.role === 'admin' && <AdminNoticePanel />}
 
             {/* Selection Bar */}
             <div className="p-4 bg-white/5 border border-white/10 rounded-2xl flex flex-wrap items-center gap-4">

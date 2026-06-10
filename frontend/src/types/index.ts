@@ -323,4 +323,20 @@ export interface TeacherAttendance {
     check_in_time: string | null;
     check_out_time: string | null;
     status: 'present' | 'absent' | 'on_leave';
-}
+}
+
+// Notifications
+export interface Notification {
+    id: string;
+    sender: string | null;
+    sender_name?: string | null;
+    recipient: string;
+    recipient_name?: string;
+    title: string;
+    message: string;
+    category: 'general' | 'attendance' | 'finance' | 'academics' | 'enrollment';
+    audience: 'selected' | 'all_teachers' | 'all_parents' | 'all_students' | 'all_staff';
+    is_read: boolean;
+    created_at: string;
+    read_at: string | null;
+}

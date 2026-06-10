@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { GraduationCap, Users, CalendarCheck, BookOpen, Clock, AlertCircle } from 'lucide-react';
 import StatsCard from '../../components/ui/StatsCard';
 import { useAuth } from '../../context/AuthContext';
+import RecentNotifications from '../../components/RecentNotifications';
 
 export default function TeacherDashboard() {
     const { user } = useAuth();
@@ -97,6 +98,8 @@ export default function TeacherDashboard() {
                             </li>
                         </ul>
                     </div>
+
+                    <RecentNotifications />
                 </div>
             </div>
         </div>

@@ -3,6 +3,7 @@ import { GraduationCap, CreditCard, CalendarCheck, BookOpen, Heart, Bell, Plus, 
 import StatsCard from '../../components/ui/StatsCard';
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
+import RecentNotifications from '../../components/RecentNotifications';
 
 function LinkStudentsForm({ onLinked }: { onLinked: () => void }) {
     const [admissionNumbers, setAdmissionNumbers] = useState<string[]>(['']);
@@ -184,22 +185,7 @@ export default function ParentDashboard() {
                         </div>
                     </div>
 
-                    <div className="bg-amber-500/5 rounded-2xl border border-amber-500/10 p-6">
-                        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                            <Bell size={18} className="text-amber-500" />
-                            School Notices
-                        </h3>
-                        <div className="space-y-4">
-                            <div className="border-l-2 border-amber-500/30 pl-4">
-                                <p className="text-white text-xs font-semibold">Mid-term break starts Friday</p>
-                                <p className="text-slate-500 text-[10px] mt-1">Please ensure all children are picked up by 1:00 PM.</p>
-                            </div>
-                            <div className="border-l-2 border-amber-500/30 pl-4">
-                                <p className="text-white text-xs font-semibold">Cultural day next month</p>
-                                <p className="text-slate-500 text-[10px] mt-1">Get your traditional attires ready!</p>
-                            </div>
-                        </div>
-                    </div>
+                    <RecentNotifications />
                 </div>
             </div>
         </div>

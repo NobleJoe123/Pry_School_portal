@@ -5,6 +5,7 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import StatsCard from '../../components/ui/StatsCard';
 import { api, endpoints } from '../../utils/api';
 import type { DashboardStats, User } from '../../types';
+import RecentNotifications from '../../components/RecentNotifications';
 
 // Mockup Data 
 const enrollmentData = [
@@ -364,6 +365,7 @@ export default function AdminDashboard() {
                 </ResponsiveContainer>
             </div>
             <EnrollmentTable enrollments={enrollments} loading={loading} onApprove={handleApprove} onDeny={handleDeny} />
+            <RecentNotifications />
             <RecentTable students={recentStudents} loading={loading} />
         </div>
     );

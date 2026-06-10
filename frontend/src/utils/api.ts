@@ -166,6 +166,7 @@ export const endpoints = {
         changepassword: '/auth/change-password/',
         dashboardStats: '/auth/dashboard/stats/',
         enrollment: '/auth/enrollment/',
+        notifications: '/auth/notifications/',
     },
 
     students: {
