@@ -138,6 +138,8 @@ export default function StudentForm({ studentId, defaultClass, onSuccess, onCanc
                         phone: form.phone,
                         date_of_birth: form.date_of_birth || null,
                         address: form.address,
+                        state_of_origin: form.state_of_origin,
+                        place_of_birth: form.place_of_birth,
                         current_class: form.current_class,
                         blood_group: form.blood_group,
                         status: form.status,

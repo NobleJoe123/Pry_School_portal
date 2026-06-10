@@ -13,7 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
+            'id', 'username', 'email', 'first_name', 'middle_name', 'last_name',
             'full_name', 'role', 'phone', 'date_of_birth', 'address',
             'profile_photo_url', 'is_active', 'date_joined', 'children'
         ]
@@ -106,8 +106,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    parent_name = serializers.CharField(source='parent.full_name', read_only=True)
+    parent_name = serializers.CharField(source='parent.full_name', read_only=True, allow_null=True, default=None)
     
     class Meta:
         model = StudentProfile
@@ -123,7 +122,6 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
 
 class TeacherProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
     assigned_class = serializers.SerializerMethodField()
     
     class Meta:
@@ -157,12 +155,37 @@ class ChangePasswordSerializer(serializers.Serializer):
 # STUDENT PROFILE SERILAIZERS 
 
 class StudentDetailSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = serializers.SerializerMethodField()
     student_profile = StudentProfileSerializer(read_only=True)
     
     class Meta:
-        model = StudentProfile
+        model = User
         fields = ['user', 'student_profile']
+        
+    def get_user(self, obj):
+        return UserSerializer(obj, context=self.context).data
+
+
+class StudentListSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(read_only=True)
+    profile_photo_url = serializers.SerializerMethodField()
+    student_profile = StudentProfileSerializer(read_only=True)
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'full_name', 'role', 'phone', 'date_of_birth', 'address',
+            'profile_photo_url', 'is_active', 'date_joined', 'student_profile'
+        ]
+        
+    def get_profile_photo_url(self, obj):
+        if obj.profile_photo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_photo.url)
+            return obj.profile_photo.url
+        return None
         
 
 class CreateStudentSerializer(serializers.Serializer):
@@ -271,6 +294,7 @@ class CreateStudentSerializer(serializers.Serializer):
 class UpdateStudentSerializer(serializers.Serializer):
     """Serializer for updating an existing student"""
     first_name = serializers.CharField(max_length=150, required=False)
+    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False)
     phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
@@ -279,15 +303,18 @@ class UpdateStudentSerializer(serializers.Serializer):
     
     current_class = serializers.CharField(max_length=50, required=False, allow_blank=True)
     blood_group = serializers.CharField(max_length=5, required=False, allow_blank=True)
+    state_of_origin = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    place_of_birth = serializers.CharField(max_length=100, required=False, allow_blank=True)
     parent_id = serializers.UUIDField(required=False, allow_null=True)
     emergency_contact_name = serializers.CharField(max_length=50, required=False, allow_blank=True)
     emergency_contact_phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
+    emergency_contact_relationship = serializers.CharField(max_length=50, required=False, allow_blank=True)
     medical_conditions = serializers.CharField(required=False, allow_blank=True)
     status = serializers.ChoiceField(choices=['active', 'graduated', 'transferred', 'suspended'], required=False)
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        user_fields = ['first_name', 'last_name', 'phone', 'date_of_birth', 'address', 'is_active']
+        user_fields = ['first_name', 'middle_name', 'last_name', 'phone', 'date_of_birth', 'address', 'is_active']
         for field in user_fields:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
@@ -295,9 +322,9 @@ class UpdateStudentSerializer(serializers.Serializer):
         
         profile = instance.student_profile
         profile_fields = [
-            'blood_group', 'emergency_contact_name',
-            'emergency_contact_phone', 'emergency_contact_relationship',
-            'medical_conditions', 'status'
+            'blood_group', 'state_of_origin', 'place_of_birth',
+            'emergency_contact_name', 'emergency_contact_phone',
+            'emergency_contact_relationship', 'medical_conditions', 'status'
         ]
         
         for field in profile_fields:
@@ -328,15 +355,39 @@ class UpdateStudentSerializer(serializers.Serializer):
 # TEACHER MANAGEMENT SERIALIZERS
 
 class TeacherDetailSerializer(serializers.ModelSerializer):
-    """Complete teacher data including user info - model IS User so no nested 'user' field"""
+    """Complete teacher data including user info - model IS User"""
+    user = serializers.SerializerMethodField()
     teacher_profile = TeacherProfileSerializer(read_only=True)
-    full_name = serializers.CharField(read_only=True)
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name',
-                  'role', 'phone', 'date_of_birth', 'address', 'is_active',
-                  'date_joined', 'last_login', 'teacher_profile']
+        fields = ['user', 'teacher_profile']
+        
+    def get_user(self, obj):
+        return UserSerializer(obj, context=self.context).data
+
+
+class TeacherListSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(read_only=True)
+    profile_photo_url = serializers.SerializerMethodField()
+    teacher_profile = TeacherProfileSerializer(read_only=True)
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'full_name', 'role', 'phone', 'date_of_birth', 'address',
+            'profile_photo_url', 'is_active', 'date_joined', 'last_login',
+            'teacher_profile'
+        ]
+        
+    def get_profile_photo_url(self, obj):
+        if obj.profile_photo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_photo.url)
+            return obj.profile_photo.url
+        return None
         
 class CreateTeacherSerializer(serializers.Serializer):
     """Serializer for creating a new teacher"""
@@ -623,25 +674,23 @@ class UpdateParentSerializer(serializers.Serializer):
     
 class ParentDetailSerializer(serializers.ModelSerializer):
     """Complete parent data with children"""
-    user = UserSerializer(read_only=True)
     parent_profile = ParentProfileSerializer(read_only=True)
     children = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name',
-                  'role', 'phone',  'is_active', 'date_joined', 'parent_profile', 'children']
+                  'role', 'phone', 'date_of_birth', 'address', 'is_active', 
+                  'date_joined', 'parent_profile', 'children']
         
-    
     def get_children(self, obj):
-        children_users = obj.children.all()
+        children_profiles = obj.children.all()
         children_data = []
-        for child in children_users:
-            if hasattr(child, 'student_profile'):
-                children_data.append({
-                    'user': UserSerializer(child).data,
-                    'profile': StudentProfileSerializer(child.student_profile).data
-                })
+        for profile in children_profiles:
+            children_data.append({
+                'user': UserSerializer(profile.user, context=self.context).data,
+                'profile': StudentProfileSerializer(profile, context=self.context).data
+            })
         return children_data  
 
 class EnrollmentRequestSerializer(serializers.ModelSerializer):

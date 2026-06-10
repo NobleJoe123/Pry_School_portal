@@ -69,12 +69,13 @@ export default function ParentForm({ parentId, onSuccess, onCancel }: ParentForm
   const [studentSearch, setStudentSearch] = useState('');
 
   // Fetch all students for linking on mount
+  // StudentListSerializer returns flat: { id, full_name, student_profile, ... }
   useEffect(() => {
     api.get<{ results: any[] }>(`${endpoints.students.list}?page_size=1000`)
       .then((data) => {
         const list = data.results.map((s: any) => ({
-          id: s.user.id,
-          full_name: s.user.full_name,
+          id: s.id,
+          full_name: s.full_name,
           admission_number: s.student_profile?.admission_number ?? '—',
           current_class: s.student_profile?.current_class ?? null,
         }));

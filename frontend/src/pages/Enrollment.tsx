@@ -110,9 +110,9 @@ export default function Enrollment() {
         return;
       }
     } else if (step === 2) {
-      const incomplete = studentsData.some(s => !s.first_name || !s.last_name || !s.dob || !s.email || !s.username);
+      const incomplete = studentsData.some(s => !s.first_name || !s.last_name || !s.dob || !s.class);
       if (incomplete) {
-        setError('Please fill in all required student details (Name, DOB, Email, Username).');
+        setError('Please fill in all required student details (First Name, Last Name, Date of Birth, and Class).');
         return;
       }
     }
@@ -329,10 +329,6 @@ export default function Enrollment() {
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address</label>
                   <input type="email" required value={parentData.parent_email} onChange={e => setParentData({ ...parentData, parent_email: e.target.value })} className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Employment Details (Occupation & Employer)</label>
-                  <input placeholder="e.g. Software Engineer at Google" value={parentData.employment_details} onChange={e => setParentData({ ...parentData, employment_details: e.target.value })} className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500/50" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Residential Address</label>

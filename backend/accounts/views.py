@@ -16,9 +16,10 @@ from .serializers import (
     UserSerializer, RegisterSerializer, StudentProfileSerializer,
     TeacherProfileSerializer, ParentProfileSerializer, EnrollmentRequestSerializer,
     ChangePasswordSerializer, CreateStudentSerializer, StudentDetailSerializer, 
-    UpdateStudentSerializer, CreateTeacherSerializer, TeacherDetailSerializer, 
-    ParentDetailSerializer, UpdateTeacherSerializer, CreateParentSerializer,
-    UpdateParentSerializer, NotificationSerializer, NotificationCreateSerializer
+    StudentListSerializer, UpdateStudentSerializer, CreateTeacherSerializer, 
+    TeacherDetailSerializer, TeacherListSerializer, ParentDetailSerializer, 
+    UpdateTeacherSerializer, CreateParentSerializer, UpdateParentSerializer, 
+    NotificationSerializer, NotificationCreateSerializer
 )
 
 from .permissions import IsAdminOrReadOnly
@@ -307,7 +308,7 @@ class StudentViewSet(viewsets.ModelViewSet):
             return UpdateStudentSerializer
         elif self.action == 'retrieve':
             return StudentDetailSerializer
-        return UserSerializer
+        return StudentListSerializer
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -398,7 +399,7 @@ class TeacherViewSet(viewsets.ModelViewSet):
             return UpdateTeacherSerializer
         elif self.action == 'retrieve':
             return TeacherDetailSerializer
-        return UserSerializer
+        return TeacherListSerializer
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -463,7 +464,7 @@ class ParentViewSet(viewsets.ModelViewSet):
             return CreateParentSerializer
         elif self.action in ['update', 'partial_update']:
             return UpdateParentSerializer
-        elif self.action == 'retrieve':
+        elif self.action in ['retrieve', 'list']:
             return ParentDetailSerializer
         return UserSerializer
 

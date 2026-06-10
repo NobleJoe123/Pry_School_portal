@@ -49,12 +49,12 @@ function ParentDetail({ parent }: { parent: ParentUser }) {
   const children = (parent.children ?? []).map((child: any) => {
     if (child.user) {
       return {
-        id: child.user.id || child.id,
+        id: child.user.id,
         full_name: child.user.full_name || '',
         is_active: child.user.is_active !== undefined ? child.user.is_active : true,
         student_profile: {
           admission_number: child.profile?.admission_number || '',
-          current_class: child.profile?.current_class?.name || 'No class',
+          current_class: child.profile?.current_class || 'No class',
           status: child.profile?.status || 'active'
         }
       };
