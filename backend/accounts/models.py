@@ -252,6 +252,14 @@ class EnrollmentRequest(models.Model):
     password = models.CharField(max_length=128)
     students_data = models.JSONField(default=list)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    parent_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='enrollment_requests'
+    )
+    approval_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -1,15 +1,20 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import type { User, LoginRequest } from '../types';
+import type { User, LoginRequest, EnrollmentStatus } from '../types';
 import { api, endpoints, AccessToken, refreshAccessToken } from '../utils/api';
 
 
 // Context Types
 
+interface LoginResult {
+    user: User;
+    enrollmentStatus?: EnrollmentStatus;
+}
+
 interface AuthContextValue {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (credentials: LoginRequest) => Promise<User>;
+    login: (credentials: LoginRequest) => Promise<LoginResult>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
 }
@@ -64,7 +69,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         AccessToken.set(data.access_token);
         setUser(data.user);
-        return data.user;
+
+        // For parent users, check enrollment status
+        let enrollmentStatus: EnrollmentStatus | undefined;
+        if (data.user.role === 'parent') {
+            try {
+                enrollmentStatus = await api.get<EnrollmentStatus>(
+                    '/auth/parent-enrollment-status/'
+                );
+            } catch (err) {
+                // If enrollment status check fails, continue without it
+                console.warn('Could not fetch enrollment status');
+            }
+        }
+
+        return { user: data.user, enrollmentStatus };
     }, []);
 
 
@@ -94,8 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 export function useAuth(): AuthContextValue {
-    const ctx = useContext(AuthContext); 
-    if (!ctx) throw new Error('useAuth must be used within <AuthProvider>'); 
+    const ctx = useContext(AuthContext);
+    if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
     return ctx;
 }
 

@@ -340,3 +340,22 @@ export interface Notification {
     created_at: string;
     read_at: string | null;
 }
+
+// Enrollment Types
+export type EnrollmentStatusType = 'pending' | 'approved' | 'denied' | 'none';
+
+export interface EnrollmentStatus {
+    status: EnrollmentStatusType;
+    linked_students_count: number;
+    has_enrollment_request: boolean;
+    enrollment_created_at: string | null;
+}
+
+export interface StudentAdmissionDetail {
+    id: string;
+    full_name: string;
+    admission_number: string;
+    class_name: string;
+    gender: Gender;
+    status: StudentStatus;
+}

@@ -588,7 +588,7 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
         enrollment = self.get_object()
         if enrollment.status != 'pending':
             return Response({'error': 'Can only approve pending requests.'}, status=400)
-        
+
         try:
             with transaction.atomic():
                 # 1. Create Parent User
@@ -603,7 +603,7 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                 )
                 parent_user.password = enrollment.password
                 parent_user.save()
-                
+
                 # 2. Create Parent Profile
                 ParentProfile.objects.create(
                     user=parent_user,
@@ -617,7 +617,7 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                 created_students = []
                 for student_data in enrollment.students_data:
                     admission_number = f"ADM{timezone.now().year}{uuid.uuid4().hex[:6].upper()}"
-                    
+
                     # Use provided email and username or fallback to generated ones
                     s_email = student_data.get('email') or f"{admission_number.lower()}@school.local"
                     s_username = student_data.get('username') or admission_number.lower()
@@ -640,7 +640,7 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                     class_name = student_data.get('class')
                     if class_name:
                         school_class = SchoolClass.objects.filter(name__icontains=class_name).first()
-                    
+
                     StudentProfile.objects.create(
                         user=student_user,
                         admission_number=admission_number,
@@ -655,17 +655,32 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                         medical_conditions=student_data.get('medical_conditions', ''),
                         current_class=school_class
                     )
-                    created_students.append(admission_number)
-                
+                    created_students.append({
+                        'admission_number': admission_number,
+                        'student_name': f"{student_data.get('first_name')} {student_data.get('last_name')}"
+                    })
+
                 enrollment.status = 'approved'
+                enrollment.parent_user = parent_user
+                enrollment.approval_date = timezone.now()
                 enrollment.save()
-                
-                # Note: Email sending logic would go here
-                
+
+                # Print admission numbers to terminal for local development
+                print("\n" + "="*70)
+                print(f"ENROLLMENT APPROVED")
+                print(f"Parent Email: {parent_user.email}")
+                print(f"Parent Name: {parent_user.full_name}")
+                print(f"Approval Date: {enrollment.approval_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                print("-"*70)
+                for idx, student in enumerate(created_students, 1):
+                    print(f"Student {idx}: {student['student_name']}")
+                    print(f"  Admission Number: {student['admission_number']}")
+                print("="*70 + "\n")
+
                 return Response({
                     'message': 'Enrollment approved.',
                     'parent_email': parent_user.email,
-                    'admission_numbers': created_students
+                    'admission_numbers': [s['admission_number'] for s in created_students]
                 })
         except Exception as e:
             return Response({'error': str(e)}, status=500)
@@ -675,10 +690,80 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
         enrollment = self.get_object()
         if enrollment.status != 'pending':
             return Response({'error': 'Can only deny pending requests.'}, status=400)
-        
+
         enrollment.status = 'denied'
         enrollment.save()
         return Response({'message': 'Enrollment denied.'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def parent_enrollment_status(request):
+    """
+    GET /api/auth/parent-enrollment-status/
+    Check enrollment status for authenticated parent user
+    Returns: { status: 'approved'|'pending'|'denied'|'none', linked_students_count: int }
+    """
+    user = request.user
+
+    # Only parents can use this endpoint
+    if user.role != 'parent':
+        return Response(
+            {'error': 'This endpoint is for parents only.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Check for enrollment request matching this email
+    enrollment = EnrollmentRequest.objects.filter(parent_email=user.email).latest('created_at') if EnrollmentRequest.objects.filter(parent_email=user.email).exists() else None
+
+    enrollment_status = 'none'
+    if enrollment:
+        enrollment_status = enrollment.status
+
+    # Count linked students
+    linked_students_count = user.children.count()
+
+    return Response({
+        'status': enrollment_status,
+        'linked_students_count': linked_students_count,
+        'has_enrollment_request': enrollment is not None,
+        'enrollment_created_at': enrollment.created_at.isoformat() if enrollment else None
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_by_admission_number(request):
+    """
+    GET /api/auth/student-by-admission/?admission_number=ADM2026XXXXX
+    Get student details by admission number for confirmation display
+    """
+    admission_number = request.query_params.get('admission_number', '').strip()
+
+    if not admission_number:
+        return Response(
+            {'error': 'admission_number query parameter is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        student_profile = StudentProfile.objects.select_related('user', 'current_class').get(
+            admission_number__iexact=admission_number
+        )
+
+        return Response({
+            'id': str(student_profile.id),
+            'full_name': student_profile.user.full_name,
+            'admission_number': student_profile.admission_number,
+            'class_name': student_profile.current_class.name if student_profile.current_class else 'Not Assigned',
+            'gender': student_profile.gender,
+            'status': student_profile.status
+        }, status=status.HTTP_200_OK)
+    except StudentProfile.DoesNotExist:
+        return Response(
+            {'error': 'Student not found with this admission number.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 
 class NotificationViewSet(viewsets.ModelViewSet):

@@ -2,8 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { UserRole } from '../types';
+import type { UserRole, EnrollmentStatus } from '../types';
 import hero from '../assets/Hero1.jpg'
+import EnrollmentPendingModal from '../components/EnrollmentPendingModal';
+import EnrollmentAdmissionModal from '../components/EnrollmentAdmissionModal';
 
 // Role Mapping
 
@@ -70,7 +72,7 @@ function LeftPanel() {
           <span className="text-gradient-brand"> Tomorrow's </span>
           <br />  Leaders.
         </h1>
-        <p className="text-slate-400 text-sm text-white leading-relaxed max-w-sm"> A unified portal for everything your primary school needs in one place. </p> 
+        <p className="text-slate-400 text-sm text-white leading-relaxed max-w-sm"> A unified portal for everything your primary school needs in one place. </p>
           <p className="text-slate-400 text-sm text-white leading-relaxed max-w-sm"> let's get the portal started....</p>
         <div className="flex flex-wrap gap-2 mt-8">
           {roles.map((r) => (
@@ -106,6 +108,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Enrollment modals state
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [showAdmissionModal, setShowAdmissionModal] = useState(false);
+  const [enrollmentStatus, setEnrollmentStatus] = useState<EnrollmentStatus | null>(null);
+
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -114,9 +121,26 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const loggedInUser = await login({ identifier, password });
+      const result = await login({ identifier, password });
+      const loggedInUser = result.user;
+      const status = result.enrollmentStatus;
 
-  
+      // Handle enrollment status for parents
+      if (loggedInUser.role === 'parent' && status) {
+        setEnrollmentStatus(status);
+
+        if (status.status === 'pending') {
+          // Show pending enrollment modal
+          setShowPendingModal(true);
+          return;
+        } else if (status.status === 'approved' && status.linked_students_count === 0) {
+          // Show admission number linking modal
+          setShowAdmissionModal(true);
+          return;
+        }
+      }
+
+      // Normal redirect
       const destination = from || ROLE_ROUTES[loggedInUser.role];
       navigate(destination, { replace: true });
 
@@ -127,6 +151,16 @@ export default function Login() {
     }
   };
 
+  const handlePendingModalClose = () => {
+    setShowPendingModal(false);
+    // User stays logged in, redirect to parent dashboard
+    navigate('/parent', { replace: true });
+  };
+
+  const handleAdmissionSuccess = () => {
+    setShowAdmissionModal(false);
+    navigate('/parent', { replace: true });
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -162,13 +196,13 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-widest mb-2"> 
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-widest mb-2">
                 Admission No / Email
               </label>
-              <input 
-                type="text" 
-                required 
-                value={identifier} 
+              <input
+                type="text"
+                required
+                value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="e.g. ADM/2024/001 or parent@email.com"
                 className="w-full px-4 py-3.5 rounded-xl border text-slate-800 text-sm bg-white border-slate-200 placeholder-slate-300
@@ -241,6 +275,16 @@ export default function Login() {
 
 
       </div>
+
+      {/* Modals */}
+      <EnrollmentPendingModal isOpen={showPendingModal} onClose={handlePendingModalClose} />
+      {user && (
+        <EnrollmentAdmissionModal
+          isOpen={showAdmissionModal}
+          parentId={user.id}
+          onSuccess={handleAdmissionSuccess}
+        />
+      )}
 
       {/* Google Fonts */}
 
