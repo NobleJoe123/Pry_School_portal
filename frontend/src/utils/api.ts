@@ -65,10 +65,19 @@ export async function apiFetch<T>(
 ): Promise<T> {
     const { skipAuth = false, ...rest } = options;
 
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(rest.headers as Record<string, string>),
-    };
+    // Don't set Content-Type for FormData – browser sets it with boundary
+    const isFormData = rest.body instanceof FormData;
+
+    const headers: Record<string, string> = isFormData
+        ? {}
+        : {
+              'Content-Type': 'application/json',
+              ...(rest.headers as Record<string, string>),
+          };
+
+    if (!isFormData && rest.headers) {
+        Object.assign(headers, rest.headers as Record<string, string>);
+    }
 
     if (!skipAuth) {
         const token = AccessToken.get();
@@ -122,7 +131,7 @@ export async function apiFetch<T>(
 
 
 
-// Convience Method........
+// Convience Methods
 
 
 export const api = {
@@ -150,6 +159,11 @@ export const api = {
     delete: <T>(endpoint: string, options?: FetchOptions) =>
         apiFetch<T>(endpoint, { method: 'DELETE', ...options }),
 
+    postFormData: <T>(endpoint: string, formData: FormData) =>
+        apiFetch<T>(endpoint, {
+            method: 'POST',
+            body: formData,
+        }),
 
 };
 
@@ -167,6 +181,8 @@ export const endpoints = {
         dashboardStats: '/auth/dashboard/stats/',
         enrollment: '/auth/enrollment/',
         notifications: '/auth/notifications/',
+        parentCompleteProfile: '/auth/parent/complete-profile/',
+        parentEnrollmentStatus: '/auth/parent-enrollment-status/',
     },
 
     students: {

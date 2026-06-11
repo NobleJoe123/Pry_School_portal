@@ -152,13 +152,80 @@ export interface ParentProfile {
 
 // DashBoard Types
 
+export interface AttendanceToday {
+    present: number;
+    absent: number;
+    late: number;
+    rate: number;
+    classes_submitted: number;
+}
+
+export interface FeeDefaulter {
+    name: string;
+    admission_number: string;
+    class_name: string;
+    fee_type: string;
+    balance: number;
+}
+
+export interface FinanceSummary {
+    outstanding_fees_count: number;
+    collected_today: number;
+    fee_defaulters: FeeDefaulter[];
+}
+
+export interface ClassOverview {
+    id: string;
+    name: string;
+    level: string;
+    pupil_count: number;
+    teacher_name: string | null;
+}
+
+export interface ActivityFeedItem {
+    type: string;
+    title: string;
+    subtitle: string;
+    time: string;
+    color: 'emerald' | 'amber' | 'sky' | 'red';
+}
+
+export interface CurrentTermInfo {
+    id: string;
+    name: string;
+    academic_year: string;
+    start_date: string;
+    end_date: string;
+}
+
 export interface DashboardStats {
-    total_students: number;
-    active_students: number;
+    // Core counts
+    total_pupils: number;
     total_teachers: number;
     total_parents: number;
+    active_classes: number;
+    total_classes: number;
+    new_admissions: number;
+    pending_enrollments: number;
+    // Backwards compat
+    total_students: number;
+    active_students: number;
+    // Nested
+    attendance_today: AttendanceToday;
+    finance: FinanceSummary;
+    current_term: CurrentTermInfo | null;
     students_by_class: Record<string, number>;
-    recent_registrations: number;
+    classes_overview: ClassOverview[];
+    activity_feed: ActivityFeedItem[];
+}
+
+// Parent Profile Completion
+export interface ParentProfileCompletionData {
+    phone: string;
+    address: string;
+    relationship_to_student: string;
+    passport_photo: File | null;
+    id_document: File | null;
 }
 
 
