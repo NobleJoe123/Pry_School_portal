@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { GraduationCap, CreditCard, CalendarCheck, BookOpen, Heart, Bell, Plus, Trash2, CheckCircle, Users } from 'lucide-react';
+import { GraduationCap, CreditCard, CalendarCheck, Bell, Heart, Plus, Trash2, Users } from 'lucide-react';
 import StatsCard from '../../components/ui/StatsCard';
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
 import RecentNotifications from '../../components/RecentNotifications';
 import EnrollmentAdmissionModal from '../../components/EnrollmentAdmissionModal';
+import ParentProfileCompletionModal from '../../components/ParentProfileCompletionModal';
 
 function LinkStudentsForm({ onLinked }: { onLinked: () => void }) {
     const [admissionNumbers, setAdmissionNumbers] = useState<string[]>(['']);
@@ -86,14 +87,39 @@ export default function ParentDashboard() {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [showLinkModal, setShowLinkModal] = useState(false);
+    const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
+    const [profileCheckDone, setProfileCheckDone] = useState(false);
 
     useEffect(() => {
-        setTimeout(() => setLoading(false), 1000);
+        const checkProfile = async () => {
+            try {
+                // Check enrollment / profile status from backend
+                const data = await api.get<{ completed_profile?: boolean }>(endpoints.auth.parentEnrollmentStatus);
+                // If the backend returns completed_profile explicitly
+                if (data && typeof (data as any).completed_profile === 'boolean') {
+                    setNeedsProfileCompletion(!(data as any).completed_profile);
+                }
+            } catch {
+                // silently ignore; profile check is best-effort
+            } finally {
+                setProfileCheckDone(true);
+                setTimeout(() => setLoading(false), 500);
+            }
+        };
+        checkProfile();
     }, []);
 
     const children = user?.children || [];
 
-    if (!loading && children.length === 0) {
+    if (!profileCheckDone || loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    if (!loading && children.length === 0 && !needsProfileCompletion) {
         return <LinkStudentsForm onLinked={() => window.location.reload()} />;
     }
 
