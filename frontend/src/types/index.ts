@@ -392,6 +392,15 @@ export interface TeacherAttendance {
     status: 'present' | 'absent' | 'on_leave';
 }
 
+export interface ClassSubmissionStatus {
+    class_id: string;
+    class_name: string;
+    teacher_name: string;
+    submitted: boolean;
+    submission_time?: string;
+    pupil_count: number;
+}
+
 // Notifications
 export interface Notification {
     id: string;
