@@ -19,8 +19,8 @@ export default function AdminLogin() {
     setLoading(true);
 
     try {
-      const user = await login({ identifier, password });
-      if (user.role !== 'admin') {
+      const result = await login({ identifier, password });
+      if (result.user.role !== 'admin') {
           throw new Error('Access denied. This portal is for administrators only.');
       }
       navigate('/dashboard', { replace: true });

@@ -49,6 +49,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/enrol" element={<Enrollment />} />
+          <Route path="/register" element={<Enrollment />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
 

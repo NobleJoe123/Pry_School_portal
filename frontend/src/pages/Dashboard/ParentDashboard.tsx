@@ -4,6 +4,7 @@ import StatsCard from '../../components/ui/StatsCard';
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
 import RecentNotifications from '../../components/RecentNotifications';
+import EnrollmentAdmissionModal from '../../components/EnrollmentAdmissionModal';
 
 function LinkStudentsForm({ onLinked }: { onLinked: () => void }) {
     const [admissionNumbers, setAdmissionNumbers] = useState<string[]>(['']);
@@ -84,6 +85,7 @@ function LinkStudentsForm({ onLinked }: { onLinked: () => void }) {
 export default function ParentDashboard() {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
+    const [showLinkModal, setShowLinkModal] = useState(false);
 
     useEffect(() => {
         setTimeout(() => setLoading(false), 1000);
@@ -120,7 +122,12 @@ export default function ParentDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Children Summary */}
                 <div className="space-y-4">
-                    <h3 className="text-white font-bold px-2">My Children</h3>
+                    <div className="flex items-center justify-between px-2">
+                        <h3 className="text-white font-bold">My Children</h3>
+                        <button onClick={() => setShowLinkModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-md shadow-amber-500/10">
+                            <Plus size={12} /> Link Another Child
+                        </button>
+                    </div>
                     {children.map((child: any, i: number) => (
                         <div key={i} className="p-6 bg-white/5 rounded-2xl border border-white/5 flex flex-col sm:flex-row gap-6 hover:border-amber-500/20 transition-all" style={{ background: 'linear-gradient(135deg, #0d1b2a 0%, #0a1628 100%)' }}>
                             <div className="w-20 h-20 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-500 shrink-0 overflow-hidden">
@@ -188,6 +195,15 @@ export default function ParentDashboard() {
                     <RecentNotifications />
                 </div>
             </div>
+
+            <EnrollmentAdmissionModal
+                isOpen={showLinkModal}
+                parentId={user?.id || ''}
+                onSuccess={() => {
+                    setShowLinkModal(false);
+                    window.location.reload();
+                }}
+            />
         </div>
     );
 }

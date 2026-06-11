@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { GraduationCap, UserCheck, Users, UserPlus, BookOpen, TrendingUp, RefreshCw, } from 'lucide-react';
+import { GraduationCap, UserCheck, Users, UserPlus, BookOpen, TrendingUp, RefreshCw, X, CheckCircle } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, } from 'recharts';
 import StatsCard from '../../components/ui/StatsCard';
 import { api, endpoints } from '../../utils/api';
@@ -119,12 +119,14 @@ function EnrollmentTable({
     enrollments, 
     loading, 
     onApprove, 
-    onDeny 
+    onDeny,
+    onViewDetails
 }: { 
     enrollments: any[]; 
     loading: boolean;
     onApprove: (id: string) => void;
     onDeny: (id: string) => void;
+    onViewDetails: (enrollment: any) => void;
 }) {
     const pending = enrollments.filter(e => e.status === 'pending');
     
@@ -132,7 +134,7 @@ function EnrollmentTable({
     if (pending.length === 0) return null; // Hide if no pending requests
 
     return (
-        <div className="rounded-2xl border border-sky-500/30 overflow-hidden" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
+        <div className="rounded-2xl border border-sky-500/30 overflow-hidden shadow-xl" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-sky-500/20 bg-sky-500/5">
                 <div className="flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
@@ -165,7 +167,10 @@ function EnrollmentTable({
                                 </td>
                                 <td className="px-5 py-4 text-right">
                                     <div className="flex items-center justify-end gap-2">
-                                        <button onClick={() => onDeny(req.id)} className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-lg transition-all">
+                                        <button onClick={() => onViewDetails(req)} className="px-3.5 py-2 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold rounded-lg transition-all border border-white/5">
+                                            View Details
+                                        </button>
+                                        <button onClick={() => onDeny(req.id)} className="px-3.5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-lg transition-all">
                                             Deny
                                         </button>
                                         <button onClick={() => onApprove(req.id)} className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-sky-950 text-xs font-black rounded-lg transition-all shadow-lg shadow-sky-500/20">
@@ -191,6 +196,12 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [refreshing, setRefreshing] = useState(false);
+
+    // Modal states
+    const [selectedEnrollment, setSelectedEnrollment] = useState<any | null>(null);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [successData, setSuccessData] = useState<any | null>(null);
+    const [isSuccessOpen, setIsSuccessOpen] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -224,7 +235,9 @@ export default function AdminDashboard() {
 
     const handleApprove = async (id: string) => {
         try {
-            await api.post(`${endpoints.auth.enrollment}${id}/approve/`, {});
+            const response = await api.post<any>(`${endpoints.auth.enrollment}${id}/approve/`, {});
+            setSuccessData(response);
+            setIsSuccessOpen(true);
             fetchData();
         } catch (err: any) {
             alert(err.message || 'Failed to approve');
@@ -364,9 +377,231 @@ export default function AdminDashboard() {
                     </BarChart>
                 </ResponsiveContainer>
             </div>
-            <EnrollmentTable enrollments={enrollments} loading={loading} onApprove={handleApprove} onDeny={handleDeny} />
+            <EnrollmentTable enrollments={enrollments} loading={loading} onApprove={handleApprove} onDeny={handleDeny} onViewDetails={(req) => { setSelectedEnrollment(req); setIsDetailOpen(true); }} />
             <RecentNotifications />
             <RecentTable students={recentStudents} loading={loading} />
+            
+            <EnrollmentDetailModal 
+                enrollment={selectedEnrollment}
+                isOpen={isDetailOpen}
+                onClose={() => setIsDetailOpen(false)}
+                onApprove={handleApprove}
+                onDeny={handleDeny}
+            />
+            <ApprovalSuccessModal
+                isOpen={isSuccessOpen}
+                data={successData}
+                onClose={() => setIsSuccessOpen(false)}
+            />
+        </div>
+    );
+}
+
+// Modal helper components
+
+function EnrollmentDetailModal({
+    enrollment,
+    isOpen,
+    onClose,
+    onApprove,
+    onDeny
+}: {
+    enrollment: any | null;
+    isOpen: boolean;
+    onClose: () => void;
+    onApprove: (id: string) => void;
+    onDeny: (id: string) => void;
+}) {
+    if (!isOpen || !enrollment) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto backdrop-blur-sm">
+            <div className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl max-w-3xl w-full my-8 overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 bg-slate-950 border-b border-white/5 shrink-0">
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Enrollment Request Details</h2>
+                        <p className="text-xs text-slate-500 mt-0.5">Submitted on {new Date(enrollment.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-300">
+                    {/* Parent Info */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-bold text-sky-400 uppercase tracking-widest border-b border-sky-500/10 pb-1.5">Parent / Guardian Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Full Name</span>
+                                <span className="text-white text-sm font-semibold">{enrollment.parent_first_name} {enrollment.parent_last_name}</span>
+                            </div>
+                            <div>
+                                <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Relationship to Student</span>
+                                <span className="text-white text-sm font-semibold capitalize">{enrollment.relationship_to_student}</span>
+                            </div>
+                            <div>
+                                <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Email Address</span>
+                                <span className="text-white text-sm font-mono">{enrollment.parent_email}</span>
+                            </div>
+                            <div>
+                                <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Phone Number</span>
+                                <span className="text-white text-sm">{enrollment.parent_phone}</span>
+                            </div>
+                            <div className="md:col-span-2">
+                                <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Residential Address</span>
+                                <span className="text-white text-sm">{enrollment.parent_address}</span>
+                            </div>
+                            <div className="md:col-span-2">
+                                <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Employment Details</span>
+                                <span className="text-white text-sm">{enrollment.employment_details || '—'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Students Info */}
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest border-b border-emerald-500/10 pb-1.5">Enrolling Students ({enrollment.students_data?.length || 0})</h3>
+                        {enrollment.students_data?.map((student: any, idx: number) => (
+                            <div key={idx} className="p-4 bg-white/[0.02] border border-white/5 rounded-xl space-y-3">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Student #{idx + 1}</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 uppercase tracking-wider">First Name</span>
+                                        <span className="text-white font-medium">{student.first_name}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Middle Name</span>
+                                        <span className="text-white font-medium">{student.middle_name || '—'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Last Name</span>
+                                        <span className="text-white font-medium">{student.last_name}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Date of Birth</span>
+                                        <span className="text-white font-medium">{student.dob}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Gender</span>
+                                        <span className="text-white font-medium">{student.gender === 'M' ? 'Male' : 'Female'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Proposed Class</span>
+                                        <span className="text-amber-400 font-semibold">{student.class}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 uppercase tracking-wider">State of Origin</span>
+                                        <span className="text-white font-medium">{student.state_of_origin || '—'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Place of Birth</span>
+                                        <span className="text-white font-medium">{student.place_of_birth || '—'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Blood Group</span>
+                                        <span className="text-white font-medium">{student.blood_group || '—'}</span>
+                                    </div>
+                                    {student.medical_conditions && (
+                                        <div className="md:col-span-3">
+                                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Medical Conditions</span>
+                                            <span className="text-red-400 font-medium">{student.medical_conditions}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Emergency contact if different */}
+                                {student.emergency_contact_name && (
+                                    <div className="pt-2 border-t border-white/5 space-y-1.5">
+                                        <span className="block text-[10px] font-bold text-amber-500/80 uppercase tracking-widest">Emergency Contact</span>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                                            <div>
+                                                <span className="block text-[10px] text-slate-500">Name</span>
+                                                <span className="text-white font-medium">{student.emergency_contact_name}</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-[10px] text-slate-500">Phone</span>
+                                                <span className="text-white font-medium">{student.emergency_contact_phone}</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-[10px] text-slate-500">Relationship</span>
+                                                <span className="text-white font-medium capitalize">{student.emergency_contact_relationship}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-slate-950 border-t border-white/5 shrink-0 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 border border-white/10 hover:bg-white/5 text-slate-300 font-bold text-sm rounded-xl transition-all">
+                        Close
+                    </button>
+                    <button onClick={() => { onDeny(enrollment.id); onClose(); }} className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-sm rounded-xl transition-all">
+                        Deny Request
+                    </button>
+                    <button onClick={() => { onApprove(enrollment.id); onClose(); }} className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-sky-950 font-black text-sm rounded-xl transition-all shadow-lg shadow-sky-500/20">
+                        Verify & Enroll
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ApprovalSuccessModal({
+    isOpen,
+    data,
+    onClose
+}: {
+    isOpen: boolean;
+    data: { parent_email: string; students: { admission_number: string; student_name: string }[] } | null;
+    onClose: () => void;
+}) {
+    if (!isOpen || !data) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95">
+                <div className="px-6 py-8 text-center space-y-4">
+                    <div className="w-16 h-16 mx-auto bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center border border-emerald-500/20">
+                        <CheckCircle size={32} className="text-emerald-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Enrollment Approved!</h2>
+                        <p className="text-xs text-slate-500 mt-1">Parent account and student profiles have been generated.</p>
+                    </div>
+                    
+                    <div className="text-left space-y-3 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+                        <div>
+                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Parent Email (Login ID)</span>
+                            <span className="text-slate-200 text-sm font-semibold font-mono">{data.parent_email}</span>
+                        </div>
+                        <div className="border-t border-white/5 pt-2">
+                            <span className="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Generated Admission Numbers</span>
+                            <div className="space-y-1.5 flex flex-col">
+                                {data.students?.map((student, i) => (
+                                    <div key={i} className="flex justify-between items-center bg-slate-950/40 px-2.5 py-1.5 rounded-lg border border-white/5">
+                                        <span className="text-slate-300 text-xs font-medium">{student.student_name}</span>
+                                        <span className="text-emerald-400 text-xs font-mono font-bold select-all">{student.admission_number}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="px-6 py-4 bg-slate-950 border-t border-white/5">
+                    <button onClick={onClose} className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-emerald-950 font-black text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20">
+                        Done
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

@@ -92,6 +92,22 @@ class LoginView(APIView):
             user = User.objects.filter(student_profile__admission_number__iexact=identifier).first()
         
         if user is None or not user.check_password(password):
+            enrollment = EnrollmentRequest.objects.filter(parent_email__iexact=identifier).order_by('-created_at').first()
+            if enrollment:
+                from django.contrib.auth.hashers import check_password
+                if check_password(password, enrollment.password):
+                    if enrollment.status == 'pending':
+                        return Response({
+                            'pending_enrollment': True,
+                            'status': 'pending',
+                            'message': 'Your enrollment request is pending admin approval.'
+                        }, status=status.HTTP_200_OK)
+                    elif enrollment.status == 'denied':
+                        return Response({
+                            'pending_enrollment': True,
+                            'status': 'denied',
+                            'message': 'Your enrollment request has been denied.'
+                        }, status=status.HTTP_200_OK)
             return Response(
                 {'error': 'Invalid credentials.'},
                 status=status.HTTP_401_UNAUTHORIZED
@@ -622,6 +638,14 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                     s_email = student_data.get('email') or f"{admission_number.lower()}@school.local"
                     s_username = student_data.get('username') or admission_number.lower()
 
+                    import datetime
+                    dob_val = student_data.get('dob')
+                    if isinstance(dob_val, str) and dob_val:
+                        try:
+                            dob_val = datetime.datetime.strptime(dob_val, '%Y-%m-%d').date()
+                        except ValueError:
+                            dob_val = None
+
                     student_user = User.objects.create_user(
                         email=s_email,
                         username=s_username,
@@ -629,6 +653,7 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                         first_name=student_data.get('first_name'),
                         middle_name=student_data.get('middle_name', ''),
                         last_name=student_data.get('last_name'),
+                        date_of_birth=dob_val,
                         address=enrollment.parent_address, # Shared address
                         role='student'
                     )
@@ -680,7 +705,7 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                 return Response({
                     'message': 'Enrollment approved.',
                     'parent_email': parent_user.email,
-                    'admission_numbers': [s['admission_number'] for s in created_students]
+                    'students': created_students
                 })
         except Exception as e:
             return Response({'error': str(e)}, status=500)

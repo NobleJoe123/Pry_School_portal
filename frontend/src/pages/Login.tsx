@@ -133,6 +133,9 @@ export default function Login() {
           // Show pending enrollment modal
           setShowPendingModal(true);
           return;
+        } else if (status.status === 'denied') {
+          setError('Your enrollment request has been denied. Please contact the administrator.');
+          return;
         } else if (status.status === 'approved' && status.linked_students_count === 0) {
           // Show admission number linking modal
           setShowAdmissionModal(true);
@@ -153,8 +156,6 @@ export default function Login() {
 
   const handlePendingModalClose = () => {
     setShowPendingModal(false);
-    // User stays logged in, redirect to parent dashboard
-    navigate('/parent', { replace: true });
   };
 
   const handleAdmissionSuccess = () => {
@@ -268,7 +269,7 @@ export default function Login() {
           </div>
 
           {/* Register */}
-          <p className="text-sm text-slate-500 text-center"> Don't have an account? <a href="/register" className="text-amber-600 hover:text-amber-700 font-semibold transition-colors"> Register </a> </p>
+          <p className="text-sm text-slate-500 text-center"> Don't have an account? <a href="/enrol" className="text-amber-600 hover:text-amber-700 font-semibold transition-colors"> Enroll Now </a> </p>
 
           <p className="text-center text-xs text-slate-400 mt-12"> &copy; {new Date().getFullYear()} Jascube Technologies . All rights reserved.</p>
         </div>

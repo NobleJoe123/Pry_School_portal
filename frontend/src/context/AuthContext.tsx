@@ -63,9 +63,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
     const login = useCallback(async (credentials: LoginRequest) => {
-        const data = await api.post<LoginApiResponse>(endpoints.auth.login, credentials,
+        const data = await api.post<any>(endpoints.auth.login, credentials,
             { skipAuth: true }
         );
+
+        if (data.pending_enrollment) {
+            return {
+                user: { role: 'parent' } as any,
+                enrollmentStatus: {
+                    status: data.status,
+                    linked_students_count: 0,
+                    has_enrollment_request: true,
+                    enrollment_created_at: null
+                }
+            };
+        }
 
         AccessToken.set(data.access_token);
         setUser(data.user);
