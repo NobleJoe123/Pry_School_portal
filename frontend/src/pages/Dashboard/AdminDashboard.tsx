@@ -66,8 +66,10 @@ interface SummaryCardProps {
 
 function SummaryCard({ label, value, icon, iconBg, iconColor, subtext, to, alert, loading }: SummaryCardProps) {
     const inner = (
-        <div className={`rounded-2xl border p-5 flex flex-col gap-3 transition-all duration-200 hover:border-white/15 ${alert ? 'border-amber-500/30 hover:border-amber-500/50' : 'border-white/5'}`}
+        <div className={`rounded-2xl border p-5 flex flex-col gap-3 transition-all duration-200 hover:border-white/15 relative ${alert ? 'border-amber-500/30 hover:border-amber-500/50' : 'border-white/5'}`}
             style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
+            {/* Status indicator */}
+            <div className="absolute left-3 top-3 w-2 h-2 rounded-full" style={{ background: alert ? '#f59e0b' : '#10b981' }} />
             <div className="flex items-center justify-between">
                 <div className={`w-10 h-10 rounded-xl ${iconBg} border border-white/5 flex items-center justify-center ${iconColor}`}>
                     {icon}
@@ -86,6 +88,12 @@ function SummaryCard({ label, value, icon, iconBg, iconColor, subtext, to, alert
                         <p className="text-2xl font-black text-white">{value}</p>
                         <p className="text-slate-500 text-xs mt-0.5 font-medium">{label}</p>
                         {subtext && <p className={`text-xs mt-1 font-semibold ${alert ? 'text-amber-400' : 'text-slate-500'}`}>{subtext}</p>}
+                        {/* Quick action */}
+                        {!loading && to && (
+                            <div className="mt-3">
+                                <Link to={to} className="text-sky-400 text-xs font-semibold hover:text-sky-300">Take Action</Link>
+                            </div>
+                        )}
                     </>
                 )}
             </div>
@@ -242,6 +250,66 @@ function ClassesWidget({ classes, loading }: { classes: DashboardStats['classes_
                     ))}
                 </div>
             )}
+        </div>
+    );
+}
+
+function AttendanceMonitor({ classes, attendance, loading }: { classes: DashboardStats['classes_overview']; attendance: DashboardStats['attendance_today'] | undefined; loading: boolean }) {
+    // Expect each `cls` to optionally include `attendance_submitted: boolean`
+    return (
+        <div className="rounded-2xl border border-white/5 p-5" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
+            <div className="flex items-center justify-between mb-3">
+                <div>
+                    <h3 className="text-white font-bold text-sm">Attendance Monitor</h3>
+                    <p className="text-slate-500 text-xs mt-0.5">Quick class submission status</p>
+                </div>
+                <div className="text-slate-500 text-xs">Today · {new Date().toLocaleDateString('en-GB')}</div>
+            </div>
+            {loading ? (
+                <div className="space-y-2">
+                    {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-xl" />)}
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {classes.map((cls) => {
+                        const submitted = (cls as any).attendance_submitted;
+                        const status = submitted === true ? 'submitted' : submitted === false ? 'pending' : 'unknown';
+                        return (
+                            <div key={cls.id} className={`p-3 rounded-xl border ${status === 'submitted' ? 'border-emerald-500/20 bg-emerald-500/5' : status === 'pending' ? 'border-amber-500/20 bg-amber-500/5' : 'border-white/5 bg-white/[0.02]'} flex items-center justify-between` }>
+                                <div>
+                                    <p className="text-white text-sm font-semibold">{cls.name}</p>
+                                    <p className="text-slate-500 text-xs">{cls.pupil_count} Pupils</p>
+                                </div>
+                                <div className="text-right">
+                                    {status === 'submitted' && <span className="text-emerald-400 text-sm font-bold">✓ Submitted</span>}
+                                    {status === 'pending' && <span className="text-amber-400 text-sm font-bold">⚠ Pending</span>}
+                                    {status === 'unknown' && <span className="text-slate-500 text-sm">—</span>}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function QuickActions() {
+    const actions = [
+        { label: 'Register Pupil', to: '/students/new' },
+        { label: 'Add Teacher', to: '/teachers/new' },
+        { label: 'Create Class', to: '/classes/new' },
+        { label: 'Record Payment', to: '/finance/record' },
+        { label: 'Publish Results', to: '/academics/results' },
+        { label: 'Send Notice', to: '/notifications/compose' },
+    ];
+    return (
+        <div className="rounded-2xl border border-white/5 p-4 flex gap-3 flex-wrap" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
+            {actions.map(a => (
+                <Link key={a.to} to={a.to} className="px-4 py-3 bg-white/5 border border-white/10 text-slate-300 rounded-lg font-semibold hover:bg-white/10 transition-all flex items-center gap-2">
+                    {a.label}
+                </Link>
+            ))}
         </div>
     );
 }
@@ -473,7 +541,7 @@ export default function AdminDashboard() {
             icon: <ClipboardCheck size={18} />,
             iconBg: 'bg-emerald-500/15',
             iconColor: 'text-emerald-400',
-            subtext: `${stats?.attendance_today?.rate ?? 0}% rate today`,
+            subtext: `${stats?.attendance_today?.classes_submitted ?? 0} classes submitted`,
         },
         {
             label: 'Pending Fees',
@@ -528,6 +596,9 @@ export default function AdminDashboard() {
             {/* Term Banner */}
             {!loading && <TermBanner term={stats?.current_term ?? null} />}
 
+            {/* Quick Actions - visible without scrolling */}
+            <QuickActions />
+
             {/* Section 1: Today's Summary – 6 Cards */}
             <div>
                 <div className="flex items-center gap-2 mb-3">
@@ -550,9 +621,9 @@ export default function AdminDashboard() {
                 onViewDetails={(req) => { setSelectedEnrollment(req); setIsDetailOpen(true); }}
             />
 
-            {/* Section 3: Attendance + Finance side by side */}
+            {/* Section 3: Attendance Monitor + Finance side by side (Attendance prioritized) */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <AttendanceWidget attendance={stats?.attendance_today} loading={loading} />
+                <AttendanceMonitor classes={stats?.classes_overview ?? []} attendance={stats?.attendance_today} loading={loading} />
                 <FinanceWidget finance={stats?.finance} loading={loading} />
             </div>
 

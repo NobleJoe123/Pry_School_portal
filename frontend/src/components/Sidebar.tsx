@@ -18,7 +18,7 @@ interface NavItem {
 
 
 const NAV_ITEMS: NavItem[] = [
-    // Admin navigation
+    // Admin navigation (ordered to match Operations Center)
     { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/dashboard', roles: ['admin'] },
     { label: 'Pupils', icon: <GraduationCap size={18} />, to: '/students', roles: ['admin'] },
     { label: 'Teachers', icon: <UserCheck size={18} />, to: '/teachers', roles: ['admin'] },
