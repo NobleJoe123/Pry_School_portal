@@ -983,11 +983,19 @@ def parent_enrollment_status(request):
     # Count linked students
     linked_students_count = user.children.count()
 
+    # Check if profile is completed
+    completed_profile = False
+    try:
+        completed_profile = user.parent_profile.completed_profile
+    except ParentProfile.DoesNotExist:
+        pass
+
     return Response({
         'status': enrollment_status,
         'linked_students_count': linked_students_count,
         'has_enrollment_request': enrollment is not None,
-        'enrollment_created_at': enrollment.created_at.isoformat() if enrollment else None
+        'enrollment_created_at': enrollment.created_at.isoformat() if enrollment else None,
+        'completed_profile': completed_profile,
     }, status=status.HTTP_200_OK)
 
 

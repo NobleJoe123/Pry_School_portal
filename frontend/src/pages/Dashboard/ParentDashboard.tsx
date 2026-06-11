@@ -132,6 +132,15 @@ export default function ParentDashboard() {
 
     return (
         <div className="space-y-6 max-w-screen-xl">
+            {/* Blocking profile completion overlay */}
+            {needsProfileCompletion && (
+                <ParentProfileCompletionModal
+                    onComplete={() => {
+                        setNeedsProfileCompletion(false);
+                        window.location.reload();
+                    }}
+                />
+            )}
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-white text-2xl font-black" style={{ fontFamily: "'DM Serif Display', serif" }}> Parent Portal </h2>

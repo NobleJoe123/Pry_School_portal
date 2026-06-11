@@ -63,9 +63,12 @@ export default function App() {
                 <Route path="/students" element={<Students />} />
                 <Route path="/teachers" element={<Teachers />} />
                 <Route path="/parents" element={<Parents />} />
+                <Route path="/classes" element={<Placeholder name="Classes" />} />
                 <Route path="/academics" element={<Academics />} />
                 <Route path="/finance" element={<Finance />} />
                 <Route path="/attendance" element={<Attendance />} />
+                <Route path="/calendar" element={<Placeholder name="School Calendar" />} />
+                <Route path="/reports" element={<Placeholder name="Reports" />} />
               </Route>
 
               {/* Teacher Only Routes */}
