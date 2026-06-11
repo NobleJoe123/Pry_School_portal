@@ -217,7 +217,12 @@ class ParentProfile(models.Model):
     
     # Alternate Contact
     alternate_phone = models.CharField(max_length=17, blank=True, null=True)
-    
+
+    # Profile completion tracking
+    completed_profile = models.BooleanField(default=False)
+    passport_photo = models.ImageField(upload_to='parent_passports/', null=True, blank=True)
+    id_document = models.FileField(upload_to='parent_documents/', null=True, blank=True)
+
     # Timestamps
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)

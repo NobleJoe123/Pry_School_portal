@@ -23,7 +23,8 @@ from .views import (
     EnrollmentRequestViewSet,
     NotificationViewSet,
     parent_enrollment_status,
-    get_student_by_admission_number
+    get_student_by_admission_number,
+    parent_complete_profile
 )
 
 
@@ -55,6 +56,7 @@ urlpatterns = [
     # Enrollment Status
     path('parent-enrollment-status/', parent_enrollment_status, name='parent_enrollment_status'),
     path('student-by-admission/', get_student_by_admission_number, name='student_by_admission'),
+    path('parent/complete-profile/', parent_complete_profile, name='parent_complete_profile'),
 
     path('', include(router.urls)),
 ]

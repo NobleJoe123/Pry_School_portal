@@ -549,37 +549,272 @@ class ParentViewSet(viewsets.ModelViewSet):
 def dashboard_stats(request):
     """
     GET /api/dashboard/stats/
-    Get overview statistics for admin dashboard
+    Primary School Operations Center – comprehensive stats for admin dashboard
     """
-    total_students = User.objects.filter(role='student').count()
-    active_students = StudentProfile.objects.filter(status='active').count()
-    total_teachers = User.objects.filter(role='teacher').count()
-    total_parents = User.objects.filter(role='parent').count()
-    
-    # Students by class
-    students_by_class = StudentProfile.objects.exclude(current_class=None).values('current_class__name').annotate(
-        count=Count('id')
-    ).order_by('-count')
-    
+    from academics.models import SchoolClass, Term
+    from django.db.models import Sum, Q
+
+    today = timezone.now().date()
+
+    # ── Core Counts ─────────────────────────────────────────────────────────
+    total_pupils = User.objects.filter(role='student', is_active=True).count()
+    total_teachers = User.objects.filter(role='teacher', is_active=True).count()
+    total_parents = User.objects.filter(role='parent', is_active=True).count()
+
+    # Active classes (have at least one student assigned)
+    active_classes = SchoolClass.objects.annotate(
+        pupil_count=Count('students')
+    ).filter(pupil_count__gt=0).count()
+
+    total_classes = SchoolClass.objects.count()
+
+    # New admissions this week
+    week_ago = timezone.now() - timedelta(days=7)
+    new_admissions = StudentProfile.objects.filter(
+        admission_date__gte=week_ago
+    ).count()
+
+    # Pending enrollment requests
+    pending_enrollments = EnrollmentRequest.objects.filter(status='pending').count()
+
+    # ── Attendance (today) ───────────────────────────────────────────────────
+    try:
+        from attendance.models import StudentAttendance
+        todays_attendance = StudentAttendance.objects.filter(date=today)
+        attendance_present = todays_attendance.filter(status='present').count()
+        attendance_absent = todays_attendance.filter(status='absent').count()
+        attendance_late = todays_attendance.filter(status='late').count()
+        classes_submitted_attendance = todays_attendance.values('school_class').distinct().count()
+        attendance_rate = round(
+            (attendance_present / (attendance_present + attendance_absent + attendance_late)) * 100
+        ) if (attendance_present + attendance_absent + attendance_late) > 0 else 0
+    except Exception:
+        attendance_present = attendance_absent = attendance_late = classes_submitted_attendance = attendance_rate = 0
+
+    # ── Finance ──────────────────────────────────────────────────────────────
+    try:
+        from finance.models import StudentFee, PaymentRecord
+        outstanding_fees_count = StudentFee.objects.filter(status__in=['outstanding', 'partial']).count()
+        total_collected_today = PaymentRecord.objects.filter(
+            date=today
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        # Fee defaulters: students with outstanding status
+        fee_defaulters = StudentFee.objects.filter(
+            status='outstanding'
+        ).select_related('student__student_profile').values(
+            'student__first_name', 'student__last_name',
+            'student__student_profile__admission_number',
+            'student__student_profile__current_class__name',
+            'fee_type__name', 'balance'
+        )[:10]
+        fee_defaulters_list = [
+            {
+                'name': f"{d['student__first_name']} {d['student__last_name']}",
+                'admission_number': d['student__student_profile__admission_number'],
+                'class_name': d['student__student_profile__current_class__name'] or 'Unassigned',
+                'fee_type': d['fee_type__name'],
+                'balance': float(d['balance']),
+            }
+            for d in fee_defaulters
+        ]
+    except Exception:
+        outstanding_fees_count = 0
+        total_collected_today = 0
+        fee_defaulters_list = []
+
+    # ── Current Term ─────────────────────────────────────────────────────────
+    current_term_data = None
+    try:
+        current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
+        if current_term:
+            current_term_data = {
+                'id': str(current_term.id),
+                'name': current_term.name,
+                'academic_year': current_term.academic_year.name if current_term.academic_year else '',
+                'start_date': str(current_term.start_date),
+                'end_date': str(current_term.end_date),
+            }
+    except Exception:
+        pass
+
+    # ── Students by Class ────────────────────────────────────────────────────
+    students_by_class = list(
+        StudentProfile.objects.exclude(current_class=None).values('current_class__name').annotate(
+            count=Count('id')
+        ).order_by('current_class__name')
+    )
     students_by_class_dict = {
         item['current_class__name']: item['count'] for item in students_by_class
     }
-    
-    # Recent registrations (last 7 days)
-    week_ago = timezone.now() - timedelta(days=7)
-    recent_students = User.objects.filter(
-        role='student',
-        date_joined__gte=week_ago
-    ).count()
-    
+
+    # ── Class Overview (for operations widget) ───────────────────────────────
+    classes_overview = []
+    try:
+        for sc in SchoolClass.objects.select_related('level').prefetch_related('students')[:12]:
+            pupil_count = sc.students.filter(status='active').count()
+            teacher_name = None
+            try:
+                from accounts.models import TeacherProfile as TP
+                tp = TP.objects.filter(user__role='teacher').first()
+                if sc.teacher_id:
+                    teacher_name = User.objects.filter(id=sc.teacher_id).values_list('first_name', 'last_name').first()
+                    if teacher_name:
+                        teacher_name = f"{teacher_name[0]} {teacher_name[1]}"
+            except Exception:
+                pass
+            classes_overview.append({
+                'id': str(sc.id),
+                'name': sc.name,
+                'level': sc.level.name if hasattr(sc, 'level') and sc.level else '',
+                'pupil_count': pupil_count,
+                'teacher_name': teacher_name,
+            })
+    except Exception:
+        pass
+
+    # ── Recent Activity Feed ─────────────────────────────────────────────────
+    activity_feed = []
+    try:
+        recent_admissions = StudentProfile.objects.select_related('user').order_by('-admission_date')[:5]
+        for sp in recent_admissions:
+            activity_feed.append({
+                'type': 'admission',
+                'title': f"{sp.user.full_name} enrolled",
+                'subtitle': sp.admission_number,
+                'time': sp.admission_date.isoformat() if sp.admission_date else '',
+                'color': 'emerald',
+            })
+        recent_enrollments = EnrollmentRequest.objects.filter(
+            status='pending'
+        ).order_by('-created_at')[:3]
+        for er in recent_enrollments:
+            activity_feed.append({
+                'type': 'enrollment_request',
+                'title': f"Enrollment request from {er.parent_first_name} {er.parent_last_name}",
+                'subtitle': f"{len(er.students_data)} pupil(s)",
+                'time': er.created_at.isoformat(),
+                'color': 'amber',
+            })
+        activity_feed.sort(key=lambda x: x['time'], reverse=True)
+        activity_feed = activity_feed[:8]
+    except Exception:
+        pass
+
     return Response({
-        'total_students': total_students,
-        'active_students': active_students,
+        # Summary counts
+        'total_pupils': total_pupils,
         'total_teachers': total_teachers,
         'total_parents': total_parents,
+        'active_classes': active_classes,
+        'total_classes': total_classes,
+        'new_admissions': new_admissions,
+        'pending_enrollments': pending_enrollments,
+        # Backwards compat aliases
+        'total_students': total_pupils,
+        'active_students': StudentProfile.objects.filter(status='active').count(),
+
+        # Attendance
+        'attendance_today': {
+            'present': attendance_present,
+            'absent': attendance_absent,
+            'late': attendance_late,
+            'rate': attendance_rate,
+            'classes_submitted': classes_submitted_attendance,
+        },
+
+        # Finance
+        'finance': {
+            'outstanding_fees_count': outstanding_fees_count,
+            'collected_today': float(total_collected_today),
+            'fee_defaulters': fee_defaulters_list,
+        },
+
+        # Academic
+        'current_term': current_term_data,
         'students_by_class': students_by_class_dict,
-        'recent_registrations': recent_students
+        'classes_overview': classes_overview,
+
+        # Activity
+        'activity_feed': activity_feed,
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def parent_complete_profile(request):
+    """
+    POST /api/auth/parent/complete-profile/
+    Allows a parent user to complete their mandatory profile.
+    Expects multipart/form-data with: phone, address, relationship_to_student,
+    passport_photo (image), id_document (file).
+    """
+    user = request.user
+    if user.role != 'parent':
+        return Response({'error': 'Only parents can use this endpoint.'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        profile = user.parent_profile
+    except ParentProfile.DoesNotExist:
+        return Response({'error': 'Parent profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if profile.completed_profile:
+        return Response({'message': 'Profile already completed.'}, status=status.HTTP_200_OK)
+
+    # Required fields
+    phone = request.data.get('phone', '').strip()
+    address = request.data.get('address', '').strip()
+    relationship = request.data.get('relationship_to_student', '').strip()
+    passport_photo = request.FILES.get('passport_photo')
+    id_document = request.FILES.get('id_document')
+
+    errors = {}
+    if not phone:
+        errors['phone'] = 'Phone number is required.'
+    if not address:
+        errors['address'] = 'Residential address is required.'
+    if not relationship:
+        errors['relationship_to_student'] = 'Relationship to pupil is required.'
+    if not passport_photo:
+        errors['passport_photo'] = 'Passport photo is required.'
+    if not id_document:
+        errors['id_document'] = 'ID document is required.'
+
+    # File type validation
+    ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+    ALLOWED_DOC_TYPES = ALLOWED_IMAGE_TYPES + ['application/pdf']
+    MAX_FILE_SIZE = 3 * 1024 * 1024  # 3 MB
+
+    if passport_photo:
+        if passport_photo.content_type not in ALLOWED_IMAGE_TYPES:
+            errors['passport_photo'] = 'Passport photo must be JPG, PNG, or WEBP.'
+        elif passport_photo.size > MAX_FILE_SIZE:
+            errors['passport_photo'] = 'Passport photo must be less than 3 MB.'
+
+    if id_document:
+        if id_document.content_type not in ALLOWED_DOC_TYPES:
+            errors['id_document'] = 'ID document must be JPG, PNG, WEBP, or PDF.'
+        elif id_document.size > MAX_FILE_SIZE:
+            errors['id_document'] = 'ID document must be less than 3 MB.'
+
+    if errors:
+        return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Save everything atomically
+    with transaction.atomic():
+        user.phone = phone
+        user.address = address
+        user.save(update_fields=['phone', 'address'])
+
+        profile.relationship_to_student = relationship
+        profile.passport_photo = passport_photo
+        profile.id_document = id_document
+        profile.completed_profile = True
+        profile.save(update_fields=['relationship_to_student', 'passport_photo', 'id_document', 'completed_profile'])
+
+    return Response({
+        'message': 'Profile completed successfully.',
+        'completed_profile': True
+    }, status=status.HTTP_200_OK)
 
 from django.contrib.auth.hashers import make_password
 from rest_framework.decorators import action
