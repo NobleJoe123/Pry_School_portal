@@ -18,7 +18,6 @@ import {
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { StudentAttendance, SchoolClass, User } from '../../types';
-import AdminAttendanceCenter from './AdminAttendanceCenter';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
