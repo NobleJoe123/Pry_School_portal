@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { GraduationCap, CreditCard, CalendarCheck, Bell, Heart, Plus, Trash2, Users } from 'lucide-react';
+import { GraduationCap, CreditCard, CalendarCheck, Bell, Heart, Plus, Trash2, Users, X, Mail, Phone, MapPin, Calendar, Droplets, AlertTriangle, BookOpen, Award } from 'lucide-react';
 import StatsCard from '../../components/ui/StatsCard';
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
 import RecentNotifications from '../../components/RecentNotifications';
 import EnrollmentAdmissionModal from '../../components/EnrollmentAdmissionModal';
 import ParentProfileCompletionModal from '../../components/ParentProfileCompletionModal';
+import Modal from '../../components/ui/Modal';
 
 function LinkStudentsForm({ onLinked }: { onLinked: () => void }) {
     const [admissionNumbers, setAdmissionNumbers] = useState<string[]>(['']);
@@ -89,6 +90,88 @@ export default function ParentDashboard() {
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
     const [profileCheckDone, setProfileCheckDone] = useState(false);
+    const [selectedChild, setSelectedChild] = useState<any | null>(null);
+    const [childTab, setChildTab] = useState<'info' | 'academics'>('info');
+    const [childScores, setChildScores] = useState<any[]>([]);
+    const [childReport, setChildReport] = useState<any | null>(null);
+    const [academicsLoading, setAcademicsLoading] = useState(false);
+
+    useEffect(() => {
+        if (!selectedChild) {
+            setChildTab('info');
+            setChildScores([]);
+            setChildReport(null);
+            return;
+        }
+
+        setAcademicsLoading(true);
+        const childId = selectedChild.user?.id;
+
+        Promise.all([
+            api.get<any>(`${endpoints.academics.scores}?student=${childId}`),
+            api.get<any>(`${endpoints.academics.reportCards}?student=${childId}`)
+        ]).then(([scoresRes, reportsRes]) => {
+            const getList = (val: any) => {
+                if (!val) return [];
+                if (Array.isArray(val)) return val;
+                if (val.results && Array.isArray(val.results)) return val.results;
+                return [];
+            };
+            const scoresList = getList(scoresRes);
+            const reportsList = getList(reportsRes);
+
+            setChildScores(scoresList);
+            const publishedReport = reportsList.find((r: any) => r.is_published);
+            setChildReport(publishedReport || null);
+        }).catch(err => {
+            console.error("Failed to load child academics in parent dashboard", err);
+        }).finally(() => {
+            setAcademicsLoading(false);
+        });
+    }, [selectedChild]);
+
+    const getGroupedScores = () => {
+        const grouped: Record<string, {
+            subjectName: string;
+            assessments: { name: string; score: number; max: number }[];
+            totalScore: number;
+            totalMax: number;
+        }> = {};
+
+        childScores.forEach(s => {
+            const assessment = s.assessment;
+            if (!assessment || !assessment.subject) return;
+            const subjectId = assessment.subject.id;
+            const subjectName = assessment.subject.name;
+
+            if (!grouped[subjectId]) {
+                grouped[subjectId] = {
+                    subjectName,
+                    assessments: [],
+                    totalScore: 0,
+                    totalMax: 0
+                };
+            }
+
+            const score = Number(s.score_obtained) || 0;
+            const max = Number(assessment.assessment_type?.max_score) || 100;
+
+            grouped[subjectId].assessments.push({
+                name: assessment.assessment_type?.name || assessment.name,
+                score,
+                max
+            });
+            grouped[subjectId].totalScore += score;
+            grouped[subjectId].totalMax += max;
+        });
+
+        return Object.values(grouped);
+    };
+
+    const groupedChildScores = getGroupedScores();
+    const childAverage = groupedChildScores.length > 0
+        ? (groupedChildScores.reduce((sum, s) => sum + (s.totalScore / s.totalMax) * 100, 0) / groupedChildScores.length).toFixed(1)
+        : '0.0';
 
     useEffect(() => {
         const checkProfile = async () => {
@@ -158,9 +241,9 @@ export default function ParentDashboard() {
                 {/* Children Summary */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between px-2">
-                        <h3 className="text-white font-bold">My Children</h3>
+                        <h3 className="text-white font-bold">My Pupils</h3>
                         <button onClick={() => setShowLinkModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-md shadow-amber-500/10">
-                            <Plus size={12} /> Link Another Child
+                            <Plus size={12} /> Link Another Pupil
                         </button>
                     </div>
                     {children.map((child: any, i: number) => (
@@ -194,7 +277,7 @@ export default function ParentDashboard() {
                                     </div>
                                 </div>
                                 
-                                <button className="w-full py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-bold rounded-xl border border-white/10 transition-all">
+                                <button onClick={() => setSelectedChild(child)} className="w-full py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-bold rounded-xl border border-white/10 transition-all">
                                     View Details
                                 </button>
                             </div>
@@ -239,6 +322,199 @@ export default function ParentDashboard() {
                     window.location.reload();
                 }}
             />
+
+            {/* Pupil Detail Drawer/Modal */}
+            {selectedChild && (
+                <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelectedChild(null)}>
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                    <div
+                        className="relative w-full max-w-sm h-full overflow-y-auto flex flex-col animate-in slide-in-from-right duration-200"
+                        style={{ background: 'linear-gradient(180deg, #0d1b2a 0%, #070e1a 100%)', borderLeft: '1px solid rgba(255,255,255,0.06)' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
+                            <p className="text-white text-sm font-bold">Pupil Profile Details</p>
+                            <button onClick={() => setSelectedChild(null)} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all">
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col items-center pt-8 pb-6 px-5 border-b border-white/5">
+                            <div className="w-24 h-24 rounded-2xl overflow-hidden mb-4 shadow-xl ring-2 ring-amber-500/30">
+                                {selectedChild.user?.profile_photo_url ? (
+                                    <img src={selectedChild.user.profile_photo_url} alt={selectedChild.user?.full_name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-2xl font-black">
+                                        {`${selectedChild.user?.first_name?.[0] ?? ''}${selectedChild.user?.last_name?.[0] ?? ''}`.toUpperCase()}
+                                    </div>
+                                )}
+                            </div>
+                            <h2 className="text-white text-lg font-black text-center">{selectedChild.user?.full_name}</h2>
+                            <p className="text-slate-500 text-xs mt-1 font-mono">{selectedChild.profile?.admission_number}</p>
+                            <span className="px-3 py-1 rounded-full bg-sky-500/10 text-sky-400 text-xs font-semibold mt-2.5">
+                                {selectedChild.profile?.current_class?.name || 'Unassigned'}
+                            </span>
+                        </div>
+
+                        {/* Tab Toggle */}
+                        <div className="flex gap-2 px-5 py-2 border-b border-white/5 bg-white/[0.01] shrink-0">
+                            <button 
+                                onClick={() => setChildTab('info')}
+                                className={`flex-1 py-2 text-center text-xs font-bold rounded-lg border transition-all ${
+                                    childTab === 'info' 
+                                        ? 'bg-amber-500 text-slate-950 border-amber-500' 
+                                        : 'text-slate-400 border-transparent hover:text-white'
+                                }`}
+                            >
+                                Profile Info
+                            </button>
+                            <button 
+                                onClick={() => setChildTab('academics')}
+                                className={`flex-1 py-2 text-center text-xs font-bold rounded-lg border transition-all ${
+                                    childTab === 'academics' 
+                                        ? 'bg-amber-500 text-slate-950 border-amber-500' 
+                                        : 'text-slate-400 border-transparent hover:text-white'
+                                }`}
+                            >
+                                Academic Report
+                            </button>
+                        </div>
+
+                        <div className="flex-1 px-5 py-4 space-y-4 overflow-y-auto">
+                            {childTab === 'info' ? (
+                                <div className="space-y-3">
+                                    <div className="flex items-start gap-2.5 py-0.5">
+                                        <Mail size={13} className="text-slate-500 mt-0.5" />
+                                        <div>
+                                            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Email Address</p>
+                                            <p className="text-white text-xs font-semibold mt-0.5">{selectedChild.user?.email || '—'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-2.5 py-0.5">
+                                        <Calendar size={13} className="text-slate-500 mt-0.5" />
+                                        <div>
+                                            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Date of Birth</p>
+                                            <p className="text-white text-xs font-semibold mt-0.5">{selectedChild.user?.date_of_birth || '—'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-2.5 py-0.5">
+                                        <GraduationCap size={13} className="text-slate-500 mt-0.5" />
+                                        <div>
+                                            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Gender</p>
+                                            <p className="text-white text-xs font-semibold mt-0.5">{selectedChild.profile?.gender === 'M' ? 'Male' : selectedChild.profile?.gender === 'F' ? 'Female' : '—'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-2.5 py-0.5">
+                                        <Droplets size={13} className="text-slate-500 mt-0.5" />
+                                        <div>
+                                            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Blood Group</p>
+                                            <p className="text-white text-xs font-semibold mt-0.5">{selectedChild.profile?.blood_group || '—'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-2.5 py-0.5">
+                                        <MapPin size={13} className="text-slate-500 mt-0.5" />
+                                        <div>
+                                            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">State of Origin</p>
+                                            <p className="text-white text-xs font-semibold mt-0.5">{selectedChild.profile?.state_of_origin || '—'}</p>
+                                        </div>
+                                    </div>
+
+                                    {selectedChild.profile?.emergency_contact_name && (
+                                        <div className="pt-3 border-t border-white/5">
+                                            <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2">Emergency Contact</p>
+                                            <div className="space-y-1.5 text-xs text-slate-300">
+                                                <p><span className="text-slate-500">Name:</span> {selectedChild.profile.emergency_contact_name}</p>
+                                                {selectedChild.profile.emergency_contact_phone && <p><span className="text-slate-500">Phone:</span> {selectedChild.profile.emergency_contact_phone}</p>}
+                                                {selectedChild.profile.emergency_contact_relationship && <p><span className="text-slate-500">Relationship:</span> <span className="capitalize">{selectedChild.profile.emergency_contact_relationship}</span></p>}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {selectedChild.profile?.medical_conditions && (
+                                        <div className="pt-3 border-t border-white/5">
+                                            <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-2">Medical Conditions</p>
+                                            <div className="flex items-start gap-2 text-xs text-red-300 bg-red-500/5 border border-red-500/10 rounded-xl px-3 py-2">
+                                                <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                                                <span>{selectedChild.profile.medical_conditions}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {academicsLoading ? (
+                                        <div className="flex justify-center py-10">
+                                            <div className="w-6 h-6 rounded-full border-2 border-transparent border-t-amber-500 animate-spin" />
+                                        </div>
+                                    ) : !childReport ? (
+                                        <div className="p-6 text-center bg-white/5 rounded-2xl border border-white/5">
+                                            <GraduationCap size={32} className="mx-auto text-slate-600 mb-2" />
+                                            <p className="text-white text-xs font-bold">Report Card Pending Verification</p>
+                                            <p className="text-slate-500 text-[10px] mt-1 leading-relaxed">
+                                                Your child's terminal reports are currently undergoing review by the school administration and will be published shortly.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {/* Report Card Header Card */}
+                                            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-amber-500 text-xs font-bold">{childReport.term_name || 'Terminal Report'}</p>
+                                                    <p className="text-slate-500 text-[10px] mt-0.5">Session: {childReport.academic_year_name}</p>
+                                                </div>
+                                                <div className="flex items-center gap-1 bg-amber-500 text-slate-950 px-2.5 py-1 rounded-xl text-xs font-black font-mono">
+                                                    <Award size={13} />
+                                                    <span>{childAverage}%</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Subjects list */}
+                                            <div className="space-y-2">
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Subject Grades</p>
+                                                {groupedChildScores.map((subj, idx) => {
+                                                    const pct = (subj.totalScore / subj.totalMax) * 100;
+                                                    let grade = 'F';
+                                                    let color = 'text-red-400';
+                                                    if (pct >= 70) { grade = 'A'; color = 'text-emerald-400'; }
+                                                    else if (pct >= 60) { grade = 'B'; color = 'text-sky-400'; }
+                                                    else if (pct >= 50) { grade = 'C'; color = 'text-amber-400'; }
+                                                    else if (pct >= 40) { grade = 'D'; color = 'text-orange-400'; }
+
+                                                    return (
+                                                        <div key={idx} className="p-3 bg-white/5 rounded-xl border border-white/5 flex items-center justify-between">
+                                                            <div className="min-w-0">
+                                                                <p className="text-white text-xs font-bold truncate">{subj.subjectName}</p>
+                                                                <p className="text-slate-500 text-[9px] mt-0.5">
+                                                                    {subj.assessments.map(a => `${a.name}: ${a.score}/${a.max}`).join(' • ')}
+                                                                </p>
+                                                            </div>
+                                                            <span className={`text-base font-black font-mono ${color}`}>{grade}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Admin feedback comment */}
+                                            {childReport.remarks && (
+                                                <div className="p-4 bg-white/5 border border-white/5 rounded-2xl">
+                                                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1.5">School Comment & Feedback</p>
+                                                    <p className="text-slate-300 text-xs italic leading-relaxed">"{childReport.remarks}"</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="px-5 py-4 border-t border-white/5 shrink-0">
+                            <button onClick={() => setSelectedChild(null)} className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all border border-white/10">
+                                Close Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

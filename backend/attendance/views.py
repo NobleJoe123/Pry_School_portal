@@ -36,6 +36,13 @@ class StudentAttendanceViewSet(viewsets.ModelViewSet):
         """Bulk mark and submit attendance for a class on a specific date."""
         data = request.data
         class_id = data.get('school_class')
+        
+        if request.user.role == 'teacher':
+            from academics.models import SchoolClass
+            assigned_class = SchoolClass.objects.filter(id=class_id, teacher=request.user).exists()
+            if not assigned_class:
+                return Response({'error': 'You do not have permission to mark attendance for this class.'}, status=status.HTTP_403_FORBIDDEN)
+
         term_id = data.get('term')
         if not term_id or term_id == 'REPLACE_WITH_CURRENT_TERM_ID':
             from academics.models import Term

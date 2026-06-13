@@ -66,6 +66,8 @@ class StudentScoreViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(student=user)
         elif user.role == 'parent':
             queryset = queryset.filter(student__student_profile__parent=user)
+        elif user.role == 'teacher':
+            queryset = queryset.filter(assessment__school_class__teacher=user)
             
         class_id = self.request.query_params.get('school_class')
         if class_id:
@@ -98,6 +100,13 @@ class StudentScoreViewSet(viewsets.ModelViewSet):
     def bulk_record(self, request):
         data = request.data
         class_id = data.get('school_class')
+        
+        if request.user.role == 'teacher':
+            from academics.models import SchoolClass
+            assigned_class = SchoolClass.objects.filter(id=class_id, teacher=request.user).exists()
+            if not assigned_class:
+                return Response({'error': 'You do not have permission to enter scores for this class.'}, status=status.HTTP_403_FORBIDDEN)
+
         subject_id = data.get('subject')
         term_id = data.get('term')
         assessment_type_id = data.get('assessment_type')
@@ -154,6 +163,8 @@ class ReportCardViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(student=user, is_published=True)
         elif user.role == 'parent':
             queryset = queryset.filter(student__student_profile__parent=user, is_published=True)
+        elif user.role == 'teacher':
+            queryset = queryset.filter(student__student_profile__current_class__teacher=user)
             
         student_id = self.request.query_params.get('student')
         if student_id:

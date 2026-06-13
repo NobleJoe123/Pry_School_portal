@@ -4,7 +4,7 @@ import {
     GraduationCap, UserCheck, Users, UserPlus, BookOpen, RefreshCw,
     X, CheckCircle, ClipboardCheck, AlertTriangle, CreditCard,
     Activity, TrendingDown, Clock, Calendar, Bell, ChevronRight,
-    CheckSquare, AlertCircle, School,
+    CheckSquare, AlertCircle, School, UserCircle,
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import type { DashboardStats } from '../../types';
@@ -275,7 +275,7 @@ function AttendanceMonitor({ classes, attendance, loading }: { classes: Dashboar
                         const submitted = (cls as any).attendance_submitted;
                         const status = submitted === true ? 'submitted' : submitted === false ? 'pending' : 'unknown';
                         return (
-                            <div key={cls.id} className={`p-3 rounded-xl border ${status === 'submitted' ? 'border-emerald-500/20 bg-emerald-500/5' : status === 'pending' ? 'border-amber-500/20 bg-amber-500/5' : 'border-white/5 bg-white/[0.02]'} flex items-center justify-between` }>
+                            <div key={cls.id} className={`p-3 rounded-xl border ${status === 'submitted' ? 'border-emerald-500/20 bg-emerald-500/5' : status === 'pending' ? 'border-amber-500/20 bg-amber-500/5' : 'border-white/5 bg-white/[0.02]'} flex items-center justify-between`}>
                                 <div>
                                     <p className="text-white text-sm font-semibold">{cls.name}</p>
                                     <p className="text-slate-500 text-xs">{cls.pupil_count} Pupils</p>
@@ -296,12 +296,12 @@ function AttendanceMonitor({ classes, attendance, loading }: { classes: Dashboar
 
 function QuickActions() {
     const actions = [
-        { label: 'Register Pupil', to: '/students/new' },
-        { label: 'Add Teacher', to: '/teachers/new' },
-        { label: 'Create Class', to: '/classes/new' },
+        { label: 'Register Pupil', to: '/students' },
+        { label: 'Add Teacher', to: '/teachers' },
+        { label: 'Create Class', to: '/classes' },
         { label: 'Record Payment', to: '/finance/record' },
         { label: 'Publish Results', to: '/academics/results' },
-        { label: 'Send Notice', to: '/notifications/compose' },
+        { label: 'Send Notice', to: '/notifications' },
     ];
     return (
         <div className="rounded-2xl border border-white/5 p-4 flex gap-3 flex-wrap" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
@@ -724,7 +724,16 @@ function EnrollmentDetailModal({
                         <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest border-b border-emerald-500/10 pb-1.5">Enrolling Pupils ({enrollment.students_data?.length || 0})</h3>
                         {enrollment.students_data?.map((student: any, idx: number) => (
                             <div key={idx} className="p-4 bg-white/[0.02] border border-white/5 rounded-xl space-y-3">
-                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pupil #{idx + 1}</h4>
+                                <div className="flex items-center gap-3.5 pb-2 border-b border-white/5">
+                                    <div className="w-12 h-12 rounded-lg border border-dashed border-white/20 bg-white/5 flex flex-col items-center justify-center text-slate-500 select-none">
+                                        <UserCircle size={20} className="opacity-40" />
+                                        <span className="text-[7px] font-bold mt-0.5">PHOTO</span>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Pupil #{idx + 1}</h4>
+                                        <p className="text-[9px] text-slate-500 mt-0.5">Passport photo will be uploaded upon portal login.</p>
+                                    </div>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                                     <div><span className="block text-[10px] text-slate-500 uppercase tracking-wider">First Name</span><span className="text-white font-medium">{student.first_name}</span></div>
                                     <div><span className="block text-[10px] text-slate-500 uppercase tracking-wider">Middle Name</span><span className="text-white font-medium">{student.middle_name || '—'}</span></div>
