@@ -333,6 +333,7 @@ export interface StudentFee {
     id: string;
     student: string;
     student_name?: string;
+    class_name?: string | null;
     fee_type: string;
     fee_type_name?: string;
     term: string;

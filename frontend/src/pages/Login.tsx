@@ -144,7 +144,24 @@ export default function Login() {
       }
 
       // Normal redirect
-      const destination = from || ROLE_ROUTES[loggedInUser.role];
+      let destination = from || ROLE_ROUTES[loggedInUser.role];
+
+      // Prevent role-incompatible redirects
+      const isAdminRoute = ['/dashboard', '/students', '/teachers', '/parents', '/classes', '/academics', '/finance', '/attendance', '/reports'].some(path => destination.startsWith(path));
+      const isTeacherRoute = destination.startsWith('/teacher');
+      const isParentRoute = destination.startsWith('/parent');
+      const isStudentRoute = destination.startsWith('/student');
+
+      if (loggedInUser.role === 'admin' && (isTeacherRoute || isParentRoute || isStudentRoute)) {
+        destination = ROLE_ROUTES.admin;
+      } else if (loggedInUser.role === 'teacher' && (isAdminRoute || isParentRoute || isStudentRoute)) {
+        destination = ROLE_ROUTES.teacher;
+      } else if (loggedInUser.role === 'parent' && (isAdminRoute || isTeacherRoute || isStudentRoute)) {
+        destination = ROLE_ROUTES.parent;
+      } else if (loggedInUser.role === 'student' && (isAdminRoute || isTeacherRoute || isParentRoute)) {
+        destination = ROLE_ROUTES.student;
+      }
+
       navigate(destination, { replace: true });
 
     } catch (err: unknown) {

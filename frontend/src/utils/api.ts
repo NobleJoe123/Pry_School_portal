@@ -212,6 +212,8 @@ export const endpoints = {
         assessmentTypes: '/academics/assessment-types/',
         assessments: '/academics/assessments/',
         scores: '/academics/scores/',
+        reportCards: '/academics/report-cards/',
+        events: '/academics/events/',
     },
 
     finance: {
@@ -224,6 +226,7 @@ export const endpoints = {
     attendance: {
         students: '/attendance/students/',
         teachers: '/attendance/teachers/',
+        submissions: '/attendance/submissions/',
     },
 
 };

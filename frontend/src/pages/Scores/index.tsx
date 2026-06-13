@@ -8,9 +8,11 @@ import {
     CheckCircle
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import type { SchoolClass, User, Subject, AssessmentType } from '../../types';
 
 export default function Scores() {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [classes, setClasses] = useState<SchoolClass[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -27,6 +29,7 @@ export default function Scores() {
     const [success, setSuccess] = useState('');
 
     // Fetch initial meta data (Classes, Subjects, AssessmentTypes)
+    // For teachers: filter classes to their assigned class only
     useEffect(() => {
         setLoading(true);
         Promise.all([
@@ -41,7 +44,13 @@ export default function Scores() {
                 return [];
             };
             
-            const classList = getList(classesRes);
+            let classList = getList(classesRes);
+            // If logged-in user is a teacher, only show their assigned class(es)
+            if (user?.role === 'teacher') {
+                classList = classList.filter(
+                    (c: any) => c.teacher === user?.id || c.teacher_name === user?.full_name
+                );
+            }
             const subjectList = getList(subjectsRes);
             const typeList = getList(typesRes);
             
@@ -65,7 +74,7 @@ export default function Scores() {
         if (!selectedClass || !selectedSubject || !selectedAssessmentType) return;
         setLoading(true);
         
-        api.get<any>(`${endpoints.students.list}?class=${classes.find(c => c.id === selectedClass)?.name}`)
+        api.get<any>(`${endpoints.students.list}?school_class=${selectedClass}`)
             .then(async data => {
                 const getList = (val: any) => {
                     if (!val) return [];

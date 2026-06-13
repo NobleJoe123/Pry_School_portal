@@ -21,7 +21,7 @@ const formatCurrency = (amt: number | string) =>
     new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(Number(amt));
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // ── Payment Modal ──────────────────────────────────────────────────────────────
 interface PaymentModalProps {
@@ -128,11 +128,10 @@ function PaymentModal({ fee, onClose, onSuccess }: PaymentModalProps) {
                             {(['cash', 'transfer', 'card', 'online'] as const).map(m => (
                                 <button key={m} type="button"
                                     onClick={() => setMethod(m)}
-                                    className={`py-2.5 text-xs font-bold rounded-xl border transition-all capitalize ${
-                                        method === m
+                                    className={`py-2.5 text-xs font-bold rounded-xl border transition-all capitalize ${method === m
                                             ? 'bg-emerald-500 text-slate-950 border-emerald-500'
                                             : 'text-slate-400 border-white/10 bg-white/5 hover:border-white/20'
-                                    }`}>
+                                        }`}>
                                     {m}
                                 </button>
                             ))}
@@ -318,6 +317,7 @@ export default function Finance() {
     // Filters
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
+    const [classFilter, setClassFilter] = useState('');
 
     const loadData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true); else setRefreshing(true);
@@ -348,12 +348,15 @@ export default function Finance() {
 
     useEffect(() => { loadData(); }, [loadData]);
 
+    const classOptions = Array.from(new Set(studentFees.map(f => f.class_name).filter(Boolean))) as string[];
+
     const filteredFees = studentFees.filter(f => {
         const matchSearch = !search ||
             (f.student_name || '').toLowerCase().includes(search.toLowerCase()) ||
             (f.fee_type_name || '').toLowerCase().includes(search.toLowerCase());
         const matchStatus = !statusFilter || f.status === statusFilter;
-        return matchSearch && matchStatus;
+        const matchClass = !classFilter || f.class_name === classFilter;
+        return matchSearch && matchStatus && matchClass;
     });
 
     const handleMarkPayrollPaid = async (id: string) => {
@@ -446,11 +449,10 @@ export default function Finance() {
                 {tabs.map(tab => (
                     <button key={tab.id} id={`finance-tab-${tab.id}`}
                         onClick={() => setActiveTab(tab.id as Tab)}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
-                            activeTab === tab.id
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${activeTab === tab.id
                                 ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
                                 : 'text-slate-400 hover:text-white hover:bg-white/5'
-                        }`}>
+                            }`}>
                         <tab.icon size={16} />{tab.label}
                     </button>
                 ))}
@@ -564,9 +566,16 @@ export default function Finance() {
                                 <div className="relative flex-1 max-w-xs">
                                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                                     <input id="billing-search" type="text" value={search} onChange={e => setSearch(e.target.value)}
-                                        placeholder="Search student or fee..." 
+                                        placeholder="Search pupil or fee..."
                                         className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500/50" />
                                 </div>
+                                <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
+                                    className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 focus:outline-none">
+                                    <option value="" className="bg-slate-900">All Classes</option>
+                                    {classOptions.map(cls => (
+                                        <option key={cls} value={cls} className="bg-slate-900">{cls}</option>
+                                    ))}
+                                </select>
                                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                                     className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 focus:outline-none">
                                     <option value="" className="bg-slate-900">All Status</option>
@@ -580,7 +589,8 @@ export default function Finance() {
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 bg-white/[0.02]">
-                                            <th className="px-6 py-4">Student</th>
+                                            <th className="px-6 py-4">Pupil</th>
+                                            <th className="px-6 py-4">Class</th>
                                             <th className="px-6 py-4">Fee Type</th>
                                             <th className="px-6 py-4">Term</th>
                                             <th className="px-6 py-4">Total</th>
@@ -594,6 +604,7 @@ export default function Finance() {
                                         {filteredFees.map(fee => (
                                             <tr key={fee.id} className="border-b border-white/[0.02] hover:bg-white/[0.02] transition-all group">
                                                 <td className="px-6 py-4 text-white font-semibold">{fee.student_name || '—'}</td>
+                                                <td className="px-6 py-4 text-slate-400">{fee.class_name || '—'}</td>
                                                 <td className="px-6 py-4 text-slate-400">{fee.fee_type_name || '—'}</td>
                                                 <td className="px-6 py-4 text-slate-500">{fee.term_name || '—'}</td>
                                                 <td className="px-6 py-4 text-slate-300 font-mono">
@@ -602,11 +613,10 @@ export default function Finance() {
                                                 <td className="px-6 py-4 text-emerald-400 font-mono">{formatCurrency(fee.amount_paid)}</td>
                                                 <td className="px-6 py-4 text-red-400 font-mono">{formatCurrency(fee.balance)}</td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                                        fee.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                                        fee.status === 'partial' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                                        'bg-red-500/10 text-red-400 border border-red-500/20'
-                                                    }`}>{fee.status}</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${fee.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                                            fee.status === 'partial' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                                                'bg-red-500/10 text-red-400 border border-red-500/20'
+                                                        }`}>{fee.status}</span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {fee.status !== 'paid' && (
@@ -726,11 +736,10 @@ export default function Finance() {
                                                 <td className="px-6 py-4 text-red-400 font-mono">{formatCurrency(p.deductions)}</td>
                                                 <td className="px-6 py-4 text-white font-black font-mono">{formatCurrency(p.net_salary)}</td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                                        p.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                                        p.status === 'draft' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' :
-                                                        'bg-red-500/10 text-red-400 border border-red-500/20'
-                                                    }`}>{p.status}</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${p.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                                            p.status === 'draft' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' :
+                                                                'bg-red-500/10 text-red-400 border border-red-500/20'
+                                                        }`}>{p.status}</span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {p.status === 'draft' && (
