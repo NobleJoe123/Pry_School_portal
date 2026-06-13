@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore
+from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent
 from accounts.serializers import UserSerializer
 
 class AcademicYearSerializer(serializers.ModelSerializer):
@@ -76,3 +76,24 @@ class StudentScoreSerializer(serializers.ModelSerializer):
         rep = super().to_representation(instance)
         rep['assessment'] = AssessmentNestedSerializer(instance.assessment).data
         return rep
+
+
+class ReportCardSerializer(serializers.ModelSerializer):
+    student_name = serializers.ReadOnlyField(source='student.full_name')
+    student_admission = serializers.ReadOnlyField(source='student.student_profile.admission_number')
+    term_name = serializers.ReadOnlyField(source='term.name')
+    academic_year_name = serializers.ReadOnlyField(source='term.academic_year.name')
+
+    class Meta:
+        model = ReportCard
+        fields = '__all__'
+
+
+class SchoolEventSerializer(serializers.ModelSerializer):
+    term_name = serializers.ReadOnlyField(source='term.name')
+    academic_year_name = serializers.ReadOnlyField(source='term.academic_year.name')
+
+    class Meta:
+        model = SchoolEvent
+        fields = '__all__'
+

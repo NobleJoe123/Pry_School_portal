@@ -52,6 +52,17 @@ class User(AbstractBaseUser, PermissionsMixin):
     updated_at = models.DateTimeField(auto_now=True)
     last_login = models.DateTimeField(blank=True, null=True)
     profile_photo = models.ImageField(upload_to='profiles/', null=True, blank=True)
+    
+    first_login_completed = models.BooleanField(default=False)
+    last_seen = models.DateTimeField(blank=True, null=True)
+
+    @property
+    def is_online(self):
+        if self.last_seen:
+            from django.utils import timezone
+            from datetime import timedelta
+            return timezone.now() - self.last_seen < timedelta(minutes=5)
+        return False
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']

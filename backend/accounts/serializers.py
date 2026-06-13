@@ -35,11 +35,24 @@ class UserSerializer(serializers.ModelSerializer):
                     'user': {
                         'id': child.user.id,
                         'full_name': child.user.full_name,
+                        'email': child.user.email,
+                        'phone': child.user.phone,
+                        'date_of_birth': child.user.date_of_birth,
+                        'address': child.user.address,
                         'profile_photo_url': self.get_profile_photo_url(child.user)
                     },
                     'profile': {
                         'admission_number': child.admission_number,
-                        'current_class': {'name': child.current_class.name} if child.current_class else None
+                        'current_class': {'name': child.current_class.name} if child.current_class else None,
+                        'gender': child.gender,
+                        'blood_group': child.blood_group,
+                        'state_of_origin': child.state_of_origin,
+                        'place_of_birth': child.place_of_birth,
+                        'emergency_contact_name': child.emergency_contact_name,
+                        'emergency_contact_phone': child.emergency_contact_phone,
+                        'emergency_contact_relationship': child.emergency_contact_relationship,
+                        'medical_conditions': child.medical_conditions,
+                        'status': child.status
                     }
                 } for child in children
             ]
@@ -213,6 +226,7 @@ class CreateStudentSerializer(serializers.Serializer):
     emergency_contact_relationship = serializers.CharField(max_length=50, required=False, allow_blank=True)
     medical_conditions = serializers.CharField(required=False, allow_blank=True)
     status = serializers.ChoiceField(choices=['active', 'graduated', 'transferred', 'suspended'], default='active', required=False)
+    profile_photo = serializers.ImageField(required=False, allow_null=True)
     
     def validate_email(self, value):
         if User.objects.filter(email=value.lower()).exists():
@@ -241,6 +255,7 @@ class CreateStudentSerializer(serializers.Serializer):
         password = validated_data.pop('password', None)
         self.context['generated_password'] = password
         
+        profile_photo = validated_data.pop('profile_photo', None)
         current_class_name = validated_data.pop('current_class', '')
         school_class = None
         if current_class_name:
@@ -278,6 +293,10 @@ class CreateStudentSerializer(serializers.Serializer):
             password=password,
             role='student',
         )
+        if profile_photo:
+            user.profile_photo = profile_photo
+            user.save(update_fields=['profile_photo'])
+
         if not password:
             user.set_unusable_password()
             user.save(update_fields=['password'])
