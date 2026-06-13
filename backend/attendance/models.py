@@ -23,6 +23,7 @@ class StudentAttendance(models.Model):
     date = models.DateField(default=timezone.now)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='present')
     remarks = models.CharField(max_length=255, blank=True, null=True)
+    is_locked = models.BooleanField(default=False, help_text="Locked after teacher submission")
 
     class Meta:
         unique_together = ('student', 'date')
@@ -30,6 +31,36 @@ class StudentAttendance(models.Model):
 
     def __str__(self):
         return f"{self.student.full_name} - {self.date} ({self.status})"
+
+
+class AttendanceSubmission(models.Model):
+    """Tracks whether a teacher has submitted attendance for a class on a specific date."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school_class = models.ForeignKey(SchoolClass, on_delete=models.CASCADE, related_name='attendance_submissions')
+    date = models.DateField()
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='attendance_submissions_made'
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    is_locked = models.BooleanField(default=True)
+    reopened_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendance_reopened'
+    )
+
+    class Meta:
+        unique_together = ('school_class', 'date')
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"Attendance submitted for {self.school_class.name} on {self.date}"
+
 
 class TeacherAttendance(models.Model):
     STATUS_CHOICES = [

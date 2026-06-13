@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import StudentAttendance, TeacherAttendance
+from .models import StudentAttendance, TeacherAttendance, AttendanceSubmission
 
 class StudentAttendanceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)
@@ -15,4 +15,12 @@ class TeacherAttendanceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeacherAttendance
+        fields = '__all__'
+
+class AttendanceSubmissionSerializer(serializers.ModelSerializer):
+    class_name = serializers.CharField(source='school_class.name', read_only=True)
+    submitted_by_name = serializers.CharField(source='submitted_by.full_name', read_only=True)
+
+    class Meta:
+        model = AttendanceSubmission
         fields = '__all__'

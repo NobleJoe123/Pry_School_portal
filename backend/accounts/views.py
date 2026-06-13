@@ -236,6 +236,7 @@ class UserProfileView(APIView):
     def patch(self, request):
         """Update user profile"""
         serializer = UserSerializer(
+            instance=request.user,
             data=request.data,
             partial=True,
             context={'request': request}
@@ -385,6 +386,19 @@ class StudentViewSet(viewsets.ModelViewSet):
                 .values('student_profile__current_class__name')
                 .annotate(count=Count('id'))
             )
+        })
+
+    @action(detail=True, methods=['post'])
+    def upload_photo(self, request, pk=None):
+        student = self.get_object()
+        photo = request.data.get('profile_photo') or request.FILES.get('profile_photo')
+        if not photo:
+            return Response({'error': 'No profile photo provided'}, status=status.HTTP_400_BAD_REQUEST)
+        student.profile_photo = photo
+        student.save(update_fields=['profile_photo'])
+        return Response({
+            'message': 'Profile photo uploaded successfully!',
+            'profile_photo_url': request.build_absolute_uri(student.profile_photo.url) if student.profile_photo else None
         })
     
     
