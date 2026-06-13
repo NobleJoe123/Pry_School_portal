@@ -276,6 +276,42 @@ class ChangePasswordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class CompleteFirstLoginView(APIView):
+    """
+    POST /api/auth/complete-first-login/
+    Set password for teacher's first login and complete onboarding
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+        
+        new_password = request.data.get('new_password')
+        confirm_password = request.data.get('confirm_password')
+        
+        if not new_password or not confirm_password:
+            return Response({'error': 'Both password fields are required.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if new_password != confirm_password:
+            return Response({'error': 'Passwords do not match.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            validate_password(new_password, user=request.user)
+        except ValidationError as e:
+            return Response({'error': list(e.messages)[0]}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user = request.user
+        user.set_password(new_password)
+        user.first_login_completed = True
+        user.save()
+        
+        return Response({
+            'message': 'Password updated successfully! First login completed.',
+            'user': UserSerializer(user, context={'request': request}).data
+        }, status=status.HTTP_200_OK)
+
+
 # Simple function-based view for testing
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -307,6 +343,10 @@ class StudentViewSet(viewsets.ModelViewSet):
         queryset = User.objects.filter(role='student').select_related(
             'student_profile', 'student_profile__parent'
         )
+        user = self.request.user
+        if user.is_authenticated and user.role == 'teacher':
+            queryset = queryset.filter(student_profile__current_class__teacher=user)
+
         class_name = self.request.query_params.get('class')
         student_status = self.request.query_params.get('status')
         parent_id = self.request.query_params.get('parent_id')

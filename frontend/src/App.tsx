@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
@@ -17,6 +17,13 @@ import DashboardLayout from './components/DashboardLayout';
 
 import Scores from './pages/Scores';
 import StudentGrades from './pages/StudentGrades';
+import Reports from './pages/Reports';
+import CalendarPage from './pages/Calendar';
+import Settings from './pages/Settings';
+import TeacherAttendance from './pages/Attendance/TeacherAttendance';
+import TeacherDashboard from './pages/Dashboard/TeacherDashboard';
+import MyClass from './pages/Teachers/MyClass';
+import LandingPage from './pages/LandingPage';
 
 // PlaceHolders Pages
 
@@ -47,11 +54,11 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/enrol" element={<Enrollment />} />
           <Route path="/register" element={<Enrollment />} />
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Shared Protected Routes (Dashboard Layout) */}
           <Route element={<ProtectedRoute allowedRoles={['admin', 'teacher', 'parent', 'student']} />}>
@@ -67,16 +74,16 @@ export default function App() {
                 <Route path="/academics" element={<Academics />} />
                 <Route path="/finance" element={<Finance />} />
                 <Route path="/attendance" element={<Attendance />} />
-                <Route path="/calendar" element={<Placeholder name="School Calendar" />} />
-                <Route path="/reports" element={<Placeholder name="Reports" />} />
+                <Route path="/reports" element={<Reports />} />
               </Route>
 
               {/* Teacher Only Routes */}
               <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
-                <Route path="/teacher" element={<Dashboard />} /> {/* Or a specific teacher home */}
-                <Route path="/teacher/class" element={<Placeholder name="My Class" />} />
-                <Route path="/teacher/attendance" element={<Attendance />} />
+                <Route path="/teacher" element={<TeacherDashboard />} />
+                <Route path="/teacher/class" element={<MyClass />} />
+                <Route path="/teacher/attendance" element={<TeacherAttendance />} />
                 <Route path="/teacher/scores" element={<Scores />} />
+                <Route path="/teacher/reports" element={<Reports />} />
               </Route>
 
               {/* Parent Only Routes */}
@@ -94,8 +101,9 @@ export default function App() {
               </Route>
 
               {/* Common Routes */}
-              <Route path="/settings" element={<Placeholder name="Settings" />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/calendar" element={<CalendarPage />} />
             </Route>
           </Route>
 

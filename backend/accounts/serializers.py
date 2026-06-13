@@ -9,15 +9,19 @@ class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     profile_photo_url = serializers.SerializerMethodField()
     children = serializers.SerializerMethodField()
+    is_online = serializers.BooleanField(read_only=True)
+    last_seen = serializers.DateTimeField(read_only=True)
+    first_login_completed = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'middle_name', 'last_name',
             'full_name', 'role', 'phone', 'date_of_birth', 'address',
-            'profile_photo_url', 'is_active', 'date_joined', 'children'
+            'profile_photo_url', 'is_active', 'date_joined', 'children',
+            'is_online', 'last_seen', 'first_login_completed'
         ]
-        read_only_fields = ['id', 'date_joined']
+        read_only_fields = ['id', 'date_joined', 'is_online', 'last_seen', 'first_login_completed']
     
     def get_profile_photo_url(self, obj):
         if obj.profile_photo:
@@ -390,6 +394,9 @@ class TeacherListSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     profile_photo_url = serializers.SerializerMethodField()
     teacher_profile = TeacherProfileSerializer(read_only=True)
+    is_online = serializers.BooleanField(read_only=True)
+    last_seen = serializers.DateTimeField(read_only=True)
+    first_login_completed = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = User
@@ -397,7 +404,7 @@ class TeacherListSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name',
             'full_name', 'role', 'phone', 'date_of_birth', 'address',
             'profile_photo_url', 'is_active', 'date_joined', 'last_login',
-            'teacher_profile'
+            'teacher_profile', 'is_online', 'last_seen', 'first_login_completed'
         ]
         
     def get_profile_photo_url(self, obj):
@@ -455,7 +462,7 @@ class CreateTeacherSerializer(serializers.Serializer):
     
     @transaction.atomic
     def create(self, validated_data):
-        password = validated_data.pop('password', 'teacher123')
+        password = validated_data.pop('password', 'password123')
         
         profile_fields = {
             'staff_id': validated_data.pop('staff_id'),

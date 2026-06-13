@@ -11,6 +11,7 @@ class FeeTypeSerializer(serializers.ModelSerializer):
 
 class StudentFeeSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)
+    class_name = serializers.CharField(source='student.student_profile.current_class.name', read_only=True, allow_null=True, default=None)
     fee_type_name = serializers.CharField(source='fee_type.name', read_only=True)
     term_name = serializers.CharField(source='term.name', read_only=True)
     balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
