@@ -48,7 +48,7 @@ export default function ProtectedRoute({ allowedRoles}: ProtectedRouteProps) {
     if(isLoading) return <LoadingScreen />;
 
     if(!isAuthenticated) {
-        return <Navigate to="/Login" state={{ from: location}} replace />;
+        return <Navigate to="/login" state={{ from: location}} replace />;
     }
 
     if (allowedRoles && user && !allowedRoles.includes(user.role)) {
