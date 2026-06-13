@@ -8,9 +8,10 @@ import type { Notification } from '../types';
 interface NavbarProps {
     onMenuClick: () => void;
     title?: string;
+    showMenuIcon?: boolean;
 }
 
-export default function Navbar({ onMenuClick, title = 'Dashboard' }: NavbarProps) {
+export default function Navbar({ onMenuClick, title = 'Dashboard', showMenuIcon = false }: NavbarProps) {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -71,7 +72,7 @@ export default function Navbar({ onMenuClick, title = 'Dashboard' }: NavbarProps
 
             {/* Left */}
             <div className="flex items-center gap-4">
-                <button type="button" title="Toggle menu" onClick={onMenuClick} className="text-slate-400 hover:text-white transition-colors lg:hidden">
+                <button type="button" title="Toggle menu" onClick={onMenuClick} className={`text-slate-400 hover:text-white transition-colors ${showMenuIcon ? 'block' : 'lg:hidden'}`}>
                     <Menu size={20} />
                 </button>
                 <div>

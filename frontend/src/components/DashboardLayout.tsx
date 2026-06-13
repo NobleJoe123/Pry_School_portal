@@ -30,6 +30,14 @@ export default function DashboardLayout() {
     const location = useLocation();
     const title = PAGE_TITLES[location.pathname] ?? 'Portal';
 
+    const handleMenuClick = () => {
+        if (window.innerWidth >= 1024) {
+            setCollapsed(false);
+        } else {
+            setMobileOpen(true);
+        }
+    };
+
     return (
         <div className="flex h-screen overflow-hidden" style={{ background: '#060f1a', fontFamily: "'DM Sans', sans-serif", }}>
 
@@ -43,8 +51,10 @@ export default function DashboardLayout() {
 
             {/* Sidebar container with responsive positioning */}
             <div 
-                className={`fixed lg:relative inset-y-0 left-0 z-50 transform lg:transform-none transition-transform duration-300 shrink-0 ${
+                className={`fixed lg:relative inset-y-0 left-0 z-50 transform lg:transform-none transition-all duration-300 shrink-0 ${
                     mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+                } ${
+                    collapsed ? 'lg:w-0 lg:overflow-hidden lg:-translate-x-full' : 'lg:w-[240px]'
                 }`}
             >
                 <Sidebar 
@@ -56,7 +66,7 @@ export default function DashboardLayout() {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <Navbar onMenuClick={() => setMobileOpen(true)} title={title} />
+                <Navbar onMenuClick={handleMenuClick} title={title} showMenuIcon={collapsed} />
                 <main className="flex-1 overflow-y-auto p-6">
                     <Outlet />
                 </main>
