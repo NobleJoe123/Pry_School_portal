@@ -23,12 +23,11 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Pupils', icon: <GraduationCap size={18} />, to: '/students', roles: ['admin'] },
     { label: 'Teachers', icon: <UserCheck size={18} />, to: '/teachers', roles: ['admin'] },
     { label: 'Parents', icon: <Users size={18} />, to: '/parents', roles: ['admin'] },
-    { label: 'Classes', icon: <BookOpen size={18} />, to: '/classes', roles: ['admin'] },
     { label: 'Academics', icon: <BookOpen size={18} />, to: '/academics', roles: ['admin'] },
     { label: 'Finance', icon: <CreditCard size={18} />, to: '/finance', roles: ['admin'] },
     { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/attendance', roles: ['admin'] },
     { label: 'Communications', icon: <MessageSquare size={18} />, to: '/notifications', roles: ['admin'] },
-    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin'] },
+    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin', 'teacher', 'parent'] },
     { label: 'Reports', icon: <FileText size={18} />, to: '/reports', roles: ['admin'] },
 
     // Teacher navigation
@@ -36,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'My Class', icon: <Users size={18} />, to: '/teacher/class', roles: ['teacher'] },
     { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/teacher/attendance', roles: ['teacher'] },
     { label: 'Enter Scores', icon: <BookOpen size={18} />, to: '/teacher/scores', roles: ['teacher'] },
+    { label: 'Results / Reports', icon: <FileText size={18} />, to: '/teacher/reports', roles: ['teacher'] },
 
     // Parent navigation
     { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/parent', roles: ['parent'] },
@@ -53,9 +53,10 @@ const BOTTOM_ITEMS = [
 interface SidebarProps {
     collapsed: boolean;
     onToggle: () => void;
+    onLinkClick?: () => void;
 }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, onLinkClick }: SidebarProps) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
@@ -89,19 +90,21 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     </div>
                 )}
                 {collapsed && (
-                    <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-sky-400 mx-auto">
+                    <div onClick={onToggle} className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-sky-400 mx-auto cursor-pointer hover:bg-sky-500/25 transition-all" title="Expand Sidebar">
                         <GraduationCap size={16} />
                     </div>
                 )}
-                <button onClick={onToggle} className="text-slate-500 hover:text-white transition-colors ml-auto" aria-label="Toggle sidebar">
-                    {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-                </button>
+                {!collapsed && (
+                    <button onClick={onToggle} className="text-slate-500 hover:text-white transition-colors ml-auto" aria-label="Toggle sidebar">
+                        <ChevronLeft size={16} />
+                    </button>
+                )}
             </div>
 
             {/* Main Nav */}
             <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
                 {filteredNavItems.map((item) => (
-                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`} title={collapsed ? item.label : undefined}>
+                    <NavLink key={item.to} to={item.to} onClick={onLinkClick} className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`} title={collapsed ? item.label : undefined}>
                         <span className="shrink-0">{item.icon}</span>
                         {!collapsed && <span className="truncate">{item.label}</span>}
                         {item.badge && !collapsed && (
@@ -125,7 +128,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="px-3 pb-2 space-y-0.5 border-t border-white/5 pt-3">
                 {/* Notifications for admin only */}
                 {userRole === 'teacher' || userRole === 'parent' ? (
-                    <NavLink to="/notifications" className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`} title={collapsed ? 'Notifications' : undefined}>
+                    <NavLink to="/notifications" onClick={onLinkClick} className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`} title={collapsed ? 'Notifications' : undefined}>
                         <Bell size={18} className="shrink-0" />
                         {!collapsed && <span className="truncate">Notifications</span>}
                         {collapsed && (
@@ -137,7 +140,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 ) : null}
 
                 {BOTTOM_ITEMS.filter(i => i.roles.includes(userRole)).map((item) => (
-                    <NavLink key={item.to} to={item.to} className={({ isActive }) =>
+                    <NavLink key={item.to} to={item.to} onClick={onLinkClick} className={({ isActive }) =>
                         `${linkBase} ${isActive ? activeClass : inactiveClass}`
                     }
                         title={collapsed ? item.label : undefined}>

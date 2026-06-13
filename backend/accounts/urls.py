@@ -9,6 +9,7 @@ from .views import (
     LogoutView,
     UserProfileView,
     ChangePasswordView,
+    CompleteFirstLoginView,
     health_check,
 
     # Management Viewsets
@@ -49,6 +50,7 @@ urlpatterns = [
     #User Profile
     path('profile/', UserProfileView.as_view(), name='profile'),
     path('change-password/', ChangePasswordView.as_view(), name='change_password'),
+    path('complete-first-login/', CompleteFirstLoginView.as_view(), name='complete_first_login'),
     path('health', health_check, name='health_check'),
     #Dashboard
     path('dashboard/stats/', dashboard_stats, name='dashboard_stats'),

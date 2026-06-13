@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
-import { CheckCircle, Users, GraduationCap, Lock, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle, Users, GraduationCap, Lock, Plus, Trash2, UserCircle } from 'lucide-react';
 
 const CLASS_OPTIONS = [
   'Nursery 1', 'Nursery 2', 'KG 1', 'KG 2',
@@ -30,7 +30,7 @@ export default function Enrollment() {
     confirm_password: ''
   });
 
-  // Students State
+  // Pupils State
   const [studentsData, setStudentsData] = useState([{
     first_name: '',
     middle_name: '',
@@ -112,7 +112,7 @@ export default function Enrollment() {
     } else if (step === 2) {
       const incomplete = studentsData.some(s => !s.first_name || !s.last_name || !s.dob || !s.class);
       if (incomplete) {
-        setError('Please fill in all required student details (First Name, Last Name, Date of Birth, and Class).');
+        setError('Please fill in all required pupil details (First Name, Last Name, Date of Birth, and Class).');
         return;
       }
     }
@@ -133,7 +133,7 @@ export default function Enrollment() {
           <div className="flex justify-between items-center mb-8 px-4">
             {[
               { num: 1, label: 'Parent Details', icon: Users },
-              { num: 2, label: 'Student Info', icon: GraduationCap },
+              { num: 2, label: 'Pupil Info', icon: GraduationCap },
               { num: 3, label: 'Account Setup', icon: Lock }
             ].map((s) => (
               <div key={s.num} className={`flex flex-col items-center gap-2 ${step >= s.num ? 'text-amber-500' : 'text-slate-600'}`}>
@@ -194,7 +194,7 @@ export default function Enrollment() {
           {step === 2 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
               <div className="flex justify-between items-center mb-2">
-                <h2 className="text-2xl font-black text-white">Student Information</h2>
+                <h2 className="text-2xl font-black text-white">Pupil Information</h2>
                 <button onClick={addStudent} className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-lg text-sm font-bold hover:bg-emerald-500/20 transition-all">
                   <Plus size={16} /> Add Another
                 </button>
@@ -207,7 +207,18 @@ export default function Enrollment() {
                       <Trash2 size={18} />
                     </button>
                   )}
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Student #{idx + 1}</h3>
+
+                  <div className="flex items-start gap-4 pb-2 border-b border-white/5">
+                    {/* Passport Placeholder */}
+                    <div className="w-16 h-16 rounded-xl border border-dashed border-white/20 bg-white/5 flex flex-col items-center justify-center text-slate-500 shrink-0 select-none">
+                      <UserCircle size={24} className="opacity-40" />
+                      <span className="text-[8px] font-bold mt-1 text-center">PASSPORT</span>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white uppercase tracking-widest">Pupil #{idx + 1}</h3>
+                      <p className="text-[10px] text-slate-500 mt-1">Photo upload will be completed in the parent portal after approval.</p>
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
