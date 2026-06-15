@@ -470,7 +470,7 @@ class CreateTeacherSerializer(serializers.Serializer):
             'date_of_joining': validated_data.pop('date_of_joining', None),
             'highest_qualification': validated_data.pop('highest_qualification', ''),
             'specialization': validated_data.pop('specialization', ''),
-            'years_of_experience': validated_data.pop('years_of_experience', 0),
+            'years_of_experience': validated_data.pop('years_of_experience', 0),   
             'subjects_taught': validated_data.pop('subjects_taught', ''),
             'monthly_salary': validated_data.pop('monthly_salary', None),
             'is_class_teacher': validated_data.pop('is_class_teacher', False),
