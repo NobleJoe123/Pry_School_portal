@@ -181,7 +181,7 @@ export default function CalendarPage() {
         setLoading(true);
         Promise.all([
             api.get<any>(endpoints.academics.terms),
-            api.get<any>('/academics/academic-years/')
+            api.get<any>(endpoints.academics.years)
         ]).then(([termsRes, yearsRes]) => {
             const termList = getList(termsRes) as Term[];
             const yearList = getList(yearsRes);

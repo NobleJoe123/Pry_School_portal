@@ -17,13 +17,14 @@ export default function Scores() {
     const [classes, setClasses] = useState<SchoolClass[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const [assessmentTypes, setAssessmentTypes] = useState<AssessmentType[]>([]);
+    const [currentTermId, setCurrentTermId] = useState<string>('');
     
     const [selectedClass, setSelectedClass] = useState<string>('');
     const [selectedSubject, setSelectedSubject] = useState<string>('');
     const [selectedAssessmentType, setSelectedAssessmentType] = useState<string>('');
     
     const [students, setStudents] = useState<User[]>([]);
-    const [scores, setScores] = useState<Record<string, { score: string, remarks: string }>>({});
+    const [scores, setScores] = useState<Record<string, { score: string, remarks: string }>>({})
     
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState('');
@@ -35,8 +36,9 @@ export default function Scores() {
         Promise.all([
             api.get<any>(endpoints.academics.classes),
             api.get<any>(endpoints.academics.subjects),
-            api.get<any>(endpoints.academics.assessmentTypes)
-        ]).then(([classesRes, subjectsRes, typesRes]) => {
+            api.get<any>(endpoints.academics.assessmentTypes),
+            api.get<any>(endpoints.academics.terms),
+        ]).then(([classesRes, subjectsRes, typesRes, termsRes]) => {
             const getList = (val: any) => {
                 if (!val) return [];
                 if (Array.isArray(val)) return val;
@@ -53,6 +55,11 @@ export default function Scores() {
             }
             const subjectList = getList(subjectsRes);
             const typeList = getList(typesRes);
+            const termList = getList(termsRes);
+
+            // Resolve the current active term
+            const activeTerm = termList.find((t: any) => t.is_current) || termList[0];
+            if (activeTerm) setCurrentTermId(activeTerm.id);
             
             setClasses(classList);
             setSubjects(subjectList);
@@ -87,7 +94,8 @@ export default function Scores() {
                 
                 try {
                     // Fetch existing scores
-                    const scoresRes = await api.get<any>(`${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&assessment_type=${selectedAssessmentType}&term=REPLACE_WITH_CURRENT_TERM_ID`);
+                    const termParam = currentTermId ? `&term=${currentTermId}` : '';
+                    const scoresRes = await api.get<any>(`${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&assessment_type=${selectedAssessmentType}${termParam}`);
                     const existingScores = getList(scoresRes);
                     
                     const initial: Record<string, { score: string, remarks: string }> = {};
@@ -110,7 +118,7 @@ export default function Scores() {
                 
                 setLoading(false);
             });
-    }, [selectedClass, selectedSubject, selectedAssessmentType, classes]);
+    }, [selectedClass, selectedSubject, selectedAssessmentType, classes, currentTermId]);
 
     const handleScoreChange = (studentId: string, val: string) => {
         setScores(prev => ({
@@ -142,7 +150,7 @@ export default function Scores() {
                 school_class: selectedClass,
                 subject: selectedSubject,
                 assessment_type: selectedAssessmentType,
-                term: 'REPLACE_WITH_CURRENT_TERM_ID',
+                term: currentTermId,
                 date: new Date().toISOString().split('T')[0],
                 records
             });

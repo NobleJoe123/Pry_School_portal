@@ -4,7 +4,7 @@ Django settings for portal project.
 import os
 from pathlib import Path
 from datetime import timedelta
-from decouple import config
+from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,7 +16,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key')
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 # ALLOWED_HOSTS - Convert string to list
-allowed_hosts_str = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,backend,0.0.0.0')
+allowed_hosts_str = config('ALLOWED_HOSTS', cast=Csv(), default='localhost,127.0.0.1,backend,0.0.0.0')
 ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(',')] if isinstance(allowed_hosts_str, str) else allowed_hosts_str
 
 # Application definition
@@ -104,7 +104,12 @@ CSRF_TRUSTED_ORIGINS = [
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False
+
+csrf_origins = config("CSRF_TRUSTED_ORIGINS", default="")
+
 CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in csrf_origins.split(',') if origin.strip()
+] + [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]

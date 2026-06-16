@@ -102,7 +102,7 @@ export function FormSection({ title }: { title: string }) {
             <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest whitespace-nowrap">
                 {title}
             </p>
-            <div className="flex-1 h-px bg-whit/5" />
+            <div className="flex-1 h-px bg-white/5" />
         </div>
     )
 }
