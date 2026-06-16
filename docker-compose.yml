@@ -26,7 +26,7 @@ services:
     image: ngrok/ngrok:latest
     container_name: primary_portal_ngrok
     restart: unless-stopped
-    command: http backend:8000
+    command: http frontend:5173
     environment:
       - NGROK_AUTHTOKEN= ${NGROK_AUTHTOKEN}
     ports:
@@ -36,13 +36,6 @@ services:
     networks:
       - app_network
 
-
-  app:
-    image: nginx:alpine
-    container_name: primary_portal_nginx
-    ports:
-      - "8000:8000"
-  # Redis
   redis:
     image: redis:7-alpine
     container_name: primary_portal_redis
