@@ -43,7 +43,7 @@ export const refreshAccessToken = async (): Promise<string | null> => {
         }
 
         const data = await res.json();
-        const newToken: string = data.access_token;
+        const newToken: string = data.access;
         AccessToken.set(newToken);
         return newToken;
     } catch {
