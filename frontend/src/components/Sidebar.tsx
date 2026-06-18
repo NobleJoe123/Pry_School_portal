@@ -27,7 +27,7 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Finance', icon: <CreditCard size={18} />, to: '/finance', roles: ['admin'] },
     { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/attendance', roles: ['admin'] },
     { label: 'Communications', icon: <MessageSquare size={18} />, to: '/notifications', roles: ['admin'] },
-    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin', 'teacher', 'parent'] },
+    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin'] },
     { label: 'Reports', icon: <FileText size={18} />, to: '/reports', roles: ['admin'] },
 
     // Teacher navigation
@@ -36,11 +36,13 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/teacher/attendance', roles: ['teacher'] },
     { label: 'Enter Scores', icon: <BookOpen size={18} />, to: '/teacher/scores', roles: ['teacher'] },
     { label: 'Results / Reports', icon: <FileText size={18} />, to: '/teacher/reports', roles: ['teacher'] },
+    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['teacher'] },
 
     // Parent navigation
     { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/parent', roles: ['parent'] },
     { label: 'My Children', icon: <GraduationCap size={18} />, to: '/parent/children', roles: ['parent'] },
     { label: 'Fee Payments', icon: <CreditCard size={18} />, to: '/parent/fees', roles: ['parent'] },
+    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['parent'] },
 ];
 
 
@@ -156,14 +158,14 @@ export default function Sidebar({ collapsed, onToggle, onLinkClick }: SidebarPro
 
                 <button onClick={handleLogout} className={`${linkBase} ${inactiveClass} w-full text-left hover:text-red-400`}
                     title={collapsed ? 'Logout' : undefined}>
-                        <LogOut size={18} className="shrink-0" />
-                        {!collapsed && <span>Logout</span>}
-                        {collapsed && (
-                            <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 border border-white/10">
-                                Logout
-                            </div>
-                        )}
-                    </button>
+                    <LogOut size={18} className="shrink-0" />
+                    {!collapsed && <span>Logout</span>}
+                    {collapsed && (
+                        <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 border border-white/10">
+                            Logout
+                        </div>
+                    )}
+                </button>
             </div>
 
             {/* User info */}
