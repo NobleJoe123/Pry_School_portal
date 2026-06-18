@@ -336,12 +336,11 @@ export default function LandingPage() {
                                 <div className="p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all"
                                     style={{ background: 'linear-gradient(135deg, #0d1b2a 0%, #0a1628 100%)' }}>
                                     <div className="flex items-center gap-3 mb-4">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0 ${
-                                            i === 0 ? 'bg-amber-500/15 text-amber-400' :
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0 ${i === 0 ? 'bg-amber-500/15 text-amber-400' :
                                             i === 1 ? 'bg-emerald-500/15 text-emerald-400' :
-                                            i === 2 ? 'bg-sky-500/15 text-sky-400' :
-                                            'bg-violet-500/15 text-violet-400'
-                                        }`}>
+                                                i === 2 ? 'bg-sky-500/15 text-sky-400' :
+                                                    'bg-violet-500/15 text-violet-400'
+                                            }`}>
                                             {step.icon}
                                         </div>
                                         <span className="text-slate-700 font-black text-2xl">{step.num}</span>
@@ -412,7 +411,7 @@ export default function LandingPage() {
                         {[
                             {
                                 quote: "I can check my daughter's attendance and results right from my phone. I no longer have to call the school every week to get updates.",
-                                name: "Mrs. Adaeze Okafor", role: "Parent of Primary 3 Pupil",
+                                name: "Mrs. Olafemi Mirabel", role: "Parent of Primary 3 Pupil",
                                 stars: 5, color: 'border-amber-500/20'
                             },
                             {
@@ -422,7 +421,7 @@ export default function LandingPage() {
                             },
                             {
                                 quote: "The school-wide dashboard shows me everything — which classes submitted attendance, who's absent, and the day's finances — all on one screen.",
-                                name: "Mrs. Ngozi Eze", role: "School Administrator",
+                                name: "Mrs. Pearson Aminat", role: "School Administrator",
                                 stars: 5, color: 'border-sky-500/20'
                             },
                         ].map(({ quote, name, role, stars, color }) => (
@@ -502,7 +501,7 @@ export default function LandingPage() {
                                 </div>
                             </div>
                             <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-                                Empowering every learner through technology, transparency, and trust. 
+                                Empowering every learner through technology, transparency, and trust.
                                 Building the next generation — one click at a time.
                             </p>
                         </div>
@@ -532,7 +531,7 @@ export default function LandingPage() {
                             <ul className="space-y-2.5 text-slate-400 text-xs">
                                 <li className="flex items-center gap-2">
                                     <Globe size={12} className="text-amber-400 shrink-0" />
-                                    Anyi, Enugu State, Nigeria
+                                    Anyi, Lagos State, Nigeria
                                 </li>
                                 <li className="flex items-center gap-2">
                                     <Bell size={12} className="text-amber-400 shrink-0" />
