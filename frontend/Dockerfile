@@ -7,11 +7,6 @@ COPY package*.json  package-lock.json* ./
 RUN npm install
 
 # Copy project files
-COPY tailwind.config.js ./
-COPY postcss.config.js ./
-COPY vite.config.ts ./
-COPY index.html ./
-
 COPY . .
 
 EXPOSE 5173
