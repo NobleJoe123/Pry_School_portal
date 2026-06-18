@@ -15,9 +15,8 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-# ALLOWED_HOSTS - Convert string to list
-allowed_hosts_str = config('ALLOWED_HOSTS', cast=Csv(), default='localhost,127.0.0.1,backend,0.0.0.0')
-ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(',')] if isinstance(allowed_hosts_str, str) else allowed_hosts_str
+# ALLOWED_HOSTS
+ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', cast=Csv(), default='localhost,127.0.0.1,backend,0.0.0.0')]
 
 # Application definition
 INSTALLED_APPS = [
@@ -87,43 +86,26 @@ DATABASES = {
 
 AUTH_USER_MODEL = 'accounts.User'
 
-# CORS Configuration - Convert string to list
-cors_origins_str = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173')
-CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins_str.split(',')] if isinstance(cors_origins_str, str) else cors_origins_str
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = [o.strip() for o in config('CORS_ALLOWED_ORIGINS', cast=Csv(), default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173')]
 
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'http://localhost:3000',
-    'http://localhost:5173',
-    "http://127.0.0.1:5173",
-]
-#Cookie security settings
+# Cookie security settings
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False
 
-csrf_origins = config("CSRF_TRUSTED_ORIGINS", default="")
-
+# CSRF Trusted Origins
+_extra_csrf = config("CSRF_TRUSTED_ORIGINS", default="")
 CSRF_TRUSTED_ORIGINS = [
-    origin.strip() for origin in csrf_origins.split(',') if origin.strip()
+    o.strip() for o in _extra_csrf.split(',') if o.strip()
 ] + [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
-# SimpleJWT token lifetimes
 
-from datetime import timedelta
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-}
 
 
 # Media files
@@ -187,7 +169,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'  # Changed from UTC
+TIME_ZONE = 'Africa/Lagos'
 USE_I18N = True
 USE_TZ = True
 
