@@ -49,6 +49,7 @@ export default function TeacherAttendance() {
     const [assignedClasses, setAssignedClasses] = useState<SchoolClass[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [records, setRecords] = useState<StudentRecord[]>([]);
+    const [currentTermId, setCurrentTermId] = useState<string>('');
 
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<AttendanceStatus | 'all'>('all');
@@ -63,13 +64,21 @@ export default function TeacherAttendance() {
     useEffect(() => {
         async function loadClasses() {
             try {
-                const res = await api.get<any>(endpoints.academics.classes);
-                const classList = getList<SchoolClass>(res);
+                const [classRes, termsRes] = await Promise.all([
+                    api.get<any>(endpoints.academics.classes),
+                    api.get<any>(endpoints.academics.terms),
+                ]);
+                const classList = getList<SchoolClass>(classRes);
                 const myClasses = classList.filter(
                     (c: any) => c.teacher === user?.id || c.teacher_name === user?.full_name
                 );
                 setAssignedClasses(myClasses);
                 if (myClasses.length > 0) setSelectedClassId(myClasses[0].id);
+
+                // Resolve the active term
+                const termList = getList<any>(termsRes);
+                const activeTerm = termList.find((t: any) => t.is_current) || termList[0];
+                if (activeTerm) setCurrentTermId(activeTerm.id);
             } catch (err) {
                 console.error('Failed to load classes:', err);
             } finally {
@@ -169,7 +178,7 @@ export default function TeacherAttendance() {
                 records: payload,
                 school_class: selectedClassId,
                 date: todayISO,
-                term: 'REPLACE_WITH_CURRENT_TERM_ID',
+                term: currentTermId,
             });
 
             setSubmitted(true);
