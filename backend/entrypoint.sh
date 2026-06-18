@@ -38,7 +38,6 @@ echo "✓ Redis is ready"
 
 # Run migrations
 echo "Running migrations..."
-python manage.py makemigrations --noinput
 python manage.py migrate --noinput
 echo "✓ Migrations complete"
 
