@@ -25,6 +25,8 @@ import TeacherDashboard from './pages/Dashboard/TeacherDashboard';
 import MyClass from './pages/Teachers/MyClass';
 import LandingPage from './pages/LandingPage';
 import ForgotPassword from './pages/ForgotPassword';
+import UploadMaterials from './pages/Teachers/UploadMaterials';
+import TeacherMessages from './pages/Teachers/Messages';
 
 // PlaceHolders Pages
 
@@ -86,6 +88,8 @@ export default function App() {
                 <Route path="/teacher/attendance" element={<TeacherAttendance />} />
                 <Route path="/teacher/scores" element={<Scores />} />
                 <Route path="/teacher/reports" element={<Reports />} />
+                <Route path="/teacher/materials" element={<UploadMaterials />} />
+                <Route path="/teacher/messages" element={<TeacherMessages />} />
               </Route>
 
               {/* Parent Only Routes */}
@@ -93,6 +97,7 @@ export default function App() {
                 <Route path="/parent" element={<Dashboard />} />
                 <Route path="/parent/children" element={<Placeholder name="My Children" />} />
                 <Route path="/parent/fees" element={<Placeholder name="Fee Payments" />} />
+                <Route path="/parent/messages" element={<TeacherMessages />} />
               </Route>
 
               {/* Student Only Routes */}
