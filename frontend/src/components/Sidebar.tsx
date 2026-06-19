@@ -2,9 +2,10 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, Users, GraduationCap, UserCheck, BookOpen,
     CreditCard, CalendarCheck, Settings, LogOut, ChevronLeft,
-    ChevronRight, Bell, CalendarDays, FileText, MessageSquare,
+    ChevronRight, Bell, CalendarDays, FileText, MessageSquare, UploadCloud,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import logo from '../assets/anyilogo.png';
 
 // Navigation Items
 
@@ -17,32 +18,35 @@ interface NavItem {
     roles: string[];
 }
 
-
+const NAV_ITEMS: NavItem[] = [
     // Admin navigation
-    { label: 'Dashboard',        icon: <LayoutDashboard size={18} />, to: '/dashboard',           end: true,  roles: ['admin'] },
-    { label: 'Pupils',           icon: <GraduationCap size={18} />,  to: '/students',             roles: ['admin'] },
-    { label: 'Teachers',         icon: <UserCheck size={18} />,      to: '/teachers',             roles: ['admin'] },
-    { label: 'Parents',          icon: <Users size={18} />,          to: '/parents',              roles: ['admin'] },
-    { label: 'Academics',        icon: <BookOpen size={18} />,       to: '/academics',            roles: ['admin'] },
-    { label: 'Finance',          icon: <CreditCard size={18} />,     to: '/finance',              roles: ['admin'] },
-    { label: 'Attendance',       icon: <CalendarCheck size={18} />,  to: '/attendance',           roles: ['admin'] },
-    { label: 'Communications',   icon: <MessageSquare size={18} />,  to: '/notifications',        roles: ['admin'] },
-    { label: 'School Calendar',  icon: <CalendarDays size={18} />,   to: '/calendar',             roles: ['admin'] },
-    { label: 'Reports',          icon: <FileText size={18} />,       to: '/reports',              roles: ['admin'] },
+    { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/dashboard', end: true, roles: ['admin'] },
+    { label: 'Pupils', icon: <GraduationCap size={18} />, to: '/students', roles: ['admin'] },
+    { label: 'Teachers', icon: <UserCheck size={18} />, to: '/teachers', roles: ['admin'] },
+    { label: 'Parents', icon: <Users size={18} />, to: '/parents', roles: ['admin'] },
+    { label: 'Academics', icon: <BookOpen size={18} />, to: '/academics', roles: ['admin'] },
+    { label: 'Finance', icon: <CreditCard size={18} />, to: '/finance', roles: ['admin'] },
+    { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/attendance', roles: ['admin'] },
+    { label: 'Communications', icon: <MessageSquare size={18} />, to: '/notifications', roles: ['admin'] },
+    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin'] },
+    { label: 'Reports', icon: <FileText size={18} />, to: '/reports', roles: ['admin'] },
 
     // Teacher navigation
-    { label: 'Dashboard',        icon: <LayoutDashboard size={18} />, to: '/teacher',             end: true,  roles: ['teacher'] },
-    { label: 'My Class',         icon: <Users size={18} />,          to: '/teacher/class',        roles: ['teacher'] },
-    { label: 'Attendance',       icon: <CalendarCheck size={18} />,  to: '/teacher/attendance',   roles: ['teacher'] },
-    { label: 'Enter Scores',     icon: <BookOpen size={18} />,       to: '/teacher/scores',       roles: ['teacher'] },
-    { label: 'Results / Reports',icon: <FileText size={18} />,       to: '/teacher/reports',      roles: ['teacher'] },
-    { label: 'School Calendar',  icon: <CalendarDays size={18} />,   to: '/calendar',             roles: ['teacher'] },
-
+    { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/teacher', end: true, roles: ['teacher'] },
+    { label: 'My Class', icon: <Users size={18} />, to: '/teacher/class', roles: ['teacher'] },
+    { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/teacher/attendance', roles: ['teacher'] },
+    { label: 'Enter Scores', icon: <BookOpen size={18} />, to: '/teacher/scores', roles: ['teacher'] },
+    { label: 'Results / Reports', icon: <FileText size={18} />, to: '/teacher/reports', roles: ['teacher'] },
+    { label: 'Upload Materials', icon: <UploadCloud size={18} />, to: '/teacher/materials', roles: ['teacher'] },
+    { label: 'Messages', icon: <MessageSquare size={18} />, to: '/teacher/messages', roles: ['teacher'] },
+    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['teacher'] },
+ 
     // Parent navigation
-    { label: 'Dashboard',        icon: <LayoutDashboard size={18} />, to: '/parent',              end: true,  roles: ['parent'] },
-    { label: 'My Children',      icon: <GraduationCap size={18} />,  to: '/parent/children',      roles: ['parent'] },
-    { label: 'Fee Payments',     icon: <CreditCard size={18} />,     to: '/parent/fees',          roles: ['parent'] },
-    { label: 'School Calendar',  icon: <CalendarDays size={18} />,   to: '/calendar',             roles: ['parent'] },
+    { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/parent', end: true, roles: ['parent'] },
+    { label: 'My Children', icon: <GraduationCap size={18} />, to: '/parent/children', roles: ['parent'] },
+    { label: 'Fee Payments', icon: <CreditCard size={18} />, to: '/parent/fees', roles: ['parent'] },
+    { label: 'Messages', icon: <MessageSquare size={18} />, to: '/parent/messages', roles: ['parent'] },
+    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['parent'] },
 ];
 
 
@@ -82,18 +86,16 @@ export default function Sidebar({ collapsed, onToggle, onLinkClick }: SidebarPro
             <div className="flex items-center justify-between px-4 py-5 border-b border-white/5">
                 {!collapsed && (
                     <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-sky-400 shrink-0">
-                            <GraduationCap size={16} />
-                        </div>
+                        <img src={logo} alt="Logo" className="w-8 h-8 object-contain shrink-0" />
                         <div>
                             <p className="text-white font-bold text-sm leading-tight"> Anyi Primary School</p>
-                            <p className="text-slate-500 text-[10px]"> Admin Portal</p>
+                            <p className="text-slate-500 text-[10px] capitalize"> {userRole === 'student' ? 'Pupil' : userRole} Portal</p>
                         </div>
                     </div>
                 )}
                 {collapsed && (
-                    <div onClick={onToggle} className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-sky-400 mx-auto cursor-pointer hover:bg-sky-500/25 transition-all" title="Expand Sidebar">
-                        <GraduationCap size={16} />
+                    <div onClick={onToggle} className="w-8 h-8 flex items-center justify-center mx-auto cursor-pointer hover:opacity-80 transition-all" title="Expand Sidebar">
+                        <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
                     </div>
                 )}
                 {!collapsed && (
