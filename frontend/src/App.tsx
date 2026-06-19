@@ -24,6 +24,7 @@ import TeacherAttendance from './pages/Attendance/TeacherAttendance';
 import TeacherDashboard from './pages/Dashboard/TeacherDashboard';
 import MyClass from './pages/Teachers/MyClass';
 import LandingPage from './pages/LandingPage';
+import ForgotPassword from './pages/ForgotPassword';
 
 // PlaceHolders Pages
 
@@ -56,6 +57,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/enrol" element={<Enrollment />} />
           <Route path="/register" element={<Enrollment />} />
           <Route path="/admin/login" element={<AdminLogin />} />
