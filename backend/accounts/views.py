@@ -312,6 +312,120 @@ class CompleteFirstLoginView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+class ForgotPasswordView(APIView):
+    """
+    POST /api/auth/forgot-password/
+    Accept an email, generate a 6-digit OTP, and send it.
+    In DEBUG mode the OTP is also returned in the response body.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        import random
+        from django.core.mail import send_mail
+        from django.conf import settings as django_settings
+        from .models import PasswordResetToken
+
+        email = request.data.get('email', '').strip().lower()
+        if not email:
+            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Always return generic success to prevent email enumeration
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if not user:
+            return Response({
+                'message': 'If this email is registered, a reset code has been sent.'
+            }, status=status.HTTP_200_OK)
+
+        # Invalidate any old tokens for this user
+        PasswordResetToken.objects.filter(user=user, is_used=False).update(is_used=True)
+
+        # Generate a new 6-digit OTP
+        otp = f"{random.randint(100000, 999999)}"
+        PasswordResetToken.objects.create(user=user, token=otp)
+
+        # Send email (uses EMAIL_BACKEND from settings — console in dev)
+        try:
+            send_mail(
+                subject='Anyi Primary School – Password Reset Code',
+                message=(
+                    f"Hello {user.first_name},\n\n"
+                    f"Your password reset code is:\n\n"
+                    f"  {otp}\n\n"
+                    f"This code is valid for 15 minutes. Do not share it with anyone.\n\n"
+                    f"If you did not request this, please ignore this email.\n\n"
+                    f"— Anyi Primary School Portal"
+                ),
+                from_email=getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@anyiprimaryschool.ng'),
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+        response_data = {
+            'message': 'If this email is registered, a reset code has been sent.',
+        }
+        # Expose OTP in DEBUG mode for easy local testing
+        if django_settings.DEBUG:
+            response_data['debug_otp'] = otp
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+class ResetPasswordView(APIView):
+    """
+    POST /api/auth/reset-password/
+    Body: { email, token, new_password, confirm_password }
+    Validates the OTP then sets the new password.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+        from .models import PasswordResetToken
+
+        email        = request.data.get('email', '').strip().lower()
+        token        = request.data.get('token', '').strip()
+        new_password = request.data.get('new_password', '')
+        confirm_pw   = request.data.get('confirm_password', '')
+
+        if not all([email, token, new_password, confirm_pw]):
+            return Response({'error': 'All fields are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_password != confirm_pw:
+            return Response({'error': 'Passwords do not match.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if not user:
+            return Response({'error': 'Invalid or expired reset code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        reset_token = PasswordResetToken.objects.filter(
+            user=user, token=token, is_used=False
+        ).order_by('-created_at').first()
+
+        if not reset_token or not reset_token.is_valid():
+            return Response(
+                {'error': 'Invalid or expired reset code. Please request a new one.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as e:
+            return Response({'error': list(e.messages)[0]}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+        reset_token.is_used = True
+        reset_token.save(update_fields=['is_used'])
+
+        return Response({
+            'message': 'Password reset successfully! You can now log in.'
+        }, status=status.HTTP_200_OK)
+
+
 # Simple function-based view for testing
 @api_view(['GET'])
 @permission_classes([AllowAny])
