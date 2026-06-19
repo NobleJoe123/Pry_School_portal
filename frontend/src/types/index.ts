@@ -17,6 +17,7 @@ export interface User {
     profile_photo_url: string | null;
     is_active: boolean;
     date_joined: string;
+    first_login_completed: boolean;
     children?: any[];
 }
 

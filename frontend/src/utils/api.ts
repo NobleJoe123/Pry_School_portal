@@ -43,7 +43,7 @@ export const refreshAccessToken = async (): Promise<string | null> => {
         }
 
         const data = await res.json();
-        const newToken: string = data.access;
+        const newToken: string = data.access_token;
         AccessToken.set(newToken);
         return newToken;
     } catch {
@@ -181,6 +181,9 @@ export const endpoints = {
         dashboardStats: '/auth/dashboard/stats/',
         enrollment: '/auth/enrollment/',
         notifications: '/auth/notifications/',
+        completeFirstLogin: '/auth/complete-first-login/',
+        forgotPassword: '/auth/forgot-password/',
+        resetPassword: '/auth/reset-password/',
         parentCompleteProfile: '/auth/parent/complete-profile/',
         parentEnrollmentStatus: '/auth/parent-enrollment-status/',
     },

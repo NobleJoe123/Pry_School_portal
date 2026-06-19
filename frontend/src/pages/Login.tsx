@@ -2,10 +2,11 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { UserRole, EnrollmentStatus } from '../types';
+import type { User, UserRole, EnrollmentStatus } from '../types';
 import hero from '../assets/Hero1.jpg'
 import EnrollmentPendingModal from '../components/EnrollmentPendingModal';
 import EnrollmentAdmissionModal from '../components/EnrollmentAdmissionModal';
+import TeacherFirstLoginModal from '../components/TeacherFirstLoginModal';
 
 // Role Mapping
 
@@ -113,6 +114,10 @@ export default function Login() {
   const [showAdmissionModal, setShowAdmissionModal] = useState(false);
   const [enrollmentStatus, setEnrollmentStatus] = useState<EnrollmentStatus | null>(null);
 
+  // Teacher first-login modal state
+  const [showTeacherFirstLogin, setShowTeacherFirstLogin] = useState(false);
+  const [firstLoginUser, setFirstLoginUser] = useState<User | null>(null);
+
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -141,6 +146,13 @@ export default function Login() {
           setShowAdmissionModal(true);
           return;
         }
+      }
+
+      // Teacher first-login: intercept before redirect
+      if (loggedInUser.role === 'teacher' && !loggedInUser.first_login_completed) {
+        setFirstLoginUser(loggedInUser);
+        setShowTeacherFirstLogin(true);
+        return;
       }
 
       // Normal redirect
@@ -301,6 +313,19 @@ export default function Login() {
           isOpen={showAdmissionModal}
           parentId={user.id}
           onSuccess={handleAdmissionSuccess}
+        />
+      )}
+
+      {/* Teacher first-login two-step modal */}
+      {firstLoginUser && (
+        <TeacherFirstLoginModal
+          isOpen={showTeacherFirstLogin}
+          teacherName={firstLoginUser.full_name}
+          teacherEmail={firstLoginUser.email}
+          onSuccess={() => {
+            setShowTeacherFirstLogin(false);
+            navigate(ROLE_ROUTES.teacher, { replace: true });
+          }}
         />
       )}
 
