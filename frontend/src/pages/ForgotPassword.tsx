@@ -5,6 +5,7 @@ import {
     ArrowLeft, CheckCircle, ArrowRight, ShieldCheck, RefreshCw
 } from 'lucide-react';
 import { api, endpoints } from '../utils/api';
+import logo from '../assets/anyilogo.png';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -221,10 +222,7 @@ export default function ForgotPassword() {
 
                         {/* Logo */}
                         <div className="flex items-center gap-3 mb-8">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600
-                                flex items-center justify-center shadow-lg shadow-amber-500/30">
-                                <GraduationCap size={20} className="text-slate-950" />
-                            </div>
+                            <img src={logo} alt="Logo" className="w-10 h-10 object-contain shrink-0" />
                             <div>
                                 <p className="text-white font-black text-sm">Anyi Primary School</p>
                                 <p className="text-slate-500 text-[10px]">Password Recovery</p>
