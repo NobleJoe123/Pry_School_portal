@@ -3,7 +3,8 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { User, UserRole, EnrollmentStatus } from '../types';
-import hero from '../assets/Hero1.jpg'
+import hero from '../assets/Hero1.jpg';
+import logo from '../assets/anyilogo.png';
 import EnrollmentPendingModal from '../components/EnrollmentPendingModal';
 import EnrollmentAdmissionModal from '../components/EnrollmentAdmissionModal';
 import TeacherFirstLoginModal from '../components/TeacherFirstLoginModal';
@@ -58,9 +59,7 @@ function LeftPanel() {
 
       {/* Logo */}
       <div className="relative z-10 flex items-center gap-3">
-        <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-          <GraduationCap size={28} />
-        </div>
+        <img src={logo} alt="Anyi Primary School Logo" className="w-10 h-10 object-contain shrink-0" />
         <div>
           <p className="text-white font-semibold text-lg leading-tight">Anyi</p>
           <p className="text-slate-400 text-xs"> Primary School Portal</p>
@@ -203,9 +202,7 @@ export default function Login() {
 
           {/* Mobile Logo */}
           <div className="flex lg:hidden items-center gap-3 mb-10">
-            <div className="p-2 rounded-xl text-amber-500 bg-[#0f1923]">
-              <GraduationCap size={28} />
-            </div>
+            <img src={logo} alt="Anyi Primary School Logo" className="w-10 h-10 object-contain shrink-0" />
             <div>
               <p className="font-semibold text-slate-800 text-lg"> Anyi </p>
               <p className="text-slate-400 text-xs"> Primary School Portal </p>

@@ -6,6 +6,7 @@ import {
     ArrowRight, Menu, X, TrendingUp, Award, Heart, Zap,
     FileText, CalendarCheck, UserCheck, Globe
 } from 'lucide-react';
+import logo from '../assets/anyilogo.png';
 
 // ── Animated Counter ────────────────────────────────────────────────
 function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: string }) {
@@ -164,9 +165,7 @@ export default function LandingPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
                     {/* Logo */}
                     <Link to="/" className="flex items-center gap-3 group">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 transition-transform group-hover:scale-105">
-                            <GraduationCap size={18} className="text-slate-950" />
-                        </div>
+                        <img src={logo} alt="Logo" className="w-9 h-9 object-contain transition-transform group-hover:scale-105 shrink-0" />
                         <div>
                             <p className="text-white font-black text-sm leading-tight">Anyi Primary School</p>
                             <p className="text-slate-500 text-[10px] leading-tight">Smart School Portal</p>
@@ -460,8 +459,8 @@ export default function LandingPage() {
                         }} />
 
                         <div className="relative">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-amber-500/40">
-                                <GraduationCap size={28} className="text-slate-950" />
+                            <div className="w-16 h-16 flex items-center justify-center mx-auto mb-6">
+                                <img src={logo} alt="Logo" className="w-16 h-16 object-contain" />
                             </div>
                             <h2 className="text-3xl sm:text-4xl font-black text-white mb-4" style={{ fontFamily: "'DM Serif Display', serif" }}>
                                 Join Anyi Primary School Today
@@ -492,9 +491,7 @@ export default function LandingPage() {
                         {/* Brand */}
                         <div className="md:col-span-2">
                             <div className="flex items-center gap-3 mb-4">
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
-                                    <GraduationCap size={18} className="text-slate-950" />
-                                </div>
+                                <img src={logo} alt="Logo" className="w-9 h-9 object-contain shrink-0" />
                                 <div>
                                     <p className="text-white font-black text-sm">Anyi Primary School</p>
                                     <p className="text-slate-500 text-[10px]">Smart School Management Portal</p>
