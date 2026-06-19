@@ -12,37 +12,37 @@ interface NavItem {
     label: string;
     icon: React.ReactNode;
     to: string;
+    end?: boolean;        // exact match — prevents prefix highlighting
     badge?: number;
     roles: string[];
 }
 
 
-const NAV_ITEMS: NavItem[] = [
-    // Admin navigation (ordered to match Operations Center)
-    { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/dashboard', roles: ['admin'] },
-    { label: 'Pupils', icon: <GraduationCap size={18} />, to: '/students', roles: ['admin'] },
-    { label: 'Teachers', icon: <UserCheck size={18} />, to: '/teachers', roles: ['admin'] },
-    { label: 'Parents', icon: <Users size={18} />, to: '/parents', roles: ['admin'] },
-    { label: 'Academics', icon: <BookOpen size={18} />, to: '/academics', roles: ['admin'] },
-    { label: 'Finance', icon: <CreditCard size={18} />, to: '/finance', roles: ['admin'] },
-    { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/attendance', roles: ['admin'] },
-    { label: 'Communications', icon: <MessageSquare size={18} />, to: '/notifications', roles: ['admin'] },
-    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin'] },
-    { label: 'Reports', icon: <FileText size={18} />, to: '/reports', roles: ['admin'] },
+    // Admin navigation
+    { label: 'Dashboard',        icon: <LayoutDashboard size={18} />, to: '/dashboard',           end: true,  roles: ['admin'] },
+    { label: 'Pupils',           icon: <GraduationCap size={18} />,  to: '/students',             roles: ['admin'] },
+    { label: 'Teachers',         icon: <UserCheck size={18} />,      to: '/teachers',             roles: ['admin'] },
+    { label: 'Parents',          icon: <Users size={18} />,          to: '/parents',              roles: ['admin'] },
+    { label: 'Academics',        icon: <BookOpen size={18} />,       to: '/academics',            roles: ['admin'] },
+    { label: 'Finance',          icon: <CreditCard size={18} />,     to: '/finance',              roles: ['admin'] },
+    { label: 'Attendance',       icon: <CalendarCheck size={18} />,  to: '/attendance',           roles: ['admin'] },
+    { label: 'Communications',   icon: <MessageSquare size={18} />,  to: '/notifications',        roles: ['admin'] },
+    { label: 'School Calendar',  icon: <CalendarDays size={18} />,   to: '/calendar',             roles: ['admin'] },
+    { label: 'Reports',          icon: <FileText size={18} />,       to: '/reports',              roles: ['admin'] },
 
     // Teacher navigation
-    { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/teacher', roles: ['teacher'] },
-    { label: 'My Class', icon: <Users size={18} />, to: '/teacher/class', roles: ['teacher'] },
-    { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/teacher/attendance', roles: ['teacher'] },
-    { label: 'Enter Scores', icon: <BookOpen size={18} />, to: '/teacher/scores', roles: ['teacher'] },
-    { label: 'Results / Reports', icon: <FileText size={18} />, to: '/teacher/reports', roles: ['teacher'] },
-    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['teacher'] },
+    { label: 'Dashboard',        icon: <LayoutDashboard size={18} />, to: '/teacher',             end: true,  roles: ['teacher'] },
+    { label: 'My Class',         icon: <Users size={18} />,          to: '/teacher/class',        roles: ['teacher'] },
+    { label: 'Attendance',       icon: <CalendarCheck size={18} />,  to: '/teacher/attendance',   roles: ['teacher'] },
+    { label: 'Enter Scores',     icon: <BookOpen size={18} />,       to: '/teacher/scores',       roles: ['teacher'] },
+    { label: 'Results / Reports',icon: <FileText size={18} />,       to: '/teacher/reports',      roles: ['teacher'] },
+    { label: 'School Calendar',  icon: <CalendarDays size={18} />,   to: '/calendar',             roles: ['teacher'] },
 
     // Parent navigation
-    { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/parent', roles: ['parent'] },
-    { label: 'My Children', icon: <GraduationCap size={18} />, to: '/parent/children', roles: ['parent'] },
-    { label: 'Fee Payments', icon: <CreditCard size={18} />, to: '/parent/fees', roles: ['parent'] },
-    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['parent'] },
+    { label: 'Dashboard',        icon: <LayoutDashboard size={18} />, to: '/parent',              end: true,  roles: ['parent'] },
+    { label: 'My Children',      icon: <GraduationCap size={18} />,  to: '/parent/children',      roles: ['parent'] },
+    { label: 'Fee Payments',     icon: <CreditCard size={18} />,     to: '/parent/fees',          roles: ['parent'] },
+    { label: 'School Calendar',  icon: <CalendarDays size={18} />,   to: '/calendar',             roles: ['parent'] },
 ];
 
 
@@ -106,7 +106,14 @@ export default function Sidebar({ collapsed, onToggle, onLinkClick }: SidebarPro
             {/* Main Nav */}
             <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
                 {filteredNavItems.map((item) => (
-                    <NavLink key={item.to} to={item.to} onClick={onLinkClick} className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`} title={collapsed ? item.label : undefined}>
+                    <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.end}
+                        onClick={onLinkClick}
+                        className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`}
+                        title={collapsed ? item.label : undefined}
+                    >
                         <span className="shrink-0">{item.icon}</span>
                         {!collapsed && <span className="truncate">{item.label}</span>}
                         {item.badge && !collapsed && (
