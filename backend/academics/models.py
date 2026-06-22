@@ -147,7 +147,8 @@ class ReportCard(models.Model):
         on_delete=models.CASCADE,
         related_name='report_cards'
     )
-    remarks = models.TextField(blank=True, null=True)
+    teacher_remarks = models.TextField(blank=True, null=True)
+    admin_remarks = models.TextField(blank=True, null=True)
     is_published = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
