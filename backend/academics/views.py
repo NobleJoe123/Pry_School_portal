@@ -147,7 +147,117 @@ class StudentScoreViewSet(viewsets.ModelViewSet):
                 )
                 created_count += 1
         
+        # Send notification to students and parents
+        try:
+            from accounts.models import User as PortalUser, Notification
+            notifications = []
+            
+            student_ids = [r['student_id'] for r in records if r.get('score_obtained') is not None and r.get('score_obtained') != '']
+            students_map = {str(u.id): u for u in PortalUser.objects.filter(id__in=student_ids).select_related('student_profile__parent')}
+            
+            for record in records:
+                student = students_map.get(str(record['student_id']))
+                score = record.get('score_obtained')
+                if not student or score is None or score == '':
+                    continue
+                
+                subj_name = assessment.subject.name
+                ass_name = assessment.assessment_type.name
+                
+                # Student Notice
+                student_msg = f"Your score of {score} has been entered for {subj_name} ({ass_name})."
+                notifications.append(
+                    Notification(
+                        sender=request.user,
+                        recipient=student,
+                        title=f"Score Entered: {subj_name}",
+                        message=student_msg,
+                        category='academics',
+                        audience='selected'
+                    )
+                )
+                
+                # Parent Notice
+                if hasattr(student, 'student_profile') and student.student_profile.parent:
+                    parent = student.student_profile.parent
+                    parent_msg = f"A new grade has been recorded for your child, {student.full_name}: {score} in {subj_name} ({ass_name})."
+                    notifications.append(
+                        Notification(
+                            sender=request.user,
+                            recipient=parent,
+                            title=f"Academic Grade: {student.first_name}",
+                            message=parent_msg,
+                            category='academics',
+                            audience='selected'
+                        )
+                    )
+            if notifications:
+                Notification.objects.bulk_create(notifications)
+        except Exception as e:
+            print(f"Error sending score notifications: {e}")
+        
         return Response({'message': f'Successfully updated {created_count} scores.'})
+
+
+def send_report_card_notifications(report_card, user, is_new=False, was_published=False):
+    try:
+        from accounts.models import User as PortalUser, Notification
+        notifications = []
+        
+        # If it was just published
+        if report_card.is_published and not was_published:
+            student = report_card.student
+            term_name = report_card.term.name
+            
+            # Notify Student
+            notifications.append(
+                Notification(
+                    sender=user,
+                    recipient=student,
+                    title=f"Report Card Published: {term_name}",
+                    message=f"Your terminal report card for {term_name} has been published. You can now view and print it.",
+                    category='academics',
+                    audience='selected'
+                )
+            )
+            
+            # Notify Parent
+            if hasattr(student, 'student_profile') and student.student_profile.parent:
+                parent = student.student_profile.parent
+                notifications.append(
+                    Notification(
+                        sender=user,
+                        recipient=parent,
+                        title=f"Report Card Published: {student.first_name}",
+                        message=f"The official report card for {student.full_name} for {term_name} has been published by the administration. You can now view it under the Academics section.",
+                        category='academics',
+                        audience='selected'
+                    )
+                )
+        
+        # If a teacher added/updated comments (and it's not published yet)
+        elif user.role == 'teacher' and report_card.teacher_remarks:
+            # Notify Admins
+            admins = PortalUser.objects.filter(role='admin', is_active=True)
+            student_name = report_card.student.full_name
+            term_name = report_card.term.name
+            
+            for admin in admins:
+                notifications.append(
+                    Notification(
+                        sender=user,
+                        recipient=admin,
+                        title=f"Teacher Remark: {student_name}",
+                        message=f"Teacher {user.full_name} has added remarks/observations for {student_name} ({term_name}). The report card is ready for administrative review.",
+                        category='academics',
+                        audience='selected'
+                    )
+                )
+                
+        if notifications:
+            Notification.objects.bulk_create(notifications)
+    except Exception as e:
+        print(f"Error dispatching report card notifications: {e}")
 
 
 class ReportCardViewSet(viewsets.ModelViewSet):
@@ -181,6 +291,16 @@ class ReportCardViewSet(viewsets.ModelViewSet):
                 
         return queryset
 
+    def perform_create(self, serializer):
+        report_card = serializer.save()
+        send_report_card_notifications(report_card, self.request.user, is_new=True, was_published=False)
+        
+    def perform_update(self, serializer):
+        old_instance = self.get_object()
+        was_published = old_instance.is_published
+        report_card = serializer.save()
+        send_report_card_notifications(report_card, self.request.user, is_new=False, was_published=was_published)
+
     @action(detail=False, methods=['post'])
     def bulk_comment_and_publish(self, request):
         if request.user.role != 'admin':
@@ -188,7 +308,7 @@ class ReportCardViewSet(viewsets.ModelViewSet):
             
         data = request.data
         term_id = data.get('term')
-        records = data.get('records', []) # list of {student_id, remarks, is_published}
+        records = data.get('records', []) # list of {student_id, admin_remarks, is_published}
 
         if not term_id or term_id == 'REPLACE_WITH_CURRENT_TERM_ID':
             current_term = Term.objects.filter(is_current=True).first()
@@ -198,14 +318,19 @@ class ReportCardViewSet(viewsets.ModelViewSet):
 
         updated_count = 0
         for record in records:
-            ReportCard.objects.update_or_create(
-                student_id=record['student_id'],
+            student_id = record['student_id']
+            old_rc = ReportCard.objects.filter(student_id=student_id, term_id=term_id).first()
+            was_published = old_rc.is_published if old_rc else False
+            
+            rc, created = ReportCard.objects.update_or_create(
+                student_id=student_id,
                 term_id=term_id,
                 defaults={
-                    'remarks': record.get('remarks', ''),
+                    'admin_remarks': record.get('admin_remarks', record.get('remarks', '')),
                     'is_published': record.get('is_published', False)
                 }
             )
+            send_report_card_notifications(rc, request.user, is_new=created, was_published=was_published)
             updated_count += 1
             
         return Response({'message': f'Successfully updated {updated_count} report cards.'})
