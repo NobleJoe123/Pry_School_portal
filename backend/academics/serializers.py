@@ -88,6 +88,23 @@ class ReportCardSerializer(serializers.ModelSerializer):
         model = ReportCard
         fields = '__all__'
 
+    def validate(self, attrs):
+        request = self.context.get('request')
+        if request and request.user:
+            user = request.user
+            if user.role == 'teacher':
+                if self.instance:
+                    if 'admin_remarks' in attrs and attrs['admin_remarks'] != self.instance.admin_remarks:
+                        raise serializers.ValidationError({'admin_remarks': 'Teachers cannot modify admin remarks.'})
+                    if 'is_published' in attrs and attrs['is_published'] != self.instance.is_published:
+                        raise serializers.ValidationError({'is_published': 'Teachers cannot change the publication status.'})
+                else:
+                    if attrs.get('admin_remarks') is not None:
+                        raise serializers.ValidationError({'admin_remarks': 'Teachers cannot create admin remarks.'})
+                    if attrs.get('is_published', False) is not False:
+                        raise serializers.ValidationError({'is_published': 'Teachers cannot publish report cards.'})
+        return attrs
+
 
 class SchoolEventSerializer(serializers.ModelSerializer):
     term_name = serializers.ReadOnlyField(source='term.name')
