@@ -89,6 +89,71 @@ class StudentAttendanceViewSet(viewsets.ModelViewSet):
             }
         )
 
+        # Send notifications to students and parents
+        try:
+            from accounts.models import Notification
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            notifications = []
+            
+            # Fetch all students being marked to construct clean messages
+            student_ids = [r['student_id'] for r in attendance_records]
+            students_map = {str(u.id): u for u in User.objects.filter(id__in=student_ids).select_related('student_profile__parent')}
+            
+            for record in attendance_records:
+                student = students_map.get(str(record['student_id']))
+                if not student:
+                    continue
+                status_str = record['status']
+                remarks_str = record.get('remarks', '')
+                
+                # Format date string
+                import datetime
+                if isinstance(date, str):
+                    try:
+                        date_obj = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+                        date_str = date_obj.strftime('%B %d, %Y')
+                    except Exception:
+                        date_str = date
+                else:
+                    date_str = date.strftime('%B %d, %Y') if hasattr(date, 'strftime') else str(date)
+                
+                # Notify Student
+                student_msg = f"You were marked {status_str} on {date_str}."
+                if remarks_str:
+                    student_msg += f" Remarks: {remarks_str}"
+                notifications.append(
+                    Notification(
+                        sender=request.user,
+                        recipient=student,
+                        title=f"Attendance: {status_str.capitalize()}",
+                        message=student_msg,
+                        category='attendance',
+                        audience='selected'
+                    )
+                )
+                
+                # Notify Parent if exists
+                if hasattr(student, 'student_profile') and student.student_profile.parent:
+                    parent = student.student_profile.parent
+                    parent_msg = f"Your child, {student.full_name}, was marked {status_str} on {date_str}."
+                    if remarks_str:
+                        parent_msg += f" Remarks: {remarks_str}"
+                    notifications.append(
+                        Notification(
+                            sender=request.user,
+                            recipient=parent,
+                            title=f"Attendance Alert: {student.first_name}",
+                            message=parent_msg,
+                            category='attendance',
+                            audience='selected'
+                        )
+                    )
+            if notifications:
+                Notification.objects.bulk_create(notifications)
+        except Exception as e:
+            print(f"Error sending attendance notifications: {e}")
+
         return Response({'message': f'Attendance submitted and locked for {created_count} pupils.'})
 
     @action(detail=False, methods=['get'])
