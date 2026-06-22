@@ -979,6 +979,27 @@ def parent_complete_profile(request):
         profile.completed_profile = True
         profile.save(update_fields=['relationship_to_student', 'passport_photo', 'id_document', 'completed_profile'])
 
+    # Notify admins
+    try:
+        from accounts.models import Notification
+        admins = User.objects.filter(role='admin', is_active=True)
+        notifications = []
+        for admin in admins:
+            notifications.append(
+                Notification(
+                    sender=user,
+                    recipient=admin,
+                    title="Profile Completed: Parent",
+                    message=f"Parent {user.full_name} has completed their registration profile and uploaded verification documents.",
+                    category='general',
+                    audience='selected'
+                )
+            )
+        if notifications:
+            Notification.objects.bulk_create(notifications)
+    except Exception as e:
+        print(f"Error sending profile completion notification: {e}")
+
     return Response({
         'message': 'Profile completed successfully.',
         'completed_profile': True
@@ -1000,7 +1021,28 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
         # Hash the password before saving
         password = self.request.data.get('password')
         hashed_password = make_password(password)
-        serializer.save(password=hashed_password)
+        enrollment = serializer.save(password=hashed_password)
+        
+        # Notify all admins of the new request!
+        try:
+            from accounts.models import User, Notification
+            admins = User.objects.filter(role='admin', is_active=True)
+            notifications = []
+            for admin in admins:
+                notifications.append(
+                    Notification(
+                        sender=None,
+                        recipient=admin,
+                        title="New Enrollment Request",
+                        message=f"A new enrollment request has been submitted by {enrollment.parent_first_name} {enrollment.parent_last_name} ({enrollment.parent_email}) for review.",
+                        category='enrollment',
+                        audience='selected'
+                    )
+                )
+            if notifications:
+                Notification.objects.bulk_create(notifications)
+        except Exception as e:
+            print(f"Error sending enrollment request notification: {e}")
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
@@ -1092,6 +1134,20 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                 enrollment.parent_user = parent_user
                 enrollment.approval_date = timezone.now()
                 enrollment.save()
+
+                # Notify Parent
+                try:
+                    from accounts.models import Notification
+                    Notification.objects.create(
+                        sender=request.user,
+                        recipient=parent_user,
+                        title="Enrollment Approved",
+                        message="Welcome! Your enrollment request has been approved. Your parent account is now active and linked to your children.",
+                        category='enrollment',
+                        audience='selected'
+                    )
+                except Exception as e:
+                    print(f"Error sending enrollment approval notification: {e}")
 
                 # Print admission numbers to terminal for local development
                 print("\n" + "="*70)
