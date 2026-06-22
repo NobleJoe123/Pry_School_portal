@@ -129,6 +129,38 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
             student_fee.status = 'partial'
         student_fee.save()
 
+        # Send payment notifications
+        try:
+            from accounts.models import Notification
+            student = student_fee.student
+            fee_name = student_fee.fee_type.name
+            parent = student.student_profile.parent if hasattr(student, 'student_profile') else None
+            
+            msg = f"A payment of ₦{amount:,.2f} has been received for {student.full_name}'s {fee_name}. New status: {student_fee.get_status_display()}."
+            if transaction_id:
+                msg += f" Transaction ID: {transaction_id}."
+                
+            if parent:
+                Notification.objects.create(
+                    sender=request.user,
+                    recipient=parent,
+                    title="Payment Received",
+                    message=msg,
+                    category='finance',
+                    audience='selected'
+                )
+            
+            Notification.objects.create(
+                sender=request.user,
+                recipient=student,
+                title="Fee Payment Recorded",
+                message=f"A payment of ₦{amount:,.2f} was recorded for your {fee_name}.",
+                category='finance',
+                audience='selected'
+            )
+        except Exception as e:
+            print(f"Error sending payment notification: {e}")
+
         serializer = self.get_serializer(student_fee)
         return Response({
             'message': f'Payment of ₦{amount:,.2f} recorded successfully.',
@@ -162,8 +194,14 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
             )
 
         created_count = 0
+        notifications = []
+        try:
+            from accounts.models import Notification
+        except ImportError:
+            Notification = None
+
         for student in students:
-            _, created = StudentFee.objects.get_or_create(
+            sf, created = StudentFee.objects.get_or_create(
                 student=student,
                 fee_type=fee_type,
                 term_id=term_id,
@@ -171,6 +209,33 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
             )
             if created:
                 created_count += 1
+                if Notification:
+                    msg = f"A new fee of ₦{fee_type.amount:,.2f} for {fee_type.name} has been assigned for this term."
+                    notifications.append(
+                        Notification(
+                            sender=request.user,
+                            recipient=student,
+                            title=f"New Fee: {fee_type.name}",
+                            message=msg,
+                            category='finance',
+                            audience='selected'
+                        )
+                    )
+                    parent = student.student_profile.parent if hasattr(student, 'student_profile') else None
+                    if parent:
+                        parent_msg = f"A new fee of ₦{fee_type.amount:,.2f} for {fee_type.name} has been assigned to your child, {student.full_name}."
+                        notifications.append(
+                            Notification(
+                                sender=request.user,
+                                recipient=parent,
+                                title=f"Tuition Invoice: {student.first_name}",
+                                message=parent_msg,
+                                category='finance',
+                                audience='selected'
+                            )
+                        )
+        if notifications and Notification:
+            Notification.objects.bulk_create(notifications)
 
         return Response({
             'message': f'Fee assigned to {created_count} student(s). {students.count() - created_count} already had this fee.'
@@ -207,6 +272,37 @@ class PaymentRecordViewSet(viewsets.ModelViewSet):
         elif fee.amount_paid > 0:
             fee.status = 'partial'
         fee.save()
+
+        # Send payment notifications
+        try:
+            from accounts.models import Notification
+            student = fee.student
+            fee_name = fee.fee_type.name
+            parent = student.student_profile.parent if hasattr(student, 'student_profile') else None
+            
+            msg = f"A payment of ₦{payment.amount:,.2f} has been received for {student.full_name}'s {fee_name}. New status: {fee.get_status_display()}."
+            if payment.transaction_id:
+                msg += f" Transaction ID: {payment.transaction_id}."
+                
+            if parent:
+                Notification.objects.create(
+                    sender=self.request.user,
+                    recipient=parent,
+                    title="Payment Received",
+                    message=msg,
+                    category='finance',
+                    audience='selected'
+                )
+            Notification.objects.create(
+                sender=self.request.user,
+                recipient=student,
+                title="Fee Payment Recorded",
+                message=f"A payment of ₦{payment.amount:,.2f} was recorded for your {fee_name}.",
+                category='finance',
+                audience='selected'
+            )
+        except Exception as e:
+            print(f"Error sending payment notification: {e}")
 
 
 class PayrollViewSet(viewsets.ModelViewSet):

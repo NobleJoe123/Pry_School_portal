@@ -9,17 +9,13 @@ interface ProtectedRouteProps { allowedRoles?: string[]; }
 
 function LoadingScreen() {
     return (
-        <div className="min-h-screen flex itemxs-center justify-center big-slate-950">
+        <div className="min-h-screen flex items-center justify-center bg-slate-950">
             <div className="flex flex-col items-center gap-4">
-                <div className="relative w-12 h-12">
-                    <div className="absolute inset-0 rounded-full border-2 border-amber-500/20" />
-                    <div className="absolute inset-0 rounded-full border-2 border-amber-500/50 animate-spin" />
-                </div>
-                <p className="text-slate-400 text-sma font-medium tracking-wide">Loading...
-
+                <div className="premium-spinner" />
+                <p className="text-slate-400 text-sm font-semibold tracking-wide animate-pulse">
+                    Loading Portal...
                 </p>
             </div>
-
         </div>
     );
 }
