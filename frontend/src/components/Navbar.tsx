@@ -166,7 +166,7 @@ export default function Navbar({ onMenuClick, title = 'Dashboard', showMenuIcon 
                 {user && (
                     <div className="flex items-center gap-2.5 pl-3 border-l border-white/10">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold select-none">
-                            {user.first_name[0]}{user.last_name[0]}
+                            {user.first_name?.[0] || '?'}{user.last_name?.[0] || ''}
                         </div>
                         <div className="hidden sm:block">
                             <p className="text-white text-xs font-semibold leading-tight">{user.full_name}</p>

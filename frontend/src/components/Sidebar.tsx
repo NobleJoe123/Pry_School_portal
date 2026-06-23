@@ -182,7 +182,7 @@ export default function Sidebar({ collapsed, onToggle, onLinkClick }: SidebarPro
                 <div className="px-3 pb-4 pt-2 border-t border-white/5">
                     <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                            {user.first_name[0]}{user.last_name[0]}
+                            {user.first_name?.[0] || '?'}{user.last_name?.[0] || ''}
                         </div>
                         <div className="min-w-0">
                             <p className="text-white text-xs font-semibold truncate"> {user.full_name}</p>
