@@ -461,7 +461,7 @@ export default function Finance() {
             {/* Content */}
             {loading ? (
                 <div className="flex items-center justify-center py-24">
-                    <div className="w-10 h-10 rounded-full border-2 border-transparent border-t-emerald-500 animate-spin" />
+                    <div className="premium-spinner" />
                 </div>
             ) : (
                 <div className="space-y-6">

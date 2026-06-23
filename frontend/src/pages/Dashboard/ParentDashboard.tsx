@@ -494,11 +494,19 @@ export default function ParentDashboard() {
                                                 })}
                                             </div>
 
-                                            {/* Admin feedback comment */}
-                                            {childReport.remarks && (
+                                            {/* Teacher's comment */}
+                                            {childReport.teacher_remarks && (
                                                 <div className="p-4 bg-white/5 border border-white/5 rounded-2xl">
-                                                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1.5">School Comment & Feedback</p>
-                                                    <p className="text-slate-300 text-xs italic leading-relaxed">"{childReport.remarks}"</p>
+                                                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1.5">Class Teacher's Remark</p>
+                                                    <p className="text-slate-300 text-xs italic leading-relaxed">"{childReport.teacher_remarks}"</p>
+                                                </div>
+                                            )}
+
+                                            {/* Admin feedback comment */}
+                                            {childReport.admin_remarks && (
+                                                <div className="p-4 bg-white/5 border border-white/5 rounded-2xl mt-3">
+                                                    <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1.5">Head Teacher's / School Feedback</p>
+                                                    <p className="text-slate-300 text-xs italic leading-relaxed">"{childReport.admin_remarks}"</p>
                                                 </div>
                                             )}
                                         </div>

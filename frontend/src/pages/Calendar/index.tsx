@@ -682,7 +682,7 @@ export default function CalendarPage() {
                     {/* Main View Area */}
                     {loading ? (
                         <div className="flex items-center justify-center py-36 bg-[#0b1523] border border-white/5 rounded-3xl">
-                            <div className="w-10 h-10 rounded-full border-2 border-transparent border-t-sky-500 animate-spin" />
+                            <div className="premium-spinner" />
                         </div>
                     ) : (
                         <div className="rounded-3xl border border-white/5 overflow-hidden shadow-2xl"
