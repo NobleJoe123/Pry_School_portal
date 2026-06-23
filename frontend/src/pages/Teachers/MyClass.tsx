@@ -190,78 +190,76 @@ export default function TeacherClass() {
                 ))}
             </div>
 
-            {/* Search filter bar */}
-            <div className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-3">
-                <div className="relative flex-1 max-w-md">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input
-                        type="text"
-                        placeholder="Search by name or admission number..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-white/10 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/50"
-                    />
-                </div>
-            </div>
+            {/* Main content grid layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Pupil List Column */}
+                <div className="lg:col-span-2 rounded-2xl border border-white/5 overflow-hidden flex flex-col bg-white/5">
+                    {/* Search filter bar */}
+                    <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center gap-3">
+                        <div className="relative flex-1">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input
+                                type="text"
+                                placeholder="Search by name or admission number..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-white/10 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/50"
+                            />
+                        </div>
+                    </div>
 
-            {/* Pupils responsive Grid of Cards */}
-            {loading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="h-44 rounded-3xl bg-white/5 border border-white/5 animate-pulse" />
-                    ))}
-                </div>
-            ) : filtered.length === 0 ? (
-                <div className="py-16 text-center border border-dashed border-white/5 rounded-3xl">
-                    <Users size={36} className="text-slate-700 mx-auto mb-3" />
-                    <p className="text-slate-500 text-sm">No pupils match the filter criteria.</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {filtered.map(student => {
-                        const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`;
-                        const photoUrl = student.profile_photo_url || (student as any).profile_photo;
-
-                        return (
-                            <div
-                                key={student.id}
-                                onClick={() => { setSelectedPupil(student); setActiveProfileTab('basic'); }}
-                                className="bg-white/5 border border-white/5 hover:border-white/15 rounded-3xl p-5 flex flex-col items-center text-center cursor-pointer transition-all hover:scale-[1.01] relative group overflow-hidden"
-                            >
-                                {/* Top colored banner inside card */}
-                                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500/80 to-amber-600/80" />
-
-                                {/* Avatar Passport */}
-                                <div className="w-16 h-16 rounded-full bg-slate-800 border-2 border-white/10 overflow-hidden flex items-center justify-center text-slate-400 font-bold text-lg shrink-0 mb-4 mt-2">
-                                    {photoUrl ? (
-                                        <img src={photoUrl} alt={student.full_name} className="w-full h-full object-cover" />
-                                    ) : initials || <UserCircle size={28} />}
+                    {/* Scrollable list of pupil rows */}
+                    <div className="divide-y divide-white/5 overflow-y-auto max-h-[600px]">
+                        {loading ? (
+                            Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="flex items-center gap-3 px-5 py-4 animate-pulse">
+                                    <div className="w-10 h-10 rounded-full bg-white/5 shrink-0" />
+                                    <div className="flex-1 space-y-1.5">
+                                        <div className="h-3 w-32 bg-white/5 rounded" />
+                                        <div className="h-2.5 w-20 bg-white/5 rounded" />
+                                    </div>
                                 </div>
-
-                                <h3 className="text-white text-sm font-bold group-hover:text-amber-400 transition-colors line-clamp-1">{student.full_name}</h3>
-                                <p className="text-slate-500 text-[10px] font-mono mt-0.5">{(student as any).admission_number || student.username}</p>
-
-                                <span className="inline-block mt-3 text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/5">
-                                    {currentClass?.name || 'Class Room'}
-                                </span>
+                            ))
+                        ) : filtered.length === 0 ? (
+                            <div className="py-16 text-center">
+                                <Users size={36} className="text-slate-700 mx-auto mb-3" />
+                                <p className="text-slate-500 text-sm">No pupils match the filter criteria.</p>
                             </div>
-                        );
-                    })}
+                        ) : (
+                            filtered.map((student, idx) => {
+                                const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`;
+                                const photoUrl = student.profile_photo_url || (student as any).profile_photo;
+                                const isSelected = selectedPupil?.id === student.id;
+
+                                return (
+                                    <button
+                                        key={student.id}
+                                        onClick={() => { setSelectedPupil(isSelected ? null : student); setActiveProfileTab('basic'); }}
+                                        className={`flex items-center gap-3 w-full px-5 py-3.5 text-left transition-all hover:bg-white/5 relative group overflow-hidden ${isSelected ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''}`}
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/10 overflow-hidden flex items-center justify-center text-slate-400 font-bold text-xs shrink-0">
+                                            {photoUrl ? (
+                                                <img src={photoUrl} alt={student.full_name} className="w-full h-full object-cover" />
+                                            ) : initials || <UserCircle size={18} />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white text-sm font-semibold truncate group-hover:text-amber-400 transition-colors">{student.full_name}</p>
+                                            <p className="text-slate-500 text-xs">{(student as any).admission_number || student.username}</p>
+                                        </div>
+                                        <span className="text-slate-600 text-xs font-mono">#{idx + 1}</span>
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
-            )}
 
-            {/* Complete pupil profile overlay page drawer */}
-            {selectedPupil && (
-                <div className="fixed inset-0 z-[100] flex justify-end" onClick={() => setSelectedPupil(null)}>
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-
-                    <div
-                        className="relative w-full max-w-2xl h-full bg-slate-900 border-l border-white/10 flex flex-col p-6 overflow-y-auto animate-in slide-in-from-right duration-200"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {/* Drawer Header */}
-                        <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
-                            <div className="flex items-center gap-3">
+                {/* Pupil Detail Panel Column */}
+                <div className="rounded-2xl border border-white/5 p-5 h-fit flex flex-col bg-white/5">
+                    {selectedPupil ? (
+                        <div className="space-y-5 animate-in fade-in duration-200">
+                            {/* Panel Header */}
+                            <div className="flex items-center gap-3 border-b border-white/5 pb-4">
                                 <div className="w-12 h-12 rounded-full bg-slate-800 border border-white/10 overflow-hidden flex items-center justify-center text-slate-400 font-bold text-sm shrink-0">
                                     {selectedPupil.profile_photo_url || (selectedPupil as any).profile_photo ? (
                                         <img src={selectedPupil.profile_photo_url || (selectedPupil as any).profile_photo} alt={selectedPupil.full_name} className="w-full h-full object-cover" />
@@ -269,228 +267,234 @@ export default function TeacherClass() {
                                         `${selectedPupil.first_name?.[0] || ''}${selectedPupil.last_name?.[0] || ''}`
                                     )}
                                 </div>
-                                <div>
-                                    <h3 className="text-white font-bold text-base leading-tight">{selectedPupil.full_name}</h3>
-                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">{(selectedPupil as any).admission_number || selectedPupil.username}</p>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-white font-bold text-sm leading-tight truncate">{selectedPupil.full_name}</h3>
+                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{(selectedPupil as any).admission_number || selectedPupil.username}</p>
+                                    <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/5 mt-1.5">
+                                        {currentClass?.name || 'Class Room'}
+                                    </span>
                                 </div>
-                            </div>
-                            <button onClick={() => setSelectedPupil(null)} className="p-2 text-slate-500 hover:text-white rounded-xl hover:bg-white/5 transition-all">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {/* Profile Tabs */}
-                        <div className="flex gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 mb-6 overflow-x-auto shrink-0">
-                            {[
-                                { key: 'basic', label: 'Basic Info' },
-                                { key: 'attendance', label: 'Attendance' },
-                                { key: 'academic', label: 'Academics' },
-                                { key: 'behavior', label: 'Behavior Notes' },
-                                { key: 'parent', label: 'Parent Details' }
-                            ].map(tab => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => setActiveProfileTab(tab.key as any)}
-                                    className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${activeProfileTab === tab.key
-                                            ? 'bg-amber-500 text-slate-950 font-black'
-                                            : 'text-slate-400 hover:text-white hover:bg-white/5'
-                                        }`}
-                                >
-                                    {tab.label}
+                                <button onClick={() => setSelectedPupil(null)} className="p-1.5 text-slate-500 hover:text-white rounded-lg hover:bg-white/5 transition-all self-start">
+                                    <X size={16} />
                                 </button>
-                            ))}
-                        </div>
+                            </div>
 
-                        {/* Active Tab Screen Area */}
-                        <div className="flex-1 space-y-6 text-xs text-slate-300">
+                            {/* Profile Tabs */}
+                            <div className="flex gap-1.5 p-1 bg-slate-900 border border-white/5 rounded-xl overflow-x-auto scrollbar-none shrink-0">
+                                {[
+                                    { key: 'basic', label: 'Basic' },
+                                    { key: 'attendance', label: 'Attendance' },
+                                    { key: 'academic', label: 'Academics' },
+                                    { key: 'behavior', label: 'Behavior' },
+                                    { key: 'parent', label: 'Parent' }
+                                ].map(tab => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => setActiveProfileTab(tab.key as any)}
+                                        className={`flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all text-center ${activeProfileTab === tab.key
+                                                ? 'bg-amber-500 text-slate-950 font-black'
+                                                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
 
-                            {/* 1. Basic Details */}
-                            {activeProfileTab === 'basic' && (
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-bold text-white border-b border-white/5 pb-2">Pupil Information</h4>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {[
-                                            { label: 'First Name', value: selectedPupil.first_name, icon: <UserCircle size={14} /> },
-                                            { label: 'Last Name', value: selectedPupil.last_name, icon: <UserCircle size={14} /> },
-                                            { label: 'Gender', value: (selectedPupil as any).gender === 'M' ? 'Male' : (selectedPupil as any).gender === 'F' ? 'Female' : '—', icon: <AlignLeft size={14} /> },
-                                            { label: 'Date of Birth', value: selectedPupil.date_of_birth || 'N/A', icon: <Calendar size={14} /> },
-                                            { label: 'Email', value: selectedPupil.email, icon: <Mail size={14} /> },
-                                            { label: 'Phone Number', value: selectedPupil.phone || 'N/A', icon: <Phone size={14} /> },
-                                            { label: 'Current Address', value: selectedPupil.address || 'N/A', icon: <MapPin size={14} />, fullWidth: true }
-                                        ].map((item, idx) => (
-                                            <div key={idx} className={`p-3 bg-white/5 rounded-xl border border-white/5 ${item.fullWidth ? 'col-span-2' : ''}`}>
-                                                <div className="flex items-center gap-1.5 text-slate-500 mb-1">
-                                                    {item.icon}
-                                                    <span>{item.label}</span>
-                                                </div>
-                                                <p className="text-white text-xs font-semibold">{String(item.value)}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* 2. Attendance History */}
-                            {activeProfileTab === 'attendance' && (
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-bold text-white border-b border-white/5 pb-2">Attendance Summary</h4>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-center">
-                                            <p className="text-base font-black">62</p>
-                                            <p className="text-[10px] text-slate-400 mt-0.5">Days Present</p>
-                                        </div>
-                                        <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-center">
-                                            <p className="text-base font-black">2</p>
-                                            <p className="text-[10px] text-slate-400 mt-0.5">Days Absent</p>
-                                        </div>
-                                        <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl text-center">
-                                            <p className="text-base font-black">96.8%</p>
-                                            <p className="text-[10px] text-slate-400 mt-0.5">Term Rate</p>
-                                        </div>
-                                    </div>
-
-                                    <h4 className="text-xs font-bold text-white mt-6">Recent Records</h4>
-                                    <div className="rounded-xl border border-white/5 overflow-hidden divide-y divide-white/5">
-                                        {mockAttendance.map((rec, i) => (
-                                            <div key={i} className="flex justify-between items-center p-3.5 bg-white/5">
-                                                <span className="font-mono text-xs">{rec.date}</span>
-                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${rec.status === 'present' ? 'bg-emerald-500/10 text-emerald-400' :
-                                                        rec.status === 'late' ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'
-                                                    }`}>
-                                                    {rec.status}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* 3. Academic Performance */}
-                            {activeProfileTab === 'academic' && (
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-bold text-white border-b border-white/5 pb-2">Academic Scores</h4>
-                                    <div className="rounded-xl border border-white/5 overflow-hidden bg-white/5 divide-y divide-white/5">
-                                        {pupilScores.map(score => {
-                                            const assessment = (score as any).assessment;
-                                            return (
-                                                <div key={score.id} className="p-4 flex items-center justify-between">
-                                                    <div>
-                                                        <p className="text-white font-bold text-xs">{assessment?.subject?.name || 'Subject'}</p>
-                                                        <p className="text-[10px] text-slate-500 mt-0.5">{assessment?.assessment_type?.name || 'Assessment'}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <span className="font-mono font-black text-sm text-amber-400">{score.score_obtained}</span>
-                                                        <span className="text-[10px] text-slate-500"> / {assessment?.assessment_type?.max_score}</span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-
-                                        {pupilScores.length === 0 && (
-                                            <p className="p-8 text-center text-slate-500">No grades registered for this student yet.</p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* 4. Behavior Notes */}
-                            {activeProfileTab === 'behavior' && (
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-bold text-white border-b border-white/5 pb-2">Behavior & Conduct Log</h4>
-
-                                    {/* Add note form */}
-                                    <form onSubmit={handleAddBehaviorNote} className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-3">
-                                        <textarea
-                                            value={newBehaviorNote} onChange={e => setNewBehaviorNote(e.target.value)} required rows={2}
-                                            placeholder="Write conduct or behavior observation remark..."
-                                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500/50 resize-none"
-                                        />
-                                        <div className="flex justify-between items-center">
-                                            <select
-                                                value={behaviorCategory}
-                                                onChange={e => setBehaviorCategory(e.target.value as any)}
-                                                className="bg-slate-950 border border-white/10 text-xs px-2.5 py-1.5 rounded-lg text-white outline-none"
-                                            >
-                                                <option value="positive">Positive conduct</option>
-                                                <option value="warning">Minor warning</option>
-                                                <option value="critical">Critical infraction</option>
-                                            </select>
-                                            <button type="submit" className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black">
-                                                Add Log
-                                            </button>
-                                        </div>
-                                    </form>
-
-                                    {/* Notes list */}
+                            {/* Active Tab Content Area */}
+                            <div className="space-y-4 text-xs text-slate-300">
+                                {/* 1. Basic Details */}
+                                {activeProfileTab === 'basic' && (
                                     <div className="space-y-3">
-                                        {behaviorNotes.map(n => (
-                                            <div key={n.id} className="p-3.5 bg-white/5 rounded-xl border border-white/5 flex gap-3 relative justify-between">
-                                                <div className="flex gap-2">
-                                                    <div className="mt-0.5 shrink-0">
-                                                        {n.category === 'positive' && <CheckCircle size={14} className="text-emerald-400" />}
-                                                        {n.category === 'warning' && <Clock size={14} className="text-amber-400" />}
-                                                        {n.category === 'critical' && <ShieldAlert size={14} className="text-rose-400" />}
+                                        <h4 className="text-xs font-bold text-white border-b border-white/5 pb-1">Pupil Information</h4>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {[
+                                                { label: 'First Name', value: selectedPupil.first_name, icon: <UserCircle size={12} /> },
+                                                { label: 'Last Name', value: selectedPupil.last_name, icon: <UserCircle size={12} /> },
+                                                { label: 'Gender', value: (selectedPupil as any).gender === 'M' ? 'Male' : (selectedPupil as any).gender === 'F' ? 'Female' : '—', icon: <AlignLeft size={12} /> },
+                                                { label: 'Date of Birth', value: selectedPupil.date_of_birth || 'N/A', icon: <Calendar size={12} /> },
+                                                { label: 'Email', value: selectedPupil.email, icon: <Mail size={12} />, fullWidth: true },
+                                                { label: 'Phone Number', value: selectedPupil.phone || 'N/A', icon: <Phone size={12} /> },
+                                                { label: 'Current Address', value: selectedPupil.address || 'N/A', icon: <MapPin size={12} />, fullWidth: true }
+                                            ].map((item, idx) => (
+                                                <div key={idx} className={`p-2.5 bg-slate-900 rounded-lg border border-white/5 ${item.fullWidth ? 'col-span-2' : ''}`}>
+                                                    <div className="flex items-center gap-1 text-slate-500 mb-0.5">
+                                                        {item.icon}
+                                                        <span>{item.label}</span>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-white text-xs leading-relaxed">{n.note}</p>
-                                                        <span className="text-[9px] text-slate-500 font-mono mt-1 block">{n.created_at}</span>
-                                                    </div>
+                                                    <p className="text-white text-xs font-semibold truncate">{String(item.value)}</p>
                                                 </div>
-                                                <button onClick={() => handleDeleteBehaviorNote(n.id)} className="text-slate-500 hover:text-red-400 transition-colors p-1 self-start">
-                                                    <X size={12} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 2. Attendance History */}
+                                {activeProfileTab === 'attendance' && (
+                                    <div className="space-y-3">
+                                        <h4 className="text-xs font-bold text-white border-b border-white/5 pb-1">Attendance Summary</h4>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-center">
+                                                <p className="text-sm font-black">62</p>
+                                                <p className="text-[9px] text-slate-400 mt-0.5">Present</p>
+                                            </div>
+                                            <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-center">
+                                                <p className="text-sm font-black">2</p>
+                                                <p className="text-[9px] text-slate-400 mt-0.5">Absent</p>
+                                            </div>
+                                            <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-center">
+                                                <p className="text-sm font-black">96.8%</p>
+                                                <p className="text-[9px] text-slate-400 mt-0.5">Rate</p>
+                                            </div>
+                                        </div>
+
+                                        <h4 className="text-[10px] font-bold text-white mt-4">Recent Records</h4>
+                                        <div className="rounded-lg border border-white/5 overflow-hidden divide-y divide-white/5">
+                                            {mockAttendance.map((rec, i) => (
+                                                <div key={i} className="flex justify-between items-center p-2.5 bg-slate-900">
+                                                    <span className="font-mono text-[10px]">{rec.date}</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase ${rec.status === 'present' ? 'bg-emerald-500/10 text-emerald-400' :
+                                                            rec.status === 'late' ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'
+                                                        }`}>
+                                                        {rec.status}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 3. Academic Performance */}
+                                {activeProfileTab === 'academic' && (
+                                    <div className="space-y-3">
+                                        <h4 className="text-xs font-bold text-white border-b border-white/5 pb-1">Academic Scores</h4>
+                                        <div className="rounded-lg border border-white/5 overflow-hidden bg-slate-900 divide-y divide-white/5 max-h-[300px] overflow-y-auto">
+                                            {pupilScores.map(score => {
+                                                const assessment = (score as any).assessment;
+                                                return (
+                                                    <div key={score.id} className="p-3 flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-white font-bold text-[11px]">{assessment?.subject?.name || 'Subject'}</p>
+                                                            <p className="text-[9px] text-slate-500 mt-0.5">{assessment?.assessment_type?.name || 'Assessment'}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="font-mono font-black text-xs text-amber-400">{score.score_obtained}</span>
+                                                            <span className="text-[9px] text-slate-500"> / {assessment?.assessment_type?.max_score}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {pupilScores.length === 0 && (
+                                                <p className="p-6 text-center text-slate-500">No grades registered for this student yet.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 4. Behavior Notes */}
+                                {activeProfileTab === 'behavior' && (
+                                    <div className="space-y-3">
+                                        <h4 className="text-xs font-bold text-white border-b border-white/5 pb-1">Behavior & Conduct Log</h4>
+
+                                        {/* Add note form */}
+                                        <form onSubmit={handleAddBehaviorNote} className="p-3 bg-slate-900 rounded-lg border border-white/5 space-y-2.5">
+                                            <textarea
+                                                value={newBehaviorNote} onChange={e => setNewBehaviorNote(e.target.value)} required rows={2}
+                                                placeholder="Write conduct observation remark..."
+                                                className="w-full bg-slate-950 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500/50 resize-none"
+                                            />
+                                            <div className="flex justify-between items-center gap-2">
+                                                <select
+                                                    value={behaviorCategory}
+                                                    onChange={e => setBehaviorCategory(e.target.value as any)}
+                                                    className="bg-slate-950 border border-white/10 text-[10px] px-2 py-1 rounded-md text-white outline-none"
+                                                >
+                                                    <option value="positive">Positive conduct</option>
+                                                    <option value="warning">Minor warning</option>
+                                                    <option value="critical">Critical infraction</option>
+                                                </select>
+                                                <button type="submit" className="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] font-black">
+                                                    Add Log
                                                 </button>
                                             </div>
-                                        ))}
+                                        </form>
 
-                                        {behaviorNotes.length === 0 && (
-                                            <p className="text-center py-6 text-slate-500">No behavior entries recorded.</p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* 5. Parent Information */}
-                            {activeProfileTab === 'parent' && (
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-bold text-white border-b border-white/5 pb-2">Parent / Guardian Contact</h4>
-
-                                    {(selectedPupil as any).student_profile?.parent_name ? (
-                                        <div className="space-y-3 text-xs">
-                                            {[
-                                                { label: 'Parent Name', value: (selectedPupil as any).student_profile?.parent_name, icon: <UserCircle size={14} /> },
-                                                { label: 'Parent Email', value: (selectedPupil as any).student_profile?.parent_email, icon: <Mail size={14} /> },
-                                                { label: 'Parent Phone', value: (selectedPupil as any).student_profile?.parent_phone || 'N/A', icon: <Phone size={14} /> },
-                                            ].map((item, idx) => (
-                                                <div key={idx} className="p-3 bg-white/5 rounded-xl border border-white/5 flex items-start gap-2.5">
-                                                    <span className="text-slate-500 shrink-0 mt-0.5">{item.icon}</span>
-                                                    <div>
-                                                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">{item.label}</p>
-                                                        <p className="text-white text-xs font-semibold mt-0.5">{String(item.value)}</p>
+                                        {/* Notes list */}
+                                        <div className="space-y-2 max-h-[250px] overflow-y-auto">
+                                            {behaviorNotes.map(n => (
+                                                <div key={n.id} className="p-2.5 bg-slate-900 rounded-lg border border-white/5 flex gap-2 relative justify-between">
+                                                    <div className="flex gap-2">
+                                                        <div className="mt-0.5 shrink-0">
+                                                            {n.category === 'positive' && <CheckCircle size={12} className="text-emerald-400" />}
+                                                            {n.category === 'warning' && <Clock size={12} className="text-amber-400" />}
+                                                            {n.category === 'critical' && <ShieldAlert size={12} className="text-rose-400" />}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-white text-xs leading-normal">{n.note}</p>
+                                                            <span className="text-[8px] text-slate-500 font-mono mt-0.5 block">{n.created_at}</span>
+                                                        </div>
                                                     </div>
+                                                    <button onClick={() => handleDeleteBehaviorNote(n.id)} className="text-slate-500 hover:text-red-400 transition-colors p-0.5 self-start">
+                                                        <X size={10} />
+                                                    </button>
                                                 </div>
                                             ))}
 
-                                            <div className="pt-2">
-                                                <a
-                                                    href={`mailto:${(selectedPupil as any).student_profile?.parent_email}`}
-                                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-lg transition-all"
-                                                >
-                                                    <Mail size={14} /> Email Parent Direct
-                                                </a>
-                                            </div>
+                                            {behaviorNotes.length === 0 && (
+                                                <p className="text-center py-4 text-slate-500">No behavior entries recorded.</p>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <div className="p-6 text-center border border-white/5 rounded-xl bg-white/5">
-                                            <p className="text-slate-500 text-xs">No linked parent account information available.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                    </div>
+                                )}
 
+                                {/* 5. Parent Information */}
+                                {activeProfileTab === 'parent' && (
+                                    <div className="space-y-3">
+                                        <h4 className="text-xs font-bold text-white border-b border-white/5 pb-1">Parent / Guardian Contact</h4>
+
+                                        {(selectedPupil as any).student_profile?.parent_name ? (
+                                            <div className="space-y-2.5">
+                                                {[
+                                                    { label: 'Parent Name', value: (selectedPupil as any).student_profile?.parent_name, icon: <UserCircle size={12} /> },
+                                                    { label: 'Parent Email', value: (selectedPupil as any).student_profile?.parent_email, icon: <Mail size={12} /> },
+                                                    { label: 'Parent Phone', value: (selectedPupil as any).student_profile?.parent_phone || 'N/A', icon: <Phone size={12} /> },
+                                                ].map((item, idx) => (
+                                                    <div key={idx} className="p-2.5 bg-slate-900 rounded-lg border border-white/5 flex items-start gap-2">
+                                                        <span className="text-slate-500 shrink-0 mt-0.5">{item.icon}</span>
+                                                        <div>
+                                                            <p className="text-slate-500 text-[9px] uppercase font-bold tracking-wider">{item.label}</p>
+                                                            <p className="text-white text-xs font-semibold mt-0.5">{String(item.value)}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                <div className="pt-1.5">
+                                                    <a
+                                                        href={`mailto:${(selectedPupil as any).student_profile?.parent_email}`}
+                                                        className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs transition-all"
+                                                    >
+                                                        <Mail size={12} /> Email Parent Direct
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="p-5 text-center border border-white/5 rounded-lg bg-slate-900">
+                                                <p className="text-slate-500 text-[10px]">No linked parent account information available.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="text-center py-24">
+                            <UserCircle size={40} className="text-slate-700 mx-auto mb-3" />
+                            <p className="text-slate-500 text-sm">Select a pupil to view details</p>
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 }

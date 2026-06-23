@@ -217,7 +217,7 @@ export default function StudentForm({ studentId, defaultClass, onSuccess, onCanc
     if (fetching) {
         return (
             <div className="flex items-center justify-center py-12">
-                <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-sky-500 animate-spin" />
+                <div className="premium-spinner" />
             </div>
         );
     }
