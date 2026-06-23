@@ -158,7 +158,7 @@ export default function Notifications() {
             <div className="rounded-2xl border border-white/5 overflow-hidden" style={{ background: 'linear-gradient(135deg, #0b1523 0%, #070e1a 100%)' }}>
                 {loading ? (
                     <div className="p-10 flex justify-center">
-                        <div className="w-9 h-9 rounded-full border-2 border-transparent border-t-sky-500 animate-spin" />
+                        <div className="premium-spinner" />
                     </div>
                 ) : items.length === 0 ? (
                     <div className="p-12 text-center">

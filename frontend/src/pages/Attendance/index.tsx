@@ -243,7 +243,7 @@ function EmergencyOverridePanel({ classId, className, date, onClose, onSaved }: 
     if (loading) {
         return (
             <div className="p-8 border border-white/5 bg-[#0b1523] rounded-2xl flex items-center justify-center">
-                <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-amber-500 animate-spin" />
+                <div className="premium-spinner" />
             </div>
         );
     }

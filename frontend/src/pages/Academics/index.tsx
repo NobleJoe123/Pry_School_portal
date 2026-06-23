@@ -86,7 +86,7 @@ export default function Academics() {
 
             {loading ? (
                 <div className="flex items-center justify-center py-20">
-                    <div className="w-10 h-10 rounded-full border-2 border-transparent border-t-amber-500 animate-spin" />
+                    <div className="premium-spinner" />
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-6">
