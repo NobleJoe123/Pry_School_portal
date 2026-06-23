@@ -280,6 +280,10 @@ class ReportCardViewSet(viewsets.ModelViewSet):
         if student_id:
             queryset = queryset.filter(student_id=student_id)
             
+        school_class_id = self.request.query_params.get('school_class')
+        if school_class_id:
+            queryset = queryset.filter(student__student_profile__current_class_id=school_class_id)
+            
         term_id = self.request.query_params.get('term')
         if term_id:
             if term_id == 'REPLACE_WITH_CURRENT_TERM_ID':

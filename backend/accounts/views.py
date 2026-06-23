@@ -462,10 +462,12 @@ class StudentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(student_profile__current_class__teacher=user)
 
         class_name = self.request.query_params.get('class')
+        school_class_id = self.request.query_params.get('school_class')
         student_status = self.request.query_params.get('status')
         parent_id = self.request.query_params.get('parent_id')
         
         if class_name: queryset = queryset.filter(student_profile__current_class__name=class_name)
+        if school_class_id: queryset = queryset.filter(student_profile__current_class_id=school_class_id)
         if student_status: queryset = queryset.filter(student_profile__status=student_status)
         if parent_id: queryset = queryset.filter(student_profile__parent_id=parent_id)
         return queryset
