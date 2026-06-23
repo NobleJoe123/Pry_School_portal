@@ -26,13 +26,15 @@ export default function StudentGrades() {
     const [scores, setScores] = useState<ScoreData[]>([]);
     const [terms, setTerms] = useState<Term[]>([]);
     const [selectedTerm, setSelectedTerm] = useState<string>('');
+    const [reports, setReports] = useState<any[]>([]);
 
     useEffect(() => {
-        // Fetch terms and scores
+        // Fetch terms, scores, and report cards
         Promise.all([
             api.get<any>(endpoints.academics.terms),
-            api.get<any>(endpoints.academics.scores)
-        ]).then(([termsRes, scoresRes]) => {
+            api.get<any>(endpoints.academics.scores),
+            api.get<any>(endpoints.academics.reportCards)
+        ]).then(([termsRes, scoresRes, reportsRes]) => {
             const getList = (val: any) => {
                 if (!val) return [];
                 if (Array.isArray(val)) return val;
@@ -42,9 +44,11 @@ export default function StudentGrades() {
             
             const termList = getList(termsRes);
             const scoreList = getList(scoresRes);
+            const reportList = getList(reportsRes);
             
             setTerms(termList);
             setScores(scoreList);
+            setReports(reportList);
             
             const currentTerm = termList.find((t: any) => t.is_current);
             if (currentTerm) {
@@ -135,7 +139,7 @@ export default function StudentGrades() {
 
             {loading ? (
                 <div className="flex items-center justify-center py-20">
-                    <div className="w-10 h-10 rounded-full border-2 border-transparent border-t-amber-500 animate-spin" />
+                    <div className="premium-spinner" />
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-6">
@@ -208,6 +212,28 @@ export default function StudentGrades() {
                             </table>
                         </div>
                     )}
+
+                    {/* Remarks Section */}
+                    {(() => {
+                        const currentReport = reports.find(r => r.term === selectedTerm);
+                        if (!currentReport) return null;
+                        return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                {currentReport.teacher_remarks && (
+                                    <div className="p-5 bg-white/5 border border-white/5 rounded-3xl">
+                                        <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1.5">Class Teacher's Remark</p>
+                                        <p className="text-slate-300 text-xs italic leading-relaxed">"{currentReport.teacher_remarks}"</p>
+                                    </div>
+                                )}
+                                {currentReport.admin_remarks && (
+                                    <div className="p-5 bg-white/5 border border-white/5 rounded-3xl">
+                                        <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1.5">Head Teacher's / School Feedback</p>
+                                        <p className="text-slate-300 text-xs italic leading-relaxed">"{currentReport.admin_remarks}"</p>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
             )}
         </div>

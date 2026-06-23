@@ -378,7 +378,7 @@ export default function Scores() {
             {/* Editable Grid / Loading */}
             {loading ? (
                 <div className="flex justify-center items-center py-20">
-                    <div className="w-9 h-9 rounded-full border-2 border-transparent border-t-amber-500 animate-spin" />
+                    <div className="premium-spinner" />
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -430,7 +430,7 @@ export default function Scores() {
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-slate-300 font-black text-[10px]">
-                                                            {student.first_name[0]}{student.last_name[0]}
+                                                            {student.first_name?.[0] || '?'}{student.last_name?.[0] || ''}
                                                         </div>
                                                         <div>
                                                             <p className="text-sm font-bold text-white leading-tight">{student.full_name}</p>
