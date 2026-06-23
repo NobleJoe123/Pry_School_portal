@@ -191,7 +191,7 @@ export default function ParentForm({ parentId, onSuccess, onCancel }: ParentForm
   if (fetching) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-violet-500 animate-spin" />
+        <div className="premium-spinner" />
       </div>
     );
   }
