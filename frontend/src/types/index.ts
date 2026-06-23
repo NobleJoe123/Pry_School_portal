@@ -437,3 +437,18 @@ export interface StudentAdmissionDetail {
     gender: Gender;
     status: StudentStatus;
 }
+
+export interface ReportCard {
+    id?: string;
+    student: string;
+    student_name?: string;
+    student_admission?: string;
+    term: string;
+    term_name?: string;
+    academic_year_name?: string;
+    teacher_remarks: string | null;
+    admin_remarks: string | null;
+    is_published: boolean;
+    created_at?: string;
+    updated_at?: string;
+}

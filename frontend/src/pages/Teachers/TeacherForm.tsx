@@ -176,7 +176,7 @@ export default function TeacherForm({ teacherId, onSuccess, onCancel }: TeacherF
   if (fetching) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-amber-500 animate-spin" />
+        <div className="premium-spinner" />
       </div>
     );
   }
