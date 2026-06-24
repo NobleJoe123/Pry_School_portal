@@ -149,6 +149,7 @@ class ReportCard(models.Model):
     )
     teacher_remarks = models.TextField(blank=True, null=True)
     admin_remarks = models.TextField(blank=True, null=True)
+    psychomotor = models.JSONField(default=dict, blank=True, null=True)
     is_published = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -326,13 +326,17 @@ class ReportCardViewSet(viewsets.ModelViewSet):
             old_rc = ReportCard.objects.filter(student_id=student_id, term_id=term_id).first()
             was_published = old_rc.is_published if old_rc else False
             
+            defaults={
+                'admin_remarks': record.get('admin_remarks', record.get('remarks', '')),
+                'is_published': record.get('is_published', False)
+            }
+            if 'psychomotor' in record:
+                defaults['psychomotor'] = record['psychomotor']
+            
             rc, created = ReportCard.objects.update_or_create(
                 student_id=student_id,
                 term_id=term_id,
-                defaults={
-                    'admin_remarks': record.get('admin_remarks', record.get('remarks', '')),
-                    'is_published': record.get('is_published', False)
-                }
+                defaults=defaults
             )
             send_report_card_notifications(rc, request.user, is_new=created, was_published=was_published)
             updated_count += 1
