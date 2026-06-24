@@ -8,6 +8,36 @@ import { useAuth } from '../../context/AuthContext';
 import logo from '../../assets/anyilogo.png';
 import type { SchoolClass, Term, User, StudentScore } from '../../types';
 
+
+
+// Calaculte Position
+interface GradePosition {
+    studentId: string;
+    totalPoints: number
+}
+
+export const calculatePosition = (
+    studentId: string,
+    classResults: GradePosition[]
+) => {
+    const sorted = [...classResults].sort(
+        (a, b) => b.totalPoints - a.totalPoints
+    );
+
+    const position = sorted.findIndex((s) => s.studentId === studentId) + 1;
+
+    return {
+        position,
+        classSize: sorted.length
+    };
+
+
+};
+
+
+
+
+
 interface ReportCardData {
     id?: string;
     student: string;
@@ -15,6 +45,7 @@ interface ReportCardData {
     teacher_remarks: string;
     admin_remarks: string;
     is_published: boolean;
+    psychomotor?: Record<string, number>;
 }
 
 const getList = <T,>(val: any): T[] => {
@@ -45,13 +76,16 @@ export default function Reports() {
     const [teacherRemarks, setTeacherRemarks] = useState<Record<string, string>>({});
     const [adminRemarks, setAdminRemarks] = useState<Record<string, string>>({});
     const [publishedStatus, setPublishedStatus] = useState<Record<string, boolean>>({});
+    const [psychomotorRatings, setPsychomotorRatings] = useState<Record<string, Record<string, number>>>({});
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState('');
     const [search, setSearch] = useState('');
+    const [nextTermBegin, setNextTermBegin] = useState<string>('');
 
     // Preview drawer/modal state
     const [previewStudent, setPreviewStudent] = useState<User | null>(null);
     const [previewTeacher, setPreviewTeacher] = useState<User | null>(null);
+    const [ratingStudent, setRatingStudent] = useState<User | null>(null);
 
     // Fetch initial metadata
     useEffect(() => {
@@ -77,9 +111,38 @@ export default function Reports() {
 
             const currentTerm = termList.find((t: Term) => t.is_current) || termList[0];
             if (currentTerm) setSelectedTermId(currentTerm.id);
+
+            // Derive next term start from Term list (sorted ascending)
+            if (currentTerm) {
+                const sorted = [...termList].sort((a: Term, b: Term) =>
+                    new Date(a.start_date as string).getTime() - new Date(b.start_date as string).getTime()
+                );
+                const curIdx = sorted.findIndex((t: Term) => t.id === currentTerm.id);
+                const nextTerm = sorted[curIdx + 1];
+                if (nextTerm && (nextTerm as any).start_date) {
+                    setNextTermBegin(
+                        new Date((nextTerm as any).start_date).toLocaleDateString('en-GB', {
+                            day: 'numeric', month: 'long', year: 'numeric'
+                        })
+                    );
+                }
+            }
         }).catch(err => {
             console.error("Error loading initial data", err);
         }).finally(() => setLoading(false));
+
+        // Also check school calendar events for a more specific next-term-begins event
+        api.get<any>(endpoints.academics.events).then(eventsRes => {
+            const eventList = getList<any>(eventsRes);
+            const today = new Date();
+            const nextStart = eventList
+                .filter((e: any) => e.category === 'academic' && e.date && new Date(e.date) > today)
+                .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+            // Only override if a calendar event specifically exists
+            if (nextStart) {
+                setNextTermBegin(new Date(nextStart.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }));
+            }
+        }).catch(() => {});
     }, [user]);
 
     // Load detailed reports and scores data
@@ -112,15 +175,24 @@ export default function Reports() {
             const tRemarksMap: Record<string, string> = {};
             const aRemarksMap: Record<string, string> = {};
             const pubMap: Record<string, boolean> = {};
+            const psychomotorMap: Record<string, Record<string, number>> = {};
             studentList.forEach(s => {
                 const rep = reportList.find(r => r.student === s.id);
                 tRemarksMap[s.id] = rep ? (rep.teacher_remarks || '') : '';
                 aRemarksMap[s.id] = rep ? (rep.admin_remarks || '') : '';
                 pubMap[s.id] = rep ? !!rep.is_published : false;
+                psychomotorMap[s.id] = rep && rep.psychomotor ? rep.psychomotor : {
+                    punctuality: 5,
+                    neatness: 5,
+                    politeness: 5,
+                    honesty: 5,
+                    diligence: 5
+                };
             });
             setTeacherRemarks(tRemarksMap);
             setAdminRemarks(aRemarksMap);
             setPublishedStatus(pubMap);
+            setPsychomotorRatings(psychomotorMap);
         } catch (err) {
             console.error("Error loading report details", err);
         } finally {
@@ -242,6 +314,7 @@ export default function Reports() {
             const payload: any = {};
             if (user?.role === 'teacher') {
                 payload.teacher_remarks = tRemark;
+                payload.psychomotor = psychomotorRatings[studentId] || {};
             } else if (user?.role === 'admin') {
                 payload.admin_remarks = aRemark;
                 payload.is_published = isPub;
@@ -312,6 +385,18 @@ export default function Reports() {
     const previewData = previewStudent ? getStudentStatsAndResults(previewStudent.id) : null;
     const previewReportObj = previewStudent ? reports.find(r => r.student === previewStudent.id) : null;
 
+    // Calculate total points for all students in the class to compute positions
+    const classResults: GradePosition[] = students.map(s => ({
+        studentId: s.id,
+        totalPoints: getStudentStatsAndResults(s.id).totalPoints
+    }));
+
+    // helper function for Position
+    const { position, classSize } = previewStudent
+        ? calculatePosition(previewStudent.id, classResults)
+        : { position: 0, classSize: 0 };
+
+
 
     // Grade Remark
     const getGradeRemark = (score: number) => {
@@ -320,8 +405,40 @@ export default function Reports() {
         if (score >= 55) return "Fair";
         if (score >= 45) return "Pass";
         return "Poor";
+    };
 
-    }
+    // Derive next class name for promotion status (only meaningful when a student is selected)
+    const nextClass = (() => {
+        if (!activeClass) return '';
+        // Try to get the numeric suffix and increment it (e.g. "Primary 3A" → "Primary 4A")
+        const match = activeClass.name.match(/(\d+)/);
+        if (match) {
+            const num = parseInt(match[1], 10);
+            return activeClass.name.replace(/(\d+)/, String(num + 1));
+        }
+        return 'Next Class';
+    })();
+
+    // Promotion status and subject analysis — only computed when previewData is available
+    const promotionStatus = previewData ? (previewData.average >= 45 ? `PROMOTED TO ${nextClass || 'NEXT CLASS'}` : 'REPEAT CLASS') : '';
+    const bestSubject = previewData && previewData.subjects.length > 0
+        ? [...previewData.subjects].sort((a, b) => b.totalScore - a.totalScore)[0]
+        : null;
+    const weakSubject = previewData && previewData.subjects.length > 0
+        ? [...previewData.subjects].sort((a, b) => a.totalScore - b.totalScore)[0]
+        : null;
+
+    // Psychomotor skill labels
+    const PSYCHOMOTOR_KEYS: Record<string, string> = {
+        punctuality: 'Punctuality',
+        neatness: 'Neatness',
+        politeness: 'Politeness',
+        honesty: 'Honesty',
+        diligence: 'Diligence',
+        creativity: 'Creativity',
+        teamwork: 'Teamwork',
+        leadership: 'Leadership',
+    };
 
     return (
         <div className="space-y-6 max-w-screen-xl print:p-0">
@@ -556,16 +673,26 @@ export default function Reports() {
 
                                             {/* Actions */}
                                             <td className="px-6 py-3.5 text-center">
-                                                <div className="flex items-center justify-center gap-1.5">
+                                                <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                                     <button
                                                         onClick={() => handleSaveRemarks(student.id)}
                                                         disabled={saving || (user?.role === 'teacher' && rep?.is_published)}
                                                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
                                                         style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0c0a09', boxShadow: '0 3px 12px rgba(245,158,11,0.25)' }}
-                                                        title="Save remarks"
+                                                        title="Save remarks & psychomotor"
                                                     >
                                                         <Save size={11} /> Save
                                                     </button>
+                                                    {user?.role === 'teacher' && (
+                                                        <button
+                                                            onClick={() => setRatingStudent(student)}
+                                                            disabled={rep?.is_published}
+                                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 hover:text-violet-300 rounded-xl border border-violet-500/20 transition-all text-[10px] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                                                            title="Rate Psychomotor Skills"
+                                                        >
+                                                            <BookOpen size={11} /> Skills
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => setPreviewStudent(student)}
                                                         className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 hover:text-white rounded-xl border border-white/[0.08] transition-all text-[10px] font-bold"
@@ -750,10 +877,25 @@ export default function Reports() {
                                                 <span className="font-bold font-mono text-slate-900">{previewData.totalPoints} pts</span>
                                             </div>
                                             <div className="flex justify-between items-center border-t border-slate-200/50 pt-1">
+                                                <span className="text-slate-500">Position:</span>
+                                                <span className="font-bold text-slate-900">
+                                                    {position}
+                                                    {position === 1 ? "st" : position === 2 ? "nd" : position === 3 ? "rd" : "th"} of {classSize}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex justify-between items-center border-t border-slate-200/50 pt-1">
                                                 <span className="text-slate-500">Average:</span>
                                                 <span className="font-black text-xs font-mono text-indigo-600">{previewData.average.toFixed(1)}%</span>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <div className={`p-3 rounded-xl text-center font-black text-sm ${previewData.average >= 45 ?
+                                        "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+
+                                        }`}>
+                                        {promotionStatus}
                                     </div>
 
                                     <div className="space-y-1.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -782,6 +924,43 @@ export default function Reports() {
                                     </div>
                                 </div>
 
+                                {/* Psychomotor / Affective Domain */}
+                                {(() => {
+                                    const psycho = previewReportObj?.psychomotor || psychomotorRatings[previewStudent.id] || {};
+                                    const keys = Object.keys(psycho);
+                                    if (keys.length === 0) return null;
+                                    return (
+                                        <div className="relative z-10 border-t pt-4">
+                                            <h4 className="text-sm font-black text-slate-900 border-b pb-1 mb-2">Psychomotor &amp; Affective Skills</h4>
+                                            <table className="w-full text-left text-xs border border-slate-300 rounded-xl overflow-hidden">
+                                                <thead>
+                                                    <tr className="bg-slate-100 border-b border-slate-300 text-[10px] uppercase font-bold text-slate-700">
+                                                        <th className="px-4 py-2">Skill</th>
+                                                        <th className="px-4 py-2 text-center">Rating (1-5)</th>
+                                                        <th className="px-4 py-2 text-center">Remark</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {keys.map((k) => {
+                                                        const rating = psycho[k];
+                                                        const remark = rating >= 5 ? 'Excellent' : rating >= 4 ? 'Very Good' : rating >= 3 ? 'Good' : rating >= 2 ? 'Fair' : 'Needs Improvement';
+                                                        return (
+                                                            <tr key={k} className="border-b border-slate-200">
+                                                                <td className="px-4 py-1.5 font-semibold text-slate-800 capitalize">{PSYCHOMOTOR_KEYS[k] || k}</td>
+                                                                <td className="px-4 py-1.5 text-center">
+                                                                    <span className="font-black text-indigo-600">{rating}</span>
+                                                                    <span className="text-slate-400 text-[9px]"> / 5</span>
+                                                                </td>
+                                                                <td className="px-4 py-1.5 text-center text-slate-600">{remark}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                })()}
+
                                 {/* Remarks section */}
                                 <div className="space-y-3 relative z-10 border-t pt-4">
                                     <div className="p-3.5 border rounded-xl bg-slate-50 text-xs">
@@ -793,6 +972,12 @@ export default function Reports() {
                                         <p className="font-black text-slate-900 uppercase text-[9px] tracking-wider mb-1">Head Teacher / Administrator Remark</p>
                                         <p className="text-slate-700 italic">"{previewReportObj?.admin_remarks || 'No administrator comment entered yet.'}"</p>
                                     </div>
+                                    {nextTermBegin && (
+                                        <div className="flex items-center justify-between p-3.5 border border-amber-200 rounded-xl bg-amber-50 text-xs">
+                                            <span className="font-black text-amber-800 uppercase text-[9px] tracking-wider">📅 Next Term Begins:</span>
+                                            <span className="font-bold text-amber-700">{nextTermBegin}</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Signatures and Official Stamp */}
@@ -821,6 +1006,82 @@ export default function Reports() {
                             </div>
                         </div>
 
+                    </div>
+                </div>
+            )}
+
+            {/* Psychomotor Rating Modal */}
+            {ratingStudent && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md" onClick={() => setRatingStudent(null)}>
+                    <div
+                        className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="px-6 pt-6 pb-4 border-b border-white/[0.07]">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <h3 className="text-white font-black text-base">Psychomotor Skills Rating</h3>
+                                    <p className="text-slate-400 text-xs mt-0.5">{ratingStudent.full_name}</p>
+                                </div>
+                                <button onClick={() => setRatingStudent(null)} className="text-slate-500 hover:text-white transition-colors p-1">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Skill Sliders */}
+                        <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
+                            {Object.keys(PSYCHOMOTOR_KEYS).map(key => {
+                                const current = (psychomotorRatings[ratingStudent.id] ?? {})[key] ?? 3;
+                                return (
+                                    <div key={key}>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="text-sm font-bold text-slate-300">{PSYCHOMOTOR_KEYS[key]}</label>
+                                            <span className="text-xs font-black px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300">
+                                                {current} / 5
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="range" min={1} max={5} step={1}
+                                            value={current}
+                                            onChange={e => setPsychomotorRatings(prev => ({
+                                                ...prev,
+                                                [ratingStudent.id]: { ...(prev[ratingStudent.id] ?? {}), [key]: Number(e.target.value) }
+                                            }))}
+                                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                                            style={{ accentColor: '#6366f1' }}
+                                        />
+                                        <div className="flex justify-between text-[9px] text-slate-600 mt-0.5">
+                                            <span>1 · Needs Work</span>
+                                            <span>3 · Good</span>
+                                            <span>5 · Excellent</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Footer Actions */}
+                        <div className="px-6 pb-6 pt-4 border-t border-white/[0.07] flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => setRatingStudent(null)}
+                                className="px-5 py-2 rounded-xl bg-white/[0.05] hover:bg-white/10 text-slate-300 text-sm font-bold transition-all border border-white/[0.08]"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    await handleSaveRemarks(ratingStudent.id);
+                                    setRatingStudent(null);
+                                }}
+                                disabled={saving}
+                                className="px-6 py-2 rounded-xl text-sm font-black transition-all disabled:opacity-50 shadow-lg"
+                                style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#fff', boxShadow: '0 4px 20px rgba(99,102,241,0.35)' }}
+                            >
+                                <Save size={14} className="inline mr-1.5" />{saving ? 'Saving...' : 'Save Ratings'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
