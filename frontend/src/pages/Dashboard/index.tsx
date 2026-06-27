@@ -2,6 +2,7 @@ import { useAuth } from '../../context/AuthContext';
 import AdminDashboard from './AdminDashboard';
 import TeacherDashboard from './TeacherDashboard';
 import ParentDashboard from './ParentDashboard';
+import StudentDashboard from './StudentDashboard';
 
 export default function Dashboard() {
     const { user } = useAuth();
@@ -15,6 +16,8 @@ export default function Dashboard() {
             return <TeacherDashboard />;
         case 'parent':
             return <ParentDashboard />;
+        case 'student':
+            return <StudentDashboard />;
         default:
             return (
                 <div className="flex items-center justify-center min-h-[60vh]">
