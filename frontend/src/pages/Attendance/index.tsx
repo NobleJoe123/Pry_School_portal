@@ -9,6 +9,7 @@ import {
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { StudentAttendance, SchoolClass, User } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
@@ -131,13 +132,18 @@ function NotificationPanel() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <select value={audience} onChange={(e) => setAudience(e.target.value)} className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-sky-500/50">
-                        <option value="all_parents">All Parents</option>
-                        <option value="all_teachers">All Teachers</option>
-                        <option value="all_students">All Pupils</option>
-                        <option value="all_staff">All Staff</option>
-                        <option value="selected">Specific Recipients</option>
-                    </select>
+                    <FilterDropdown
+                        value={audience}
+                        options={[
+                            { id: 'all_parents', label: 'All Parents' },
+                            { id: 'all_teachers', label: 'All Teachers' },
+                            { id: 'all_students', label: 'All Pupils' },
+                            { id: 'all_staff', label: 'All Staff' },
+                            { id: 'selected', label: 'Specific Recipients' },
+                        ]}
+                        onChange={setAudience}
+                        placeholder="Select Audience"
+                    />
                     <input value={title} onChange={(e) => setTitle(e.target.value)} required className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-sky-500/50" placeholder="Notice Subject" />
                 </div>
 

@@ -7,6 +7,7 @@ import {
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { SchoolClass, User } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
@@ -343,17 +344,18 @@ export default function TeacherAttendance() {
                             className="w-full pl-8 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/50 transition-all"
                         />
                     </div>
-                    <select
-                        value={filterStatus}
-                        onChange={e => setFilterStatus(e.target.value as any)}
-                        className="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-slate-300 focus:outline-none focus:border-amber-500/50 appearance-none"
-                    >
-                        <option value="all">All Pupils</option>
-                        <option value="present">Present Only</option>
-                        <option value="absent">Absent Only</option>
-                        <option value="late">Late Only</option>
-                        <option value="excused">Excused Only</option>
-                    </select>
+                    <FilterDropdown
+                            value={filterStatus}
+                            options={[
+                                { id: 'all', label: 'All Pupils' },
+                                { id: 'present', label: 'Present Only' },
+                                { id: 'absent', label: 'Absent Only' },
+                                { id: 'late', label: 'Late Only' },
+                                { id: 'excused', label: 'Excused Only' },
+                            ]}
+                            onChange={v => setFilterStatus(v as any)}
+                            placeholder="All Pupils"
+                        />
                 </div>
 
                 {/* Student List */}
