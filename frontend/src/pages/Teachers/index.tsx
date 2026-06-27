@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { UserPlus, Search, RefreshCw, Pencil, UserX, ChevronLeft, ChevronRight, UserCheck, XCircle, CheckCircle, } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import TeacherForm from './TeacherForm';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 import { api, endpoints } from '../../utils/api';
 import type { User } from '../../types';
 
@@ -391,17 +392,17 @@ export default function Teachers() {
                         className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/40 transition-all" />
                 </div>
 
-                <select 
-                    value={statusFilter} 
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/40 transition-all min-w-[140px]"
-                    title="Filter by Employment Status"
-                >
-                    <option value="" className="bg-[#0d1b2a]">All Statuses</option>
-                    <option value="full_time" className="bg-[#0d1b2a]">Full Time</option>
-                    <option value="part_time" className="bg-[#0d1b2a]">Part Time</option>
-                    <option value="contract" className="bg-[#0d1b2a]">Contract</option>
-                </select>
+                <FilterDropdown
+                    value={statusFilter}
+                    options={[
+                        { id: '', label: 'All Statuses' },
+                        { id: 'full_time', label: 'Full Time' },
+                        { id: 'part_time', label: 'Part Time' },
+                        { id: 'contract', label: 'Contract' },
+                    ]}
+                    onChange={setStatusFilter}
+                    placeholder="All Statuses"
+                />
 
                 <button onClick={fetchTeachers}
                     className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all" title="Refresh">

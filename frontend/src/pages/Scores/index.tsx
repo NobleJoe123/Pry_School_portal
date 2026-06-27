@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { 
-    Users, BookOpen, Award, Save, RotateCcw, 
+import {
+    Users, BookOpen, Award, Save, RotateCcw,
     CheckCircle, BarChart2, Star, TrendingUp, HelpCircle, Layers, Calendar
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { SchoolClass, User, Subject, AssessmentType, Term } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 interface StudentScoreDetail {
     caScore: string;
@@ -24,7 +25,7 @@ const getList = <T,>(value: any): T[] => {
 export default function Scores() {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
-    
+
     // Filters Meta
     const [sessions, setSessions] = useState<{ id: string; name: string; is_current: boolean }[]>([]);
     const [terms, setTerms] = useState<Term[]>([]);
@@ -203,7 +204,7 @@ export default function Scores() {
             const ca = parseFloat(detail.caScore) || 0;
             const exam = parseFloat(detail.examScore) || 0;
             const total = ca + exam;
-            
+
             // Only consider statistics if at least one score is entered
             if (detail.caScore !== '' || detail.examScore !== '') {
                 totalSum += total;
@@ -284,50 +285,38 @@ export default function Scores() {
             </div>
 
             {/* Selection Filters */}
-            <div className="p-4 bg-white/5 border border-white/5 rounded-3xl flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <Calendar size={15} className="text-slate-500" />
-                    <select 
-                        value={selectedSession} 
-                        onChange={e => setSelectedSession(e.target.value)}
-                        className="bg-slate-900 border border-white/10 text-white text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-amber-500/50"
-                    >
-                        {sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                </div>
+            <div className="p-4 bg-white/5 border border-white/5 rounded-3xl flex flex-wrap items-center gap-3">
+                <FilterDropdown
+                    icon={<Calendar size={14} />}
+                    value={selectedSession}
+                    options={sessions.map(s => ({ id: s.id, label: s.name }))}
+                    onChange={setSelectedSession}
+                    placeholder="Session"
+                />
 
-                <div className="flex items-center gap-2">
-                    <Layers size={15} className="text-slate-500" />
-                    <select 
-                        value={selectedTerm} 
-                        onChange={e => setSelectedTerm(e.target.value)}
-                        className="bg-slate-900 border border-white/10 text-white text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-amber-500/50"
-                    >
-                        {terms.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                </div>
+                <FilterDropdown
+                    icon={<Layers size={14} />}
+                    value={selectedTerm}
+                    options={terms.map(t => ({ id: t.id, label: t.name }))}
+                    onChange={setSelectedTerm}
+                    placeholder="Term"
+                />
 
-                <div className="flex items-center gap-2">
-                    <Users size={15} className="text-slate-500" />
-                    <select 
-                        value={selectedClass} 
-                        onChange={e => setSelectedClass(e.target.value)}
-                        className="bg-slate-900 border border-white/10 text-white text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-amber-500/50"
-                    >
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </div>
+                <FilterDropdown
+                    icon={<Users size={14} />}
+                    value={selectedClass}
+                    options={classes.map(c => ({ id: c.id, label: c.name }))}
+                    onChange={setSelectedClass}
+                    placeholder="Class"
+                />
 
-                <div className="flex items-center gap-2">
-                    <BookOpen size={15} className="text-slate-500" />
-                    <select 
-                        value={selectedSubject} 
-                        onChange={e => setSelectedSubject(e.target.value)}
-                        className="bg-slate-900 border border-white/10 text-white text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-amber-500/50"
-                    >
-                        {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                </div>
+                <FilterDropdown
+                    icon={<BookOpen size={14} />}
+                    value={selectedSubject}
+                    options={subjects.map(s => ({ id: s.id, label: s.name }))}
+                    onChange={setSelectedSubject}
+                    placeholder="Subject"
+                />
 
                 <button onClick={() => window.location.reload()} className="ml-auto p-2 text-slate-500 hover:text-white rounded-xl hover:bg-white/5 transition-colors">
                     <RotateCcw size={16} />
@@ -364,11 +353,10 @@ export default function Scores() {
                     <button
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key as any)}
-                        className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                            activeTab === tab.key
+                        className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === tab.key
                                 ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25'
                                 : 'text-slate-400 hover:text-white hover:bg-white/5'
-                        }`}
+                            }`}
                     >
                         {tab.label}
                     </button>
@@ -388,7 +376,7 @@ export default function Scores() {
                                 <thead>
                                     <tr className="border-b border-white/5 bg-white/[0.02]">
                                         <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Student Name</th>
-                                        
+
                                         {activeTab === 'ca' && (
                                             <>
                                                 <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">CA Score (Max: 40)</th>
@@ -442,17 +430,16 @@ export default function Scores() {
                                                 {activeTab === 'ca' && (
                                                     <>
                                                         <td className="px-6 py-4">
-                                                            <input 
+                                                            <input
                                                                 type="number" step="0.5" min="0" max="40" placeholder="-"
                                                                 value={detail.caScore}
                                                                 onChange={e => handleScoreValueChange(student.id, 'ca', e.target.value)}
-                                                                className={`w-24 bg-white/5 border rounded-xl px-3 py-2 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-amber-500/20 transition-all ${
-                                                                    caInvalid ? 'border-red-500 text-red-400' : 'border-white/10 focus:border-amber-500/50'
-                                                                }`}
+                                                                className={`w-24 bg-white/5 border rounded-xl px-3 py-2 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-amber-500/20 transition-all ${caInvalid ? 'border-red-500 text-red-400' : 'border-white/10 focus:border-amber-500/50'
+                                                                    }`}
                                                             />
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <input 
+                                                            <input
                                                                 type="text" placeholder="CA Remarks..."
                                                                 value={detail.caRemarks}
                                                                 onChange={e => handleRemarksValueChange(student.id, 'ca', e.target.value)}
@@ -465,17 +452,16 @@ export default function Scores() {
                                                 {activeTab === 'exam' && (
                                                     <>
                                                         <td className="px-6 py-4">
-                                                            <input 
+                                                            <input
                                                                 type="number" step="0.5" min="0" max="60" placeholder="-"
                                                                 value={detail.examScore}
                                                                 onChange={e => handleScoreValueChange(student.id, 'exam', e.target.value)}
-                                                                className={`w-24 bg-white/5 border rounded-xl px-3 py-2 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-amber-500/20 transition-all ${
-                                                                    examInvalid ? 'border-red-500 text-red-400' : 'border-white/10 focus:border-amber-500/50'
-                                                                }`}
+                                                                className={`w-24 bg-white/5 border rounded-xl px-3 py-2 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-amber-500/20 transition-all ${examInvalid ? 'border-red-500 text-red-400' : 'border-white/10 focus:border-amber-500/50'
+                                                                    }`}
                                                             />
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <input 
+                                                            <input
                                                                 type="text" placeholder="Exam Remarks..."
                                                                 value={detail.examRemarks}
                                                                 onChange={e => handleRemarksValueChange(student.id, 'exam', e.target.value)}
@@ -488,7 +474,7 @@ export default function Scores() {
                                                 {activeTab === 'final' && (
                                                     <>
                                                         <td className="px-6 py-4 text-center">
-                                                            <input 
+                                                            <input
                                                                 type="number" step="0.5" min="0" max="40"
                                                                 value={detail.caScore}
                                                                 onChange={e => handleScoreValueChange(student.id, 'ca', e.target.value)}
@@ -496,7 +482,7 @@ export default function Scores() {
                                                             />
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <input 
+                                                            <input
                                                                 type="number" step="0.5" min="0" max="60"
                                                                 value={detail.examScore}
                                                                 onChange={e => handleScoreValueChange(student.id, 'exam', e.target.value)}
@@ -540,7 +526,8 @@ export default function Scores() {
                                     <CheckCircle size={15} /> {success}
                                 </span>
                             )}
-                            <button 
+                            <button
+                                type="submit"
                                 onClick={handleBulkSave} disabled={saving || students.length === 0}
                                 className="flex items-center gap-2 px-8 py-3.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 rounded-2xl font-black text-sm transition-all shadow-xl shadow-amber-500/20 active:scale-95"
                             >

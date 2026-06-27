@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 interface Announcement {
     id: string;
@@ -342,17 +343,14 @@ export default function TeacherMessages() {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Select Parent</label>
-                        <select 
-                            value={selectedParentId}
-                            onChange={e => setSelectedParentId(e.target.value)}
-                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
-                        >
-                            {parentsList.map(p => (
-                                <option key={p.id} value={p.id}>{p.full_name} ({p.email})</option>
-                            ))}
-                            {parentsList.length === 0 && <option>No parents available</option>}
-                        </select>
+                        <FilterDropdown
+                                label="Select Parent"
+                                fullWidth
+                                value={selectedParentId}
+                                options={parentsList.map(p => ({ id: p.id, label: `${p.full_name} (${p.email})` }))}
+                                onChange={setSelectedParentId}
+                                placeholder="Choose a parent…"
+                            />
                     </div>
 
                     <div>
