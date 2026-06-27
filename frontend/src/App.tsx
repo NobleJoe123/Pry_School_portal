@@ -27,6 +27,11 @@ import LandingPage from './pages/LandingPage';
 import ForgotPassword from './pages/ForgotPassword';
 import UploadMaterials from './pages/Teachers/UploadMaterials';
 import TeacherMessages from './pages/Teachers/Messages';
+import AdminMaterials from './pages/AdminMaterials';
+import StudentAttendancePage from './pages/Attendance/StudentAttendance';
+import MyChildren from './pages/Parents/MyChildren';
+import FeePayments from './pages/Parents/FeePayments';
+import ClassesPage from './pages/Classes';
 
 // PlaceHolders Pages
 
@@ -74,11 +79,12 @@ export default function App() {
                 <Route path="/students" element={<Students />} />
                 <Route path="/teachers" element={<Teachers />} />
                 <Route path="/parents" element={<Parents />} />
-                <Route path="/classes" element={<Placeholder name="Classes" />} />
+                <Route path="/classes" element={<ClassesPage />} />
                 <Route path="/academics" element={<Academics />} />
                 <Route path="/finance" element={<Finance />} />
                 <Route path="/attendance" element={<Attendance />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/admin/materials" element={<AdminMaterials />} />
               </Route>
 
               {/* Teacher Only Routes */}
@@ -95,8 +101,8 @@ export default function App() {
               {/* Parent Only Routes */}
               <Route element={<ProtectedRoute allowedRoles={['parent']} />}>
                 <Route path="/parent" element={<Dashboard />} />
-                <Route path="/parent/children" element={<Placeholder name="My Children" />} />
-                <Route path="/parent/fees" element={<Placeholder name="Fee Payments" />} />
+                <Route path="/parent/children" element={<MyChildren />} />
+                <Route path="/parent/fees" element={<FeePayments />} />
                 <Route path="/parent/messages" element={<TeacherMessages />} />
               </Route>
 
@@ -104,7 +110,7 @@ export default function App() {
               <Route element={<ProtectedRoute allowedRoles={['student']} />}>
                 <Route path="/student" element={<Dashboard />} />
                 <Route path="/student/grades" element={<StudentGrades />} />
-                <Route path="/student/attendance" element={<Placeholder name="My Attendance" />} />
+                <Route path="/student/attendance" element={<StudentAttendancePage />} />
               </Route>
 
               {/* Common Routes */}

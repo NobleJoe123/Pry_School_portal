@@ -185,3 +185,16 @@ select option {
     border-color: #e2e8f0 !important;
   }
 }
+
+/*  Chrome, Safari */
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
