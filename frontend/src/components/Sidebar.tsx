@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, Users, GraduationCap, UserCheck, BookOpen,
     CreditCard, CalendarCheck, Settings, LogOut, ChevronLeft,
-    ChevronRight, Bell, CalendarDays, FileText, MessageSquare, UploadCloud,
+    ChevronRight, Bell, CalendarDays, FileText, MessageSquare, UploadCloud, FolderOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/anyilogo.png';
@@ -24,12 +24,14 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Pupils', icon: <GraduationCap size={18} />, to: '/students', roles: ['admin'] },
     { label: 'Teachers', icon: <UserCheck size={18} />, to: '/teachers', roles: ['admin'] },
     { label: 'Parents', icon: <Users size={18} />, to: '/parents', roles: ['admin'] },
+    { label: 'Classes', icon: <BookOpen size={18} />, to: '/classes', roles: ['admin'] },
     { label: 'Academics', icon: <BookOpen size={18} />, to: '/academics', roles: ['admin'] },
     { label: 'Finance', icon: <CreditCard size={18} />, to: '/finance', roles: ['admin'] },
     { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/attendance', roles: ['admin'] },
     { label: 'Communications', icon: <MessageSquare size={18} />, to: '/notifications', roles: ['admin'] },
     { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin'] },
     { label: 'Reports', icon: <FileText size={18} />, to: '/reports', roles: ['admin'] },
+    { label: 'Materials', icon: <FolderOpen size={18} />, to: '/admin/materials', roles: ['admin'] },
 
     // Teacher navigation
     { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/teacher', end: true, roles: ['teacher'] },
@@ -47,6 +49,13 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Fee Payments', icon: <CreditCard size={18} />, to: '/parent/fees', roles: ['parent'] },
     { label: 'Messages', icon: <MessageSquare size={18} />, to: '/parent/messages', roles: ['parent'] },
     { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['parent'] },
+
+    // Student navigation
+    { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/student', end: true, roles: ['student'] },
+    { label: 'My Grades', icon: <BookOpen size={18} />, to: '/student/grades', roles: ['student'] },
+    { label: 'My Attendance', icon: <CalendarCheck size={18} />, to: '/student/attendance', roles: ['student'] },
+    { label: 'Notifications', icon: <Bell size={18} />, to: '/notifications', roles: ['student'] },
+    { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['student'] },
 ];
 
 
