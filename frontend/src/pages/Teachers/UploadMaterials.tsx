@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
 import type { SchoolClass, Subject } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 interface Material {
     id: string;
@@ -236,36 +237,34 @@ export default function UploadMaterials() {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Class</label>
-                            <select 
-                                value={classId} 
-                                onChange={e => setClassId(e.target.value)}
-                                className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
-                            >
-                                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
+                            <FilterDropdown
+                                label="Class"
+                                fullWidth
+                                value={classId}
+                                options={classes.map(c => ({ id: c.id, label: c.name }))}
+                                onChange={setClassId}
+                                placeholder="Select Class"
+                            />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Subject</label>
-                            <select 
-                                value={subjectId} 
-                                onChange={e => setSubjectId(e.target.value)}
-                                className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
-                            >
-                                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
+                            <FilterDropdown
+                                label="Subject"
+                                fullWidth
+                                value={subjectId}
+                                options={subjects.map(s => ({ id: s.id, label: s.name }))}
+                                onChange={setSubjectId}
+                                placeholder="Select Subject"
+                            />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Week</label>
-                            <select 
-                                value={week} 
-                                onChange={e => setWeek(e.target.value)}
-                                className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
-                            >
-                                {Array.from({ length: 12 }).map((_, i) => (
-                                    <option key={i + 1} value={String(i + 1)}>Week {i + 1}</option>
-                                ))}
-                            </select>
+                            <FilterDropdown
+                                label="Week"
+                                fullWidth
+                                value={week}
+                                options={Array.from({ length: 12 }).map((_, i) => ({ id: String(i + 1), label: `Week ${i + 1}` }))}
+                                onChange={setWeek}
+                                placeholder="Select Week"
+                            />
                         </div>
                     </div>
 

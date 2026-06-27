@@ -6,6 +6,7 @@ import {
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { SchoolClass, User, StudentScore } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 interface AttendanceRecord {
     date: string;
@@ -405,15 +406,16 @@ export default function TeacherClass() {
                                                 className="w-full bg-slate-950 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500/50 resize-none"
                                             />
                                             <div className="flex justify-between items-center gap-2">
-                                                <select
+                                                <FilterDropdown
                                                     value={behaviorCategory}
-                                                    onChange={e => setBehaviorCategory(e.target.value as any)}
-                                                    className="bg-slate-950 border border-white/10 text-[10px] px-2 py-1 rounded-md text-white outline-none"
-                                                >
-                                                    <option value="positive">Positive conduct</option>
-                                                    <option value="warning">Minor warning</option>
-                                                    <option value="critical">Critical infraction</option>
-                                                </select>
+                                                    options={[
+                                                        { id: 'positive', label: 'Positive conduct' },
+                                                        { id: 'warning', label: 'Minor warning' },
+                                                        { id: 'critical', label: 'Critical infraction' },
+                                                    ]}
+                                                    onChange={v => setBehaviorCategory(v as any)}
+                                                    placeholder="Category"
+                                                />
                                                 <button type="submit" className="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] font-black">
                                                     Add Log
                                                 </button>
