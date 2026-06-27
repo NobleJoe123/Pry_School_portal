@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Users, BookOpen, Award, FileText, CheckCircle,
     RefreshCw, Save, Search, Eye, X, Printer, Download, MapPin, Phone
@@ -33,6 +33,7 @@ export const calculatePosition = (
 
 
 };
+
 
 
 
@@ -142,7 +143,7 @@ export default function Reports() {
             if (nextStart) {
                 setNextTermBegin(new Date(nextStart.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }));
             }
-        }).catch(() => {});
+        }).catch(() => { });
     }, [user]);
 
     // Load detailed reports and scores data
@@ -287,15 +288,15 @@ export default function Reports() {
 
         const studentAttendance = attendanceLogs.filter(a => a.student === studentId || a.student_id === studentId || (a.student && a.student.id === studentId));
         const uniqueDates = Array.from(new Set(studentAttendance.map(a => a.date)));
-        const schoolDays = uniqueDates.length || 64;
-        const daysPresent = studentAttendance.filter(a => a.status === 'present' || a.status === 'late').length || 62;
+        const schoolDays = uniqueDates.length;
+        const daysPresent = studentAttendance.filter(a => a.status === 'present' || a.status === 'late').length;
 
         return {
             subjects: subjectList,
             average,
             totalPoints,
             attendance: {
-                school_days: `${schoolDays} Days`,
+                school_days: schoolDays > 0 ? `${schoolDays} Days` : '—',
                 days_present: daysPresent
             }
         };
@@ -373,6 +374,22 @@ export default function Reports() {
         window.print();
     };
 
+    // Report PDF Download — defined inside component to correctly close over previewStudent state
+    const handleDownloadPDF = async () => {
+        const element = document.querySelector(".printable-report-card") as HTMLElement | null;
+        if (!element) return;
+        const html2pdf = (await import("html2pdf.js")).default;
+        html2pdf(element, {
+            margin: 10,
+            filename: `${previewStudent?.full_name || 'student'}-report.pdf`,
+            image: { type: "jpeg", quality: 1 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+            pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+        } as any)
+
+    };
+
     const filtered = students.filter(s =>
         s.full_name.toLowerCase().includes(search.toLowerCase()) ||
         (s as any).student_profile?.admission_number?.toLowerCase().includes(search.toLowerCase())
@@ -381,15 +398,23 @@ export default function Reports() {
     const activeTerm = terms.find(t => t.id === selectedTermId);
     const activeClass = classes.find(c => c.id === selectedClassId);
 
-    // Student specific preview details
-    const previewData = previewStudent ? getStudentStatsAndResults(previewStudent.id) : null;
+    // Student specific preview details — memoized to avoid recomputation on unrelated re-renders
+    const previewData = useMemo(
+        () => previewStudent ? getStudentStatsAndResults(previewStudent.id) : null,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [previewStudent, scores, attendanceLogs]
+    );
     const previewReportObj = previewStudent ? reports.find(r => r.student === previewStudent.id) : null;
 
-    // Calculate total points for all students in the class to compute positions
-    const classResults: GradePosition[] = students.map(s => ({
-        studentId: s.id,
-        totalPoints: getStudentStatsAndResults(s.id).totalPoints
-    }));
+    // Calculate total points for all students in the class to compute positions — memoized
+    const classResults = useMemo<GradePosition[]>(
+        () => students.map(s => ({
+            studentId: s.id,
+            totalPoints: getStudentStatsAndResults(s.id).totalPoints
+        })),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [students, scores, attendanceLogs]
+    );
 
     // helper function for Position
     const { position, classSize } = previewStudent
@@ -398,12 +423,12 @@ export default function Reports() {
 
 
 
-    // Grade Remark
+    // Grade Remark — thresholds aligned with the grading scale (A≥75, B≥55, C≥45, D≥30, F<30)
     const getGradeRemark = (score: number) => {
         if (score >= 75) return "Excellent";
-        if (score >= 65) return "Good";
-        if (score >= 55) return "Fair";
-        if (score >= 45) return "Pass";
+        if (score >= 55) return "Good";
+        if (score >= 45) return "Fair";
+        if (score >= 30) return "Pass";
         return "Poor";
     };
 
@@ -740,8 +765,8 @@ export default function Reports() {
                                         <button onClick={handlePrint} className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black rounded-xl transition-all shadow-md">
                                             <Printer size={13} /> Print Report
                                         </button>
-                                        <button onClick={handlePrint} className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 text-white border border-white/15 text-xs font-bold rounded-xl transition-all">
-                                            <Download size={13} /> Download PDF
+                                        <button onClick={handleDownloadPDF} className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 text-white border border-white/15 text-xs font-bold rounded-xl transition-all">
+                                            <Download size={14} /> Download PDF
                                         </button>
                                     </>
                                 ) : (
@@ -998,8 +1023,8 @@ export default function Reports() {
                                     </div>
 
                                     <div className="text-center border-t border-slate-300 pt-2">
-                                        <p className="font-bold text-slate-800">Dr. Alao S. A.</p>
-                                        <p className="text-[10px] text-slate-500">School Administrator</p>
+                                        <p className="font-bold text-slate-800">{user?.role === 'admin' ? user.full_name : 'School Administrator'}</p>
+                                        <p className="text-[10px] text-slate-500">Head Teacher / Principal</p>
                                     </div>
                                 </div>
 
