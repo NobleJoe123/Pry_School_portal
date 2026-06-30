@@ -26,12 +26,14 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Parents', icon: <Users size={18} />, to: '/parents', roles: ['admin'] },
     { label: 'Classes', icon: <BookOpen size={18} />, to: '/classes', roles: ['admin'] },
     { label: 'Academics', icon: <BookOpen size={18} />, to: '/academics', roles: ['admin'] },
+    { label: 'Materials', icon: <FolderOpen size={18} />, to: '/admin/materials', roles: ['admin'] },
     { label: 'Finance', icon: <CreditCard size={18} />, to: '/finance', roles: ['admin'] },
     { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/attendance', roles: ['admin'] },
+    { label: 'Reports', icon: <FileText size={18} />, to: '/reports', roles: ['admin'] },
     { label: 'Communications', icon: <MessageSquare size={18} />, to: '/notifications', roles: ['admin'] },
     { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin'] },
-    { label: 'Reports', icon: <FileText size={18} />, to: '/reports', roles: ['admin'] },
-    { label: 'Materials', icon: <FolderOpen size={18} />, to: '/admin/materials', roles: ['admin'] },
+
+
 
     // Teacher navigation
     { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/teacher', end: true, roles: ['teacher'] },
@@ -42,7 +44,7 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Upload Materials', icon: <UploadCloud size={18} />, to: '/teacher/materials', roles: ['teacher'] },
     { label: 'Messages', icon: <MessageSquare size={18} />, to: '/teacher/messages', roles: ['teacher'] },
     { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['teacher'] },
- 
+
     // Parent navigation
     { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/parent', end: true, roles: ['parent'] },
     { label: 'My Children', icon: <GraduationCap size={18} />, to: '/parent/children', roles: ['parent'] },

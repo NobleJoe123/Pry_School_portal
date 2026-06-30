@@ -14,6 +14,7 @@ interface FilterDropdownProps {
     label?: string;          // Optional label shown above (for form use)
     fullWidth?: boolean;     // Stretch to fill parent container width
     className?: string;
+    colorTheme?: 'amber' | 'emerald' | 'sky' | 'indigo' | 'purple' | 'slate';
 }
 
 /**
@@ -33,6 +34,7 @@ export default function FilterDropdown({
     label,
     fullWidth = false,
     className = '',
+    colorTheme = 'amber',
 }: FilterDropdownProps) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
@@ -49,6 +51,33 @@ export default function FilterDropdown({
     }, []);
 
     const selected = options.find(o => o.id === value);
+
+    const themeClasses = {
+        amber: {
+            hoverBorder: 'hover:border-amber-500/40 focus:border-amber-500/60',
+            activeOption: 'bg-amber-50 text-amber-700 font-semibold'
+        },
+        emerald: {
+            hoverBorder: 'hover:border-emerald-500/40 focus:border-emerald-500/60',
+            activeOption: 'bg-emerald-50 text-emerald-700 font-semibold'
+        },
+        sky: {
+            hoverBorder: 'hover:border-sky-500/40 focus:border-sky-500/60',
+            activeOption: 'bg-sky-50 text-sky-700 font-semibold'
+        },
+        indigo: {
+            hoverBorder: 'hover:border-indigo-500/40 focus:border-indigo-500/60',
+            activeOption: 'bg-indigo-50 text-indigo-700 font-semibold'
+        },
+        purple: {
+            hoverBorder: 'hover:border-purple-500/40 focus:border-purple-500/60',
+            activeOption: 'bg-purple-50 text-purple-700 font-semibold'
+        },
+        slate: {
+            hoverBorder: 'hover:border-slate-500/40 focus:border-slate-500/60',
+            activeOption: 'bg-slate-100 text-slate-700 font-semibold'
+        }
+    }[colorTheme];
 
     return (
         <div className={`${fullWidth ? 'w-full' : 'inline-block'} ${className}`}>
@@ -70,9 +99,10 @@ export default function FilterDropdown({
                     onClick={() => setOpen(v => !v)}
                     className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold
                                text-slate-300 bg-slate-800/80 border border-white/10
-                               hover:border-amber-500/40 hover:text-white
-                               focus:outline-none focus:border-amber-500/60
+                               hover:text-white
+                               focus:outline-none
                                transition-all duration-300
+                               ${themeClasses.hoverBorder}
                                ${fullWidth ? 'w-full justify-between' : ''}`}
                 >
                     {icon && <span className="text-slate-500 shrink-0">{icon}</span>}
@@ -119,7 +149,7 @@ export default function FilterDropdown({
                                     className={`block w-full text-left px-4 py-2 text-xs font-medium
                                                whitespace-nowrap transition-colors duration-150
                                                ${opt.id === value
-                                            ? 'bg-amber-50 text-amber-700 font-semibold'
+                                            ? themeClasses.activeOption
                                             : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                                         }`}
                                 >

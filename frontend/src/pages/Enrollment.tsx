@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
-import { CheckCircle, Users, GraduationCap, Lock, Plus, Trash2, UserCircle } from 'lucide-react';
+import { CheckCircle, Users, GraduationCap, Lock, Plus, Trash2, UserCircle, Camera } from 'lucide-react';
 
 const CLASS_OPTIONS = [
   'Nursery 1', 'Nursery 2', 'KG 1', 'KG 2',
@@ -10,6 +10,15 @@ const CLASS_OPTIONS = [
 ].map((c) => ({ value: c, label: c }));
 
 type Step = 1 | 2 | 3 | 4;
+
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
 
 export default function Enrollment() {
   const navigate = useNavigate();
@@ -27,7 +36,8 @@ export default function Enrollment() {
     relationship: 'Father',
     employment_details: '',
     password: '',
-    confirm_password: ''
+    confirm_password: '',
+    parent_profile_photo: ''
   });
 
   // Pupils State
@@ -46,7 +56,8 @@ export default function Enrollment() {
     emergency_contact_name: '',
     emergency_contact_phone: '',
     emergency_contact_relationship: '',
-    medical_conditions: ''
+    medical_conditions: '',
+    profile_photo: ''
   }]);
 
   const addStudent = () => {
@@ -54,7 +65,7 @@ export default function Enrollment() {
       first_name: '', middle_name: '', last_name: '', email: '', username: '', dob: '', gender: 'M',
       class: '', state_of_origin: '', place_of_birth: '', blood_group: '',
       emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relationship: '',
-      medical_conditions: ''
+      medical_conditions: '', profile_photo: ''
     }]);
   };
 
@@ -88,7 +99,8 @@ export default function Enrollment() {
         relationship_to_student: parentData.relationship,
         employment_details: parentData.employment_details,
         password: parentData.password,
-        students_data: studentsData
+        students_data: studentsData,
+        parent_profile_photo: parentData.parent_profile_photo
       };
 
       await api.post('/auth/enrollment/', payload, { skipAuth: true });
@@ -158,6 +170,49 @@ export default function Enrollment() {
           {step === 1 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
               <h2 className="text-2xl font-black text-white mb-6">Parent/Guardian Information</h2>
+
+              {/* Parent Passport Photo Upload */}
+              <div className="flex flex-col items-center gap-3 pb-4">
+                <div
+                  onClick={() => document.getElementById('parent-photo-input')?.click()}
+                  className="relative w-24 h-24 rounded-2xl border-2 border-dashed border-sky-500/40 bg-sky-500/5 hover:border-sky-500/70 hover:bg-sky-500/10 cursor-pointer transition-all group overflow-hidden"
+                  title="Click to upload parent passport photo"
+                >
+                  {parentData.parent_profile_photo ? (
+                    <img src={parentData.parent_profile_photo} alt="Parent Passport" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full gap-1.5 text-sky-400">
+                      <UserCircle size={32} className="opacity-60" />
+                      <p className="text-[10px] font-semibold text-center px-1">Photo</p>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Camera size={20} className="text-white" />
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  id="parent-photo-input"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 3 * 1024 * 1024) {
+                        setError('Parent passport photo must be less than 3MB');
+                        return;
+                      }
+                      const b64 = await fileToBase64(file);
+                      setParentData({ ...parentData, parent_profile_photo: b64 });
+                      setError('');
+                    }
+                  }}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <p className="text-slate-400 text-[10px] text-center">
+                  Parent Passport (JPG, PNG, WEBP. Max size: 3MB)
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">First Name</label>
@@ -209,14 +264,45 @@ export default function Enrollment() {
                   )}
 
                   <div className="flex items-start gap-4 pb-2 border-b border-white/5">
-                    {/* Passport Placeholder */}
-                    <div className="w-16 h-16 rounded-xl border border-dashed border-white/20 bg-white/5 flex flex-col items-center justify-center text-slate-500 shrink-0 select-none">
-                      <UserCircle size={24} className="opacity-40" />
-                      <span className="text-[8px] font-bold mt-1 text-center">PASSPORT</span>
+                    {/* Passport Photo Upload Box */}
+                    <div
+                      onClick={() => document.getElementById(`student-photo-${idx}`)?.click()}
+                      className="relative w-16 h-16 rounded-xl border-2 border-dashed border-sky-500/40 bg-sky-500/5 hover:border-sky-500/70 hover:bg-sky-500/10 cursor-pointer transition-all group overflow-hidden shrink-0 select-none"
+                      title="Click to upload pupil passport photo"
+                    >
+                      {student.profile_photo ? (
+                        <img src={student.profile_photo} alt="Pupil Passport" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full gap-1 text-sky-400">
+                          <UserCircle size={20} className="opacity-60" />
+                          <span className="text-[8px] font-bold text-center">PASSPORT</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Camera size={14} className="text-white" />
+                      </div>
                     </div>
+                    <input
+                      type="file"
+                      id={`student-photo-${idx}`}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 3 * 1024 * 1024) {
+                            setError('Pupil passport photo must be less than 3MB');
+                            return;
+                          }
+                          const b64 = await fileToBase64(file);
+                          updateStudent(idx, 'profile_photo', b64);
+                          setError('');
+                        }
+                      }}
+                      accept="image/*"
+                      className="hidden"
+                    />
                     <div>
                       <h3 className="text-sm font-bold text-white uppercase tracking-widest">Pupil #{idx + 1}</h3>
-                      <p className="text-[10px] text-slate-500 mt-1">Photo upload will be completed in the parent portal after approval.</p>
+                      <p className="text-[10px] text-slate-500 mt-1">Upload a clear passport photo of the pupil (Max size: 3MB).</p>
                     </div>
                   </div>
 
