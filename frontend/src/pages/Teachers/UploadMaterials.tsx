@@ -84,42 +84,8 @@ export default function UploadMaterials() {
         if (stored) {
             setMaterials(JSON.parse(stored));
         } else {
-            const initialMock: Material[] = [
-                {
-                    id: '1',
-                    subject: 'Mathematics',
-                    subjectName: 'Mathematics',
-                    classId: 'class-1',
-                    className: 'Primary 1A',
-                    week: 'Week 1',
-                    topic: 'Introduction to Numbers 1-50',
-                    objectives: 'By the end of this lesson, pupils should be able to identify, write, and order numbers from 1 to 50.',
-                    fileName: 'math_numbers_lesson_note.docx',
-                    fileSize: '45 KB',
-                    activities: '1. Count aloud as a group.\n2. Write numbers in blocks.\n3. Complete number puzzle game.',
-                    evaluation: 'Ask pupils to write down numbers dynamically as dictated.',
-                    status: 'approved',
-                    created_at: new Date(Date.now() - 86400000 * 5).toLocaleDateString()
-                },
-                {
-                    id: '2',
-                    subject: 'Basic Science',
-                    subjectName: 'Basic Science',
-                    classId: 'class-1',
-                    className: 'Primary 1A',
-                    week: 'Week 2',
-                    topic: 'Living and Non-Living Things',
-                    objectives: 'Pupils should learn to distinguish between animate and inanimate objects based on key signs of life.',
-                    fileName: 'science_living_things.pdf',
-                    fileSize: '1.2 MB',
-                    activities: 'Show charts of various items. Ask children to identify which ones grow and feed.',
-                    evaluation: 'Identify three living things and three non-living things in the schoolyard.',
-                    status: 'submitted',
-                    created_at: new Date(Date.now() - 86400000 * 2).toLocaleDateString()
-                }
-            ];
-            setMaterials(initialMock);
-            localStorage.setItem('teacher_materials', JSON.stringify(initialMock));
+            setMaterials([]);
+            localStorage.setItem('teacher_materials', JSON.stringify([]));
         }
     }, [user]);
 
