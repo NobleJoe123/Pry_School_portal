@@ -630,6 +630,19 @@ class TeacherViewSet(viewsets.ModelViewSet):
             'by_employment_status': list(by_status)
         })
 
+    @action(detail=True, methods=['post'])
+    def upload_photo(self, request, pk=None):
+        teacher = self.get_object()
+        photo = request.data.get('profile_photo') or request.FILES.get('profile_photo')
+        if not photo:
+            return Response({'error': 'No profile photo provided'}, status=status.HTTP_400_BAD_REQUEST)
+        teacher.profile_photo = photo
+        teacher.save(update_fields=['profile_photo'])
+        return Response({
+            'message': 'Profile photo uploaded successfully!',
+            'profile_photo_url': request.build_absolute_uri(teacher.profile_photo.url) if teacher.profile_photo else None
+        })
+
 
 # PARENT MANAGEMENT VIEWS
 
@@ -709,6 +722,19 @@ class ParentViewSet(viewsets.ModelViewSet):
         return Response({
             'message': f'Successfully linked {linked_count} student(s).',
             'not_found': not_found
+        })
+
+    @action(detail=True, methods=['post'])
+    def upload_photo(self, request, pk=None):
+        parent = self.get_object()
+        photo = request.data.get('profile_photo') or request.FILES.get('profile_photo')
+        if not photo:
+            return Response({'error': 'No profile photo provided'}, status=status.HTTP_400_BAD_REQUEST)
+        parent.profile_photo = photo
+        parent.save(update_fields=['profile_photo'])
+        return Response({
+            'message': 'Profile photo uploaded successfully!',
+            'profile_photo_url': request.build_absolute_uri(parent.profile_photo.url) if parent.profile_photo else None
         })
 
 
@@ -1007,6 +1033,21 @@ def parent_complete_profile(request):
         'completed_profile': True
     }, status=status.HTTP_200_OK)
 
+import base64
+from django.core.files.base import ContentFile
+
+def get_file_from_base64(base64_str, filename="passport.jpg"):
+    if not base64_str:
+        return None
+    try:
+        if ";base64," in base64_str:
+            header, base64_str = base64_str.split(";base64,")
+        file_data = base64.b64decode(base64_str)
+        return ContentFile(file_data, name=filename)
+    except Exception as e:
+        print(f"Error decoding base64 image: {e}")
+        return None
+
 from django.contrib.auth.hashers import make_password
 from rest_framework.decorators import action
 
@@ -1064,6 +1105,10 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                     address=enrollment.parent_address,
                     role='parent'
                 )
+                if enrollment.parent_profile_photo:
+                    parent_photo_file = get_file_from_base64(enrollment.parent_profile_photo, f"parent_{enrollment.id.hex[:6]}.jpg")
+                    if parent_photo_file:
+                        parent_user.profile_photo = parent_photo_file
                 parent_user.password = enrollment.password
                 parent_user.save()
 
@@ -1105,7 +1150,14 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                         role='student'
                     )
                     student_user.set_unusable_password()
-                    student_user.save(update_fields=['password'])
+                    
+                    base64_photo = student_data.get('profile_photo')
+                    if base64_photo:
+                        student_photo_file = get_file_from_base64(base64_photo, f"student_{admission_number}.jpg")
+                        if student_photo_file:
+                            student_user.profile_photo = student_photo_file
+                    
+                    student_user.save(update_fields=['password', 'profile_photo'] if base64_photo else ['password'])
 
                     # Find class if specified
                     school_class = None

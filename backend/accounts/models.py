@@ -267,6 +267,7 @@ class EnrollmentRequest(models.Model):
     employment_details = models.TextField(blank=True, null=True)
     password = models.CharField(max_length=128)
     students_data = models.JSONField(default=list)
+    parent_profile_photo = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     parent_user = models.ForeignKey(
         User,

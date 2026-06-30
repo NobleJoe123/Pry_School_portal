@@ -425,6 +425,7 @@ class CreateTeacherSerializer(serializers.Serializer):
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     address = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, required=False)
+    profile_photo = serializers.ImageField(required=False, allow_null=True)
     
     staff_id = serializers.CharField(max_length=20)
     employment_status = serializers.ChoiceField(
@@ -463,6 +464,7 @@ class CreateTeacherSerializer(serializers.Serializer):
     @transaction.atomic
     def create(self, validated_data):
         password = validated_data.pop('password', 'password123')
+        profile_photo = validated_data.pop('profile_photo', None)
         
         profile_fields = {
             'staff_id': validated_data.pop('staff_id'),
@@ -485,6 +487,9 @@ class CreateTeacherSerializer(serializers.Serializer):
             password=password,
             role='teacher'
         )
+        if profile_photo:
+            user.profile_photo = profile_photo
+            user.save(update_fields=['profile_photo'])
         
         
         TeacherProfile.objects.create(
@@ -513,6 +518,7 @@ class UpdateTeacherSerializer(serializers.Serializer):
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     address = serializers.CharField(required=False, allow_blank=True)
     is_active = serializers.BooleanField(required=False)
+    profile_photo = serializers.ImageField(required=False, allow_null=True)
     
     employment_status = serializers.ChoiceField(
         choices=['full_time', 'part_time', 'contract'],
@@ -530,10 +536,13 @@ class UpdateTeacherSerializer(serializers.Serializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        profile_photo = validated_data.pop('profile_photo', None)
         user_fields = ['first_name', 'last_name', 'phone', 'date_of_birth', 'address', 'is_active']
         for field in user_fields:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
+        if profile_photo:
+            instance.profile_photo = profile_photo
         instance.save()
         
         profile = instance.teacher_profile
@@ -573,6 +582,7 @@ class CreateParentSerializer(serializers.Serializer):
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     address = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, required=False)
+    profile_photo = serializers.ImageField(required=False, allow_null=True)
     
     relationship_to_student = serializers.ChoiceField(
         choices=['father', 'mother', 'guardian', 'other'],
@@ -610,6 +620,7 @@ class CreateParentSerializer(serializers.Serializer):
             password = ''.join(secrets.choice(alphabet) for i in range(8))
             
         student_ids = validated_data.pop('student_ids', [])
+        profile_photo = validated_data.pop('profile_photo', None)
         
         profile_fields = {
             'relationship_to_student': validated_data.pop('relationship_to_student', 'guardian'),
@@ -632,6 +643,9 @@ class CreateParentSerializer(serializers.Serializer):
         }
         
         user = User.objects.create_user(**user_fields, password=password)
+        if profile_photo:
+            user.profile_photo = profile_photo
+            user.save(update_fields=['profile_photo'])
         
         ParentProfile.objects.create(
             user=user,
@@ -652,6 +666,7 @@ class UpdateParentSerializer(serializers.Serializer):
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     address = serializers.CharField(required=False, allow_blank=True)
     is_active = serializers.BooleanField(required=False)
+    profile_photo = serializers.ImageField(required=False, allow_null=True)
     
     relationship_to_student = serializers.ChoiceField(
         choices=['father', 'mother', 'guardian', 'other'],
@@ -670,10 +685,13 @@ class UpdateParentSerializer(serializers.Serializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        profile_photo = validated_data.pop('profile_photo', None)
         user_fields = ['first_name', 'last_name', 'phone', 'date_of_birth', 'address', 'is_active']
         for field in user_fields:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
+        if profile_photo:
+            instance.profile_photo = profile_photo
         instance.save()
         
         profile, created = ParentProfile.objects.get_or_create(user=instance)
