@@ -292,6 +292,7 @@ export default function Scores() {
                     options={sessions.map(s => ({ id: s.id, label: s.name }))}
                     onChange={setSelectedSession}
                     placeholder="Session"
+                    colorTheme="emerald"
                 />
 
                 <FilterDropdown
@@ -300,6 +301,7 @@ export default function Scores() {
                     options={terms.map(t => ({ id: t.id, label: t.name }))}
                     onChange={setSelectedTerm}
                     placeholder="Term"
+                    colorTheme="emerald"
                 />
 
                 <FilterDropdown
@@ -308,6 +310,7 @@ export default function Scores() {
                     options={classes.map(c => ({ id: c.id, label: c.name }))}
                     onChange={setSelectedClass}
                     placeholder="Class"
+                    colorTheme="emerald"
                 />
 
                 <FilterDropdown
@@ -316,6 +319,7 @@ export default function Scores() {
                     options={subjects.map(s => ({ id: s.id, label: s.name }))}
                     onChange={setSelectedSubject}
                     placeholder="Subject"
+                    colorTheme="emerald"
                 />
 
                 <button onClick={() => window.location.reload()} className="ml-auto p-2 text-slate-500 hover:text-white rounded-xl hover:bg-white/5 transition-colors">

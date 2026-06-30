@@ -7,6 +7,7 @@ import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import logo from '../../assets/anyilogo.png';
 import type { SchoolClass, Term, User, StudentScore } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 
 
@@ -34,10 +35,27 @@ export const calculatePosition = (
 
 };
 
-
-
-
-
+const formatDOB = (dobStr: string | null | undefined) => {
+    if (!dobStr) return '—';
+    try {
+        const date = new Date(dobStr);
+        if (isNaN(date.getTime())) return dobStr;
+        const day = date.getDate();
+        
+        // Suffix helper
+        let suffix = 'th';
+        if (day === 1 || day === 21 || day === 31) suffix = 'st';
+        else if (day === 2 || day === 22) suffix = 'nd';
+        else if (day === 3 || day === 23) suffix = 'rd';
+        
+        const monthName = date.toLocaleDateString('en-GB', { month: 'long' });
+        const year = date.getFullYear();
+        
+        return `${day}${suffix} ${monthName} ${year}`;
+    } catch {
+        return dobStr;
+    }
+};
 
 interface ReportCardData {
     id?: string;
@@ -271,9 +289,9 @@ export default function Reports() {
             // Calculate Grade
             const total = grouped[subjectId].totalScore;
             if (total >= 75) grouped[subjectId].grade = 'A';
-            else if (total >= 55) grouped[subjectId].grade = 'B';
-            else if (total >= 45) grouped[subjectId].grade = 'C';
-            else if (total >= 30) grouped[subjectId].grade = 'D';
+            else if (total >= 65) grouped[subjectId].grade = 'B';
+            else if (total >= 55) grouped[subjectId].grade = 'C';
+            else if (total >= 45) grouped[subjectId].grade = 'D';
             else grouped[subjectId].grade = 'F';
         });
 
@@ -296,7 +314,7 @@ export default function Reports() {
             average,
             totalPoints,
             attendance: {
-                school_days: schoolDays > 0 ? `${schoolDays} Days` : '—',
+                school_days: schoolDays,
                 days_present: daysPresent
             }
         };
@@ -380,14 +398,13 @@ export default function Reports() {
         if (!element) return;
         const html2pdf = (await import("html2pdf.js")).default;
         html2pdf(element, {
-            margin: 10,
+            margin: 0,
             filename: `${previewStudent?.full_name || 'student'}-report.pdf`,
             image: { type: "jpeg", quality: 1 },
-            html2canvas: { scale: 2 },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true },
             jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
             pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-        } as any)
-
+        } as any);
     };
 
     const filtered = students.filter(s =>
@@ -500,13 +517,13 @@ export default function Reports() {
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                             <Users size={10} className="text-amber-500" /> Class
                         </label>
-                        <select
+                        <FilterDropdown
                             value={selectedClassId}
-                            onChange={e => setSelectedClassId(e.target.value)}
-                            className="bg-slate-900/80 border border-white/10 text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none min-w-[140px] font-medium"
-                        >
-                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                            options={classes.map(c => ({ id: c.id, label: c.name }))}
+                            onChange={setSelectedClassId}
+                            placeholder="Select Class"
+                            colorTheme={user?.role === 'teacher' ? 'emerald' : 'amber'}
+                        />
                     </div>
 
                     {/* Term Filter */}
@@ -514,13 +531,13 @@ export default function Reports() {
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                             <FileText size={10} className="text-amber-500" /> Term
                         </label>
-                        <select
+                        <FilterDropdown
                             value={selectedTermId}
-                            onChange={e => setSelectedTermId(e.target.value)}
-                            className="bg-slate-900/80 border border-white/10 text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none min-w-[200px] font-medium"
-                        >
-                            {terms.map(t => <option key={t.id} value={t.id}>{t.name} — {t.academic_year_name}</option>)}
-                        </select>
+                            options={terms.map(t => ({ id: t.id, label: `${t.name} (${t.academic_year_name})` }))}
+                            onChange={setSelectedTermId}
+                            placeholder="Select Term"
+                            colorTheme={user?.role === 'teacher' ? 'emerald' : 'amber'}
+                        />
                     </div>
 
                     {/* Search */}
@@ -763,7 +780,7 @@ export default function Reports() {
                                 {(!user || user.role !== 'teacher' || previewReportObj?.is_published) ? (
                                     <>
                                         <button onClick={handlePrint} className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black rounded-xl transition-all shadow-md">
-                                            <Printer size={13} /> Print Report
+                                            <Printer size={14} /> Print Report
                                         </button>
                                         <button onClick={handleDownloadPDF} className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white/10 text-white border border-white/15 text-xs font-bold rounded-xl transition-all">
                                             <Download size={14} /> Download PDF
@@ -782,255 +799,352 @@ export default function Reports() {
                         </div>
 
                         {/* Printable Area */}
-                        <div className="flex-1 overflow-y-auto p-8 bg-white text-slate-950 font-sans print:overflow-visible print:p-0">
-                            <div className="printable-report-card max-w-3xl mx-auto space-y-6 relative border-[8px] border-double border-amber-600/50 p-8 rounded-3xl print:border-none print:p-0 print:rounded-none">
+                        <div className="flex-1 overflow-y-auto bg-slate-100 dark:bg-slate-900/40 p-6 flex justify-center print:bg-white print:p-0 print:overflow-visible">
 
-                                {/* Premium Circular Watermark Stamp Seal */}
-                                <div className="absolute inset-0 opacity-[0.035] pointer-events-none flex flex-col items-center justify-center z-0 select-none overflow-hidden">
-                                    <div className="border-[12px] border-slate-900 rounded-full p-8 flex flex-col items-center justify-center w-[450px] h-[450px] rotate-[-12deg]">
-                                        <img src={logo} alt="Watermark Seal Logo" className="w-48 h-48 object-contain mb-4" />
-                                        <span className="text-3xl font-black uppercase tracking-widest text-center text-slate-950 font-serif">ANYI PRIMARY</span>
-                                        <span className="text-sm font-bold uppercase tracking-widest text-slate-800 mt-1">SCHOOL PORTAL</span>
-                                    </div>
+                            {/* ─── A4 Page Shell ─── */}
+                            <div
+                                className="printable-report-card bg-white text-slate-900 relative shadow-[0_10px_30px_rgba(0,0,0,0.08)] print:shadow-none print:m-0"
+                                style={{
+                                    width: '210mm',
+                                    minHeight: '297mm',
+                                    padding: '12mm 15mm',
+                                    fontFamily: "'Segoe UI', Arial, sans-serif",
+                                    fontSize: '9pt',
+                                    lineHeight: '1.45',
+                                    boxSizing: 'border-box',
+                                    margin: '0 auto',
+                                }}
+                            >
+                                {/* Watermark */}
+                                <div style={{
+                                    position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+                                    justifyContent: 'center', pointerEvents: 'none', zIndex: 0, opacity: 0.025
+                                }}>
+                                    <img src={logo} alt="" style={{ width: '280px', height: '280px', objectFit: 'contain', transform: 'rotate(-15deg)' }} />
                                 </div>
 
-                                {/* Report Card Header */}
-                                <div className="flex justify-between items-center border-b-2 border-slate-900 pb-5 relative z-10">
-                                    <div className="flex items-center gap-4">
-                                        <img src={logo} alt="School Logo" className="w-16 h-16 object-contain shrink-0" />
+                                {/* ── HEADER ── */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    borderBottom: '4px solid #1e3a8a', paddingBottom: '3mm', marginBottom: '5mm',
+                                    position: 'relative', zIndex: 1
+                                }}>
+                                    {/* Left: Logo + School Info */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        <img src={logo} alt="School Logo" style={{ width: '56px', height: '56px', objectFit: 'contain', flexShrink: 0 }} />
                                         <div>
-                                            <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">Anyi Primary School</h2>
-                                            <p className="text-xs text-slate-600 font-medium">Empowering tomorrow's leaders, today.</p>
-                                            <div className="flex gap-4 text-[10px] text-slate-500 mt-1">
-                                                <span className="flex items-center gap-1"><MapPin size={10} /> 12 School Road, Lagos</span>
-                                                <span className="flex items-center gap-1"><Phone size={10} /> +234 800 123 4567</span>
+                                            <div style={{ fontSize: '15pt', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#1e3a8a' }}>
+                                                Anyi Primary School
+                                            </div>
+                                            <div style={{ fontSize: '8.5pt', color: '#0f172a', marginTop: '1px', fontWeight: 700 }}>
+                                                Empowering Tomorrow's Leader, Today.
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '14px', fontSize: '7.5pt', color: '#475569', marginTop: '3px', fontWeight: 500 }}>
+                                                <span>📍 123, School Road, Lagos</span>
+                                                <span>📞 +234 812 691 5872</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="text-right border-l pl-5 border-slate-300">
-                                        <h3 className="text-lg font-black uppercase text-slate-800 tracking-wider">Report Card</h3>
-                                        <p className="text-xs font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded mt-1">{activeTerm?.name || '1st Term'}</p>
-                                        <p className="text-[10px] text-slate-500 mt-0.5">Session: {activeTerm?.academic_year_name}</p>
+                                    {/* Right: Report Card Badge */}
+                                    <div style={{ textAlign: 'right', borderLeft: '1.5px solid #cbd5e1', paddingLeft: '14px' }}>
+                                        <div style={{ fontSize: '13pt', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1e3a8a' }}>
+                                            Report Card
+                                        </div>
+                                        <div style={{
+                                            display: 'inline-block', marginTop: '3px', padding: '3px 12px',
+                                            background: '#fef3c7', border: '1px solid #f59e0b',
+                                            borderRadius: '6px', fontSize: '8.5pt', fontWeight: 800, color: '#92400e'
+                                        }}>
+                                            {activeTerm?.name || '1st Term'}
+                                        </div>
+                                        <div style={{ fontSize: '7.5pt', color: '#475569', marginTop: '3px', fontWeight: 700 }}>
+                                            Session: {activeTerm?.academic_year_name}
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Pupil Info Block */}
-                                <div className="grid grid-cols-3 gap-6 bg-slate-50 border rounded-xl p-4 text-xs relative z-10">
-                                    <div className="col-span-2 space-y-2 border-r pr-6 border-slate-200">
-                                        <div className="grid grid-cols-2 gap-y-1">
-                                            <p className="text-slate-500">Student Full Name:</p>
-                                            <p className="font-bold text-slate-900">{previewStudent.full_name}</p>
-
-                                            <p className="text-slate-500">Admission Number:</p>
-                                            <p className="font-mono font-bold text-slate-900">{(previewStudent as any).student_profile?.admission_number || 'ADM/2026/012'}</p>
-
-                                            <p className="text-slate-500">Class:</p>
-                                            <p className="font-bold text-slate-900">{activeClass?.name || 'Primary 1A'}</p>
-
-                                            <p className="text-slate-500">Gender:</p>
-                                            <p className="font-bold text-slate-900">{(previewStudent as any).gender === 'M' ? 'Male' : (previewStudent as any).gender === 'F' ? 'Female' : '—'}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Passport area & QR code */}
-                                    <div className="flex items-center justify-between pl-2">
-                                        {/* Passport mock box */}
-                                        <div className="w-16 h-16 rounded border bg-slate-100 flex items-center justify-center text-[10px] text-slate-400 font-bold shrink-0 overflow-hidden">
-                                            {(previewStudent as any).profile_photo ? (
-                                                <img src={(previewStudent as any).profile_photo} alt="Passport" className="w-full h-full object-cover" />
-                                            ) : 'PASSPORT'}
-                                        </div>
-
-                                        {/* QR verification 
-                                        <div className="w-14 h-14 border border-slate-200 p-1 flex items-center justify-center shrink-0" title="QR Verification Code">
-                                            {/* Simulated QR block code - stable pattern seeded from student ID 
-                                            <div className="grid grid-cols-5 gap-[1px] w-full h-full opacity-60">
-                                                {Array.from({ length: 25 }).map((_, idx) => {
-                                                    // Generate stable pseudo-random pattern from student id + index
-                                                    const seed = (previewStudent.id.charCodeAt(idx % previewStudent.id.length) + idx * 7) % 2;
-                                                    return <div key={idx} className={`w-full h-full ${seed === 0 ? 'bg-slate-900' : 'bg-white'}`} />;
-                                                })}
+                                {/* ── PUPIL INFO ── */}
+                                <div style={{
+                                    display: 'grid', gridTemplateColumns: '1fr auto',
+                                    gap: '12px', background: '#f8fafc', border: '1px solid #e2e8f0',
+                                    borderRadius: '8px', padding: '4mm 5mm', marginBottom: '5mm',
+                                    position: 'relative', zIndex: 1, alignItems: 'center'
+                                }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '9pt' }}>
+                                        {[
+                                            ['Student Name:', previewStudent.full_name],
+                                            ['Class:', activeClass?.name || '—'],
+                                            ['Class Teacher:', previewTeacher?.full_name || activeClass?.teacher_name || '—'],
+                                            ['Date of Birth:', formatDOB(previewStudent.date_of_birth)],
+                                            ['Gender:', (previewStudent as any).gender === 'M' ? 'Male' : (previewStudent as any).gender === 'F' ? 'Female' : '—'],
+                                        ].map(([label, val]) => (
+                                            <div key={label} style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>
+                                                <span style={{ color: '#475569', minWidth: '110px', fontWeight: 500 }}>{label}</span>
+                                                <span style={{ fontWeight: 700, color: '#0f172a' }}>{val}</span>
                                             </div>
-                                        </div> */}
+                                        ))}
+                                    </div>
+                                    {/* Passport */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                        <div style={{ borderLeft: '1px solid #cbd5e1', height: '65px' }} />
+                                        <div style={{
+                                            width: '65px', height: '75px', border: '1px dotted #94a3b8', borderRadius: '4px',
+                                            background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '7pt', color: '#94a3b8', fontWeight: 700, overflow: 'hidden', flexShrink: 0
+                                        }}>
+                                            {(previewStudent as any).profile_photo
+                                                ? <img src={(previewStudent as any).profile_photo} alt="Passport" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                : 'PASSPORT'}
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Results Table */}
-                                <div className="space-y-2 relative z-10">
-                                    <h4 className="text-sm font-black text-slate-900 border-b pb-1">Academic Performance Summary</h4>
-                                    <table className="w-full text-left text-xs border border-slate-300 rounded-xl overflow-hidden">
+                                {/* ── ACADEMIC PERFORMANCE ── */}
+                                <div style={{ position: 'relative', zIndex: 1, marginBottom: '4mm' }}>
+                                    <div style={{
+                                        fontSize: '9pt', fontWeight: 800, textTransform: 'uppercase',
+                                        letterSpacing: '0.08em', color: '#1e3a8a', borderBottom: '1.5px solid #1e3a8a',
+                                        paddingBottom: '2px', marginBottom: '4px'
+                                    }}>
+                                        Academic Performance Summary
+                                    </div>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8.5pt' }}>
                                         <thead>
-                                            <tr className="bg-slate-100 border-b border-slate-300 text-[10px] uppercase font-bold text-slate-700">
-                                                <th className="px-4 py-2.5">Subject Description</th>
-                                                <th className="px-4 py-2.5 text-center">CA (40)</th>
-                                                <th className="px-4 py-2.5 text-center">Exam (60)</th>
-                                                <th className="px-4 py-2.5 text-center">Total (100)</th>
-                                                <th className="px-4 py-2.5 text-center">Grade</th>
-                                                <th className="px-4 py-2.5 text-center">Remark</th>
+                                            <tr style={{ background: '#1e3a8a', color: '#fff' }}>
+                                                {['Subject', 'CA (40)', 'Exam (60)', 'Total (100)', 'Grade', 'Remark'].map(h => (
+                                                    <th key={h} style={{
+                                                        padding: '5px 8px', textAlign: h === 'Subject' ? 'left' : 'center',
+                                                        fontWeight: 700, fontSize: '8pt', letterSpacing: '0.04em'
+                                                    }}>{h}</th>
+                                                ))}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {previewData.subjects.map((sub, i) => (
-                                                <tr key={i} className="border-b border-slate-200 hover:bg-slate-50">
-                                                    <td className="px-4 py-2 font-semibold text-slate-800">{sub.subjectName}</td>
-                                                    <td className="px-4 py-2 text-center font-mono">{sub.caScore}</td>
-                                                    <td className="px-4 py-2 text-center font-mono">{sub.examScore}</td>
-                                                    <td className="px-4 py-2 text-center font-mono font-bold">{sub.totalScore}</td>
-                                                    <td className="px-4 py-2 text-center font-black">
-                                                        <span className="px-1.5 py-0.5 rounded">{sub.grade}</span>
-                                                    </td>
-                                                    <td className="px-4 py-2 text-center font-semibold text-slate-800">{getGradeRemark(sub.totalScore)}</td>
-
+                                                <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                                    <td style={{ padding: '4px 8px', fontWeight: 600, color: '#334155' }}>{sub.subjectName}</td>
+                                                    <td style={{ padding: '4px 8px', textAlign: 'center', fontFamily: 'monospace', color: '#0f172a' }}>{sub.caScore}</td>
+                                                    <td style={{ padding: '4px 8px', textAlign: 'center', fontFamily: 'monospace', color: '#0f172a' }}>{sub.examScore}</td>
+                                                    <td style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 800, fontFamily: 'monospace', color: '#0f172a' }}>{sub.totalScore}</td>
+                                                    <td style={{
+                                                        padding: '4px 8px', textAlign: 'center', fontWeight: 900,
+                                                        color: sub.grade === 'A' ? '#15803d' : sub.grade === 'B' ? '#1d4ed8' : sub.grade === 'C' ? '#7c3aed' : sub.grade === 'D' ? '#b45309' : '#dc2626'
+                                                    }}>{sub.grade}</td>
+                                                    <td style={{ padding: '4px 8px', textAlign: 'center', color: '#475569', fontWeight: 500 }}>{getGradeRemark(sub.totalScore)}</td>
                                                 </tr>
                                             ))}
                                             {previewData.subjects.length === 0 && (
-                                                <tr>
-                                                    <td colSpan={6} className="text-center py-6 text-slate-500">No subject records available.</td>
+                                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '12px', color: '#94a3b8' }}>No subject records available.</td></tr>
+                                            )}
+                                            {/* Totals row */}
+                                            {previewData.subjects.length > 0 && (
+                                                <tr style={{ background: '#1e3a8a', color: '#fff', fontWeight: 800 }}>
+                                                    <td colSpan={3} style={{ padding: '6px 12px', fontSize: '9pt', textAlign: 'left' }}>
+                                                        TOTAL: {previewData.totalPoints} pts
+                                                    </td>
+                                                    <td colSpan={3} style={{ padding: '6px 12px', fontSize: '9pt', textAlign: 'right' }}>
+                                                        AVERAGE: {Math.round(previewData.average)} %
+                                                    </td>
                                                 </tr>
                                             )}
                                         </tbody>
                                     </table>
                                 </div>
 
-                                {/* Aggregate, Attendance & Grade Scale row */}
-                                <div className="grid grid-cols-3 gap-4 text-xs relative z-10 border-t border-slate-200 pt-4">
-                                    <div className="space-y-1.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                        <p className="font-bold text-slate-800 text-[10px] uppercase tracking-wider">Termly Averages</p>
-                                        <div className="space-y-1 text-[11px] mt-1.5">
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Total Score:</span>
-                                                <span className="font-bold font-mono text-slate-900">{previewData.totalPoints} pts</span>
-                                            </div>
-                                            <div className="flex justify-between items-center border-t border-slate-200/50 pt-1">
-                                                <span className="text-slate-500">Position:</span>
-                                                <span className="font-bold text-slate-900">
-                                                    {position}
-                                                    {position === 1 ? "st" : position === 2 ? "nd" : position === 3 ? "rd" : "th"} of {classSize}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex justify-between items-center border-t border-slate-200/50 pt-1">
-                                                <span className="text-slate-500">Average:</span>
-                                                <span className="font-black text-xs font-mono text-indigo-600">{previewData.average.toFixed(1)}%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className={`p-3 rounded-xl text-center font-black text-sm ${previewData.average >= 45 ?
-                                        "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-
-                                        }`}>
+                                {/* ── PROMOTION & NEXT TERM BADGES ── */}
+                                <div style={{
+                                    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px',
+                                    marginBottom: '5mm', position: 'relative', zIndex: 1
+                                }}>
+                                    {/* Promotion Status Badge */}
+                                    <div style={{
+                                        padding: '5px 10px', borderRadius: '8px', fontSize: '8.5pt', fontWeight: 950,
+                                        textTransform: 'uppercase', textAlign: 'center',
+                                        background: previewData.average >= 45 ? '#dcfce7' : '#fee2e2',
+                                        color: previewData.average >= 45 ? '#16a34a' : '#dc2626',
+                                        border: `1.5px solid ${previewData.average >= 45 ? '#16a34a' : '#dc2626'}`,
+                                    }}>
                                         {promotionStatus}
                                     </div>
-
-                                    <div className="space-y-1.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                        <p className="font-bold text-slate-800 text-[10px] uppercase tracking-wider">Attendance Summary</p>
-                                        <div className="space-y-1 text-[11px] mt-1.5">
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">School Days:</span>
-                                                <span className="font-bold text-slate-900">{previewData.attendance.school_days}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center border-t border-slate-200/50 pt-1">
-                                                <span className="text-slate-500">Days Present:</span>
-                                                <span className="font-bold text-emerald-600">{previewData.attendance.days_present} Days</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-1.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                        <p className="font-bold text-slate-800 text-[10px] uppercase tracking-wider">Grading Scale Key</p>
-                                        <div className="grid grid-cols-2 text-[9px] mt-1 gap-x-1 gap-y-0.5 font-bold text-slate-600">
-                                            <div>A: 75 - 100</div>
-                                            <div className="text-right">B: 55 - 74</div>
-                                            <div>C: 45 - 54</div>
-                                            <div className="text-right">D: 30 - 44</div>
-                                            <div className="col-span-2 text-center border-t border-slate-200/30 pt-0.5">F: Under 30</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Psychomotor / Affective Domain */}
-                                {(() => {
-                                    const psycho = previewReportObj?.psychomotor || psychomotorRatings[previewStudent.id] || {};
-                                    const keys = Object.keys(psycho);
-                                    if (keys.length === 0) return null;
-                                    return (
-                                        <div className="relative z-10 border-t pt-4">
-                                            <h4 className="text-sm font-black text-slate-900 border-b pb-1 mb-2">Psychomotor &amp; Affective Skills</h4>
-                                            <table className="w-full text-left text-xs border border-slate-300 rounded-xl overflow-hidden">
-                                                <thead>
-                                                    <tr className="bg-slate-100 border-b border-slate-300 text-[10px] uppercase font-bold text-slate-700">
-                                                        <th className="px-4 py-2">Skill</th>
-                                                        <th className="px-4 py-2 text-center">Rating (1-5)</th>
-                                                        <th className="px-4 py-2 text-center">Remark</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {keys.map((k) => {
-                                                        const rating = psycho[k];
-                                                        const remark = rating >= 5 ? 'Excellent' : rating >= 4 ? 'Very Good' : rating >= 3 ? 'Good' : rating >= 2 ? 'Fair' : 'Needs Improvement';
-                                                        return (
-                                                            <tr key={k} className="border-b border-slate-200">
-                                                                <td className="px-4 py-1.5 font-semibold text-slate-800 capitalize">{PSYCHOMOTOR_KEYS[k] || k}</td>
-                                                                <td className="px-4 py-1.5 text-center">
-                                                                    <span className="font-black text-indigo-600">{rating}</span>
-                                                                    <span className="text-slate-400 text-[9px]"> / 5</span>
-                                                                </td>
-                                                                <td className="px-4 py-1.5 text-center text-slate-600">{remark}</td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* Remarks section */}
-                                <div className="space-y-3 relative z-10 border-t pt-4">
-                                    <div className="p-3.5 border rounded-xl bg-slate-50 text-xs">
-                                        <p className="font-black text-slate-900 uppercase text-[9px] tracking-wider mb-1">Class Teacher's Remark</p>
-                                        <p className="text-slate-700 italic">"{previewReportObj?.teacher_remarks || 'No teacher comment entered yet.'}"</p>
-                                    </div>
-
-                                    <div className="p-3.5 border rounded-xl bg-slate-50 text-xs">
-                                        <p className="font-black text-slate-900 uppercase text-[9px] tracking-wider mb-1">Head Teacher / Administrator Remark</p>
-                                        <p className="text-slate-700 italic">"{previewReportObj?.admin_remarks || 'No administrator comment entered yet.'}"</p>
-                                    </div>
+                                    {/* Next Term Begins Badge */}
                                     {nextTermBegin && (
-                                        <div className="flex items-center justify-between p-3.5 border border-amber-200 rounded-xl bg-amber-50 text-xs">
-                                            <span className="font-black text-amber-800 uppercase text-[9px] tracking-wider">📅 Next Term Begins:</span>
-                                            <span className="font-bold text-amber-700">{nextTermBegin}</span>
+                                        <div style={{
+                                            padding: '5px 10px', borderRadius: '8px', fontSize: '8.5pt', fontWeight: 950,
+                                            textAlign: 'center',
+                                            background: '#f5f3ff',
+                                            color: '#6d28d9',
+                                            border: '1.5px solid #6d28d9',
+                                        }}>
+                                            Next Term Begins: {nextTermBegin}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Signatures and Official Stamp */}
-                                <div className="grid grid-cols-3 gap-6 pt-10 text-xs relative z-10">
-                                    <div className="text-center border-t border-slate-300 pt-2">
-                                        <p className="font-bold text-slate-800">{previewTeacher?.full_name}</p>
-                                        <p className="text-[10px] text-slate-500">Class Teacher</p>
-                                    </div>
-
-                                    {/* Official School Stamp Mock Area */}
-                                    <div className="flex flex-col items-center justify-center -mt-4 relative">
-                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-sky-400 text-sky-500 flex flex-col items-center justify-center font-bold rotate-12 scale-90 opacity-70">
-                                            <span className="text-[7px] uppercase tracking-widest">OFFICIAL</span>
-                                            <span className="text-[8px] uppercase font-black">STAMP</span>
-                                            <span className="text-[7px]">ANYI SCH.</span>
+                                {/* ── 3-COLUMN METADATA ROW: Grading Key + Attendance + Stats ── */}
+                                <div style={{
+                                    display: 'grid', gridTemplateColumns: '1.2fr auto 1fr auto 1.3fr', gap: '6px',
+                                    border: '1px solid #e2e8f0', borderRadius: '10px', padding: '4mm 5mm',
+                                    background: '#f8fafc', marginBottom: '5mm', position: 'relative', zIndex: 1,
+                                    alignItems: 'center'
+                                }}>
+                                    {/* Column 1: Grading Key */}
+                                    <div style={{ paddingRight: '10px' }}>
+                                        <div style={{ fontSize: '8pt', fontWeight: 800, textTransform: 'uppercase', color: '#1e3a8a', marginBottom: '4px' }}>
+                                            Grading Key
                                         </div>
-                                        <p className="text-[9px] text-slate-400 mt-1">School Seal</p>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 12px', fontSize: '7.5pt', fontWeight: 700 }}>
+                                            {[
+                                                ['A', '75–100', '#15803d'], 
+                                                ['B', '65–74', '#1d4ed8'], 
+                                                ['C', '55–64', '#7c3aed'], 
+                                                ['D', '45–54', '#b45309'], 
+                                                ['F', 'Below 45', '#dc2626']
+                                            ].map(([g, r, c]) => (
+                                                <span key={g} style={{ color: c }}>{g}: {r}</span>
+                                            ))}
+                                        </div>
                                     </div>
 
-                                    <div className="text-center border-t border-slate-300 pt-2">
-                                        <p className="font-bold text-slate-800">{user?.role === 'admin' ? user.full_name : 'School Administrator'}</p>
-                                        <p className="text-[10px] text-slate-500">Head Teacher / Principal</p>
+                                    {/* Vertical divider */}
+                                    <div style={{ borderLeft: '1px solid #cbd5e1', height: '60px' }} />
+
+                                    {/* Column 2: Attendance Summary */}
+                                    <div style={{ padding: '0 10px' }}>
+                                        <div style={{ fontSize: '8pt', fontWeight: 800, textTransform: 'uppercase', color: '#1e3a8a', marginBottom: '4px' }}>
+                                            Attendance Summary
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '7.5pt' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ color: '#475569', fontWeight: 600 }}>School Days:</span>
+                                                <span style={{ fontWeight: 700, color: '#7c3aed' }}>{previewData.attendance.school_days} Days</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ color: '#475569', fontWeight: 600 }}>Days Present:</span>
+                                                <span style={{ fontWeight: 700, color: '#16a34a' }}>{previewData.attendance.days_present} Days</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ color: '#475569', fontWeight: 600 }}>Days Absent:</span>
+                                                <span style={{ fontWeight: 700, color: '#dc2626' }}>{Math.max(0, (previewData.attendance.school_days || 0) - (previewData.attendance.days_present || 0))} Days</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Vertical divider */}
+                                    <div style={{ borderLeft: '1px solid #cbd5e1', height: '60px' }} />
+
+                                    {/* Column 3: Performance Details */}
+                                    <div style={{ paddingLeft: '10px', fontSize: '8pt' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                <span style={{ color: '#475569', fontWeight: 600 }}>Position in Class:</span>
+                                                <span style={{ fontWeight: 700, color: '#0f172a' }}>{position} of {classSize}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                <span style={{ color: '#475569', fontWeight: 600 }}>Best Subject:</span>
+                                                <span style={{ fontWeight: 700, color: '#16a34a' }}>{bestSubject ? bestSubject.subjectName : '—'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                <span style={{ color: '#475569', fontWeight: 600 }}>Weakest Subject:</span>
+                                                <span style={{ fontWeight: 700, color: '#dc2626' }}>{weakSubject ? weakSubject.subjectName : '—'}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                            </div>
-                        </div>
+                                {/* ── PSYCHOMOTOR & REMARKS ROW ── */}
+                                <div style={{
+                                    display: 'grid', gridTemplateColumns: '1.2fr auto 1.4fr 1.4fr', gap: '12px',
+                                    marginBottom: '6mm', position: 'relative', zIndex: 1, alignItems: 'stretch'
+                                }}>
+                                    {/* Psychomotor Column */}
+                                    <div>
+                                        <div style={{ fontSize: '8pt', fontWeight: 800, textTransform: 'uppercase', color: '#1e3a8a', marginBottom: '4px' }}>
+                                            Psychomotor Skills
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                            {Object.keys(PSYCHOMOTOR_KEYS).map((k) => {
+                                                const psycho = previewReportObj?.psychomotor || psychomotorRatings[previewStudent.id] || {};
+                                                const rating = psycho[k] ?? 3;
+                                                return (
+                                                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '7pt' }}>
+                                                        <span style={{ fontWeight: 600, color: '#334155', textTransform: 'capitalize' }}>{PSYCHOMOTOR_KEYS[k]}</span>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                            {[1, 2, 3, 4, 5].map(dot => (
+                                                                <span key={dot} style={{
+                                                                    width: '5px', height: '5px', borderRadius: '50%',
+                                                                    background: dot <= rating ? '#1e3a8a' : '#cbd5e1',
+                                                                    display: 'inline-block'
+                                                                }} />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
 
+                                    {/* Vertical divider */}
+                                    <div style={{ borderLeft: '1px solid #e2e8f0' }} />
+
+                                    {/* Class Teacher Remark */}
+                                    <div style={{
+                                        border: '1px solid #d97706', borderRadius: '8px', padding: '3mm 4mm',
+                                        background: '#fffbeb', display: 'flex', flexDirection: 'column'
+                                    }}>
+                                        <div style={{ fontSize: '8pt', fontWeight: 800, textTransform: 'uppercase', color: '#b45309', marginBottom: '3px' }}>
+                                            Class Teacher's Remark
+                                        </div>
+                                        <div style={{ fontSize: '8.5pt', color: '#374151', fontStyle: 'italic', flex: 1, display: 'flex', alignItems: 'center' }}>
+                                            "{previewReportObj?.teacher_remarks || 'Satisfactory'}"
+                                        </div>
+                                    </div>
+
+                                    {/* Head Teacher Remark */}
+                                    <div style={{
+                                        border: '1px solid #2563eb', borderRadius: '8px', padding: '3mm 4mm',
+                                        background: '#eff6ff', display: 'flex', flexDirection: 'column'
+                                    }}>
+                                        <div style={{ fontSize: '8pt', fontWeight: 800, textTransform: 'uppercase', color: '#1d4ed8', marginBottom: '3px' }}>
+                                            Head Teacher's Remark
+                                        </div>
+                                        <div style={{ fontSize: '8.5pt', color: '#374151', fontStyle: 'italic', flex: 1, display: 'flex', alignItems: 'center' }}>
+                                            "{previewReportObj?.admin_remarks || 'Good Job'}"
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ── SIGNATURES ── */}
+                                <div style={{
+                                    display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+                                    gap: '6mm', paddingTop: '10mm', position: 'relative', zIndex: 1,
+                                    alignItems: 'end'
+                                }}>
+                                    {/* Class Teacher */}
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ borderBottom: '1px solid #94a3b8', width: '80%', margin: '0 auto 4px auto' }} />
+                                        <div style={{ fontSize: '8.5pt', color: '#475569', fontWeight: 600 }}>Class Teacher</div>
+                                    </div>
+                                    {/* Official Stamp */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                        <div style={{
+                                            width: '45px', height: '45px', borderRadius: '50%',
+                                            border: '2.5px dashed #0ea5e9', display: 'flex', flexDirection: 'column',
+                                            alignItems: 'center', justifyContent: 'center', transform: 'rotate(12deg)',
+                                            opacity: 0.8, marginBottom: '2px'
+                                        }}>
+                                            <span style={{ fontSize: '6pt', fontWeight: 800, textTransform: 'uppercase', color: '#0ea5e9', letterSpacing: '0.04em' }}>OFFICIAL</span>
+                                            <span style={{ fontSize: '6.5pt', fontWeight: 900, textTransform: 'uppercase', color: '#0ea5e9' }}>STAMP</span>
+                                        </div>
+                                    </div>
+                                    {/* School Administrator */}
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ borderBottom: '1px solid #94a3b8', width: '80%', margin: '0 auto 4px auto' }} />
+                                        <div style={{ fontSize: '8.5pt', color: '#475569', fontWeight: 600 }}>School Administrator</div>
+                                    </div>
+                                </div>
+
+                            </div>{/* end A4 shell */}
+                        </div>
                     </div>
                 </div>
             )}
