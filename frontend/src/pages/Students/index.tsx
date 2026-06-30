@@ -4,6 +4,7 @@ import Modal from '../../components/ui/Modal';
 import StudentForm from './StudentForm';
 import { api, endpoints } from '../../utils/api';
 import type { User, StudentStatus } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 const PAGE_SIZE = 10;
 
@@ -357,14 +358,19 @@ export default function Students() {
                         placeholder={`Search pupils in ${selectedClass}...`}
                         className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder-slate-600 focus:outline-none focus:border-sky-500/40 transition-all" />
                 </div>
-                <select value={statusFilter} onChange={(e) => setStatus(e.target.value)}
-                    className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-300 text-sm focus:outline-none transition-all min-w-[130px]">
-                    <option value="" className="bg-[#0b1523]">All Statuses</option>
-                    <option value="active" className="bg-[#0b1523]">Active</option>
-                    <option value="graduated" className="bg-[#0b1523]">Graduated</option>
-                    <option value="transferred" className="bg-[#0b1523]">Transferred</option>
-                    <option value="suspended" className="bg-[#0b1523]">Suspended</option>
-                </select>
+                <FilterDropdown
+                    value={statusFilter}
+                    options={[
+                        { id: '', label: 'All Statuses' },
+                        { id: 'active', label: 'Active' },
+                        { id: 'graduated', label: 'Graduated' },
+                        { id: 'transferred', label: 'Transferred' },
+                        { id: 'suspended', label: 'Suspended' }
+                    ]}
+                    onChange={setStatus}
+                    placeholder="All Statuses"
+                    colorTheme="amber"
+                />
                 <button onClick={fetchStudents} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all">
                     <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                 </button>

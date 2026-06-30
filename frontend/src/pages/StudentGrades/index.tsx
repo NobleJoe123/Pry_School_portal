@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import type { Term } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 interface ScoreData {
     id: string;
@@ -116,13 +117,13 @@ export default function StudentGrades() {
             <div className="p-4 bg-white/5 border border-white/10 rounded-2xl flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
                     <Calendar size={16} className="text-slate-400" />
-                    <select 
-                        value={selectedTerm} 
-                        onChange={(e) => setSelectedTerm(e.target.value)}
-                        className="bg-slate-900 border border-white/10 text-white text-sm px-4 py-2 rounded-xl focus:outline-none focus:border-amber-500/50 min-w-[200px]"
-                    >
-                        {terms.map(t => <option key={t.id} value={t.id}>{t.name} ({t.academic_year_name})</option>)}
-                    </select>
+                    <FilterDropdown
+                        value={selectedTerm}
+                        options={terms.map(t => ({ id: t.id, label: `${t.name} (${t.academic_year_name})` }))}
+                        onChange={setSelectedTerm}
+                        placeholder="Select Term"
+                        colorTheme="sky"
+                    />
                 </div>
                 
                 <div className="ml-auto flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-xl">
