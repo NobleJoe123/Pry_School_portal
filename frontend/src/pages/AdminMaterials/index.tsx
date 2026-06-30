@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     FileText, CheckCircle, Clock, XCircle, BookOpen,
-    Layers, User, Eye, FileDown, Search, RotateCcw, HelpCircle, Shield
+    Layers, User, Eye, FileDown, Search, RotateCcw, HelpCircle, Shield, Trash2
 } from 'lucide-react';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
@@ -249,15 +249,8 @@ export default function AdminMaterials() {
     // Load from localStorage (shared with teacher UploadMaterials page)
     useEffect(() => {
         const stored = localStorage.getItem('teacher_materials');
-        const base = stored ? JSON.parse(stored) : seedMockData();
-        // Merge with mock data that has teacher names if missing
-        const merged = seedMockData().map(seed => {
-            const fromStorage = base.find((b: Material) => b.id === seed.id);
-            return fromStorage ? { ...seed, ...fromStorage, teacher: fromStorage.teacher || seed.teacher } : seed;
-        });
-        // Also include any new items from localStorage not in seed
-        const extra = base.filter((b: Material) => !merged.find(m => m.id === b.id));
-        setMaterials([...merged, ...extra]);
+        const base = stored ? JSON.parse(stored) : [];
+        setMaterials(base);
     }, []);
 
     const persist = (updated: Material[]) => {
@@ -275,6 +268,13 @@ export default function AdminMaterials() {
         const updated = materials.map(m => m.id === id ? { ...m, status: 'rejected' as const } : m);
         persist(updated);
         if (preview?.id === id) setPreview({ ...preview, status: 'rejected' });
+    };
+
+    const deleteMaterial = (id: string) => {
+        if (!window.confirm('Are you sure you want to permanently delete this material? This cannot be undone.')) return;
+        const updated = materials.filter(m => m.id !== id);
+        persist(updated);
+        if (preview?.id === id) setPreview(null);
     };
 
     const filtered = materials.filter(m => {
@@ -342,6 +342,7 @@ export default function AdminMaterials() {
                     options={STATUS_OPTIONS}
                     onChange={setStatusFilter}
                     placeholder="All Statuses"
+                    colorTheme="amber"
                 />
                 <button
                     onClick={() => { setSearch(''); setStatusFilter(''); }}
@@ -447,6 +448,14 @@ export default function AdminMaterials() {
                                         <CheckCircle size={12} /> Approve
                                     </button>
                                 )}
+
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); deleteMaterial(item.id); }}
+                                    className="ml-auto p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                    title="Delete material permanently"
+                                >
+                                    <Trash2 size={13} />
+                                </button>
                             </div>
                         </div>
                     );

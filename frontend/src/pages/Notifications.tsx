@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Bell, CheckCircle, MailOpen, RefreshCw, Send } from 'lucide-react';
+import { Bell, CheckCircle, MailOpen, RefreshCw, Send, Filter, Calendar, BookOpen, Wallet, GraduationCap } from 'lucide-react';
 import { api, endpoints } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import type { Notification, User } from '../types';
+import FilterDropdown from '../components/ui/FilterDropdown';
 
 const getList = <T,>(value: any): T[] => {
     if (!value) return [];
@@ -66,21 +67,35 @@ function NotificationComposer({ onSent }: { onSent: () => void }) {
                 <Send size={18} className="text-sky-400" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <select value={audience} onChange={(e) => setAudience(e.target.value)} className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500/50">
-                    <option value="all_teachers">All teachers</option>
-                    <option value="all_parents">All parents</option>
-                    <option value="all_students">All students</option>
-                    <option value="all_staff">All staff</option>
-                    <option value="selected">Specific people</option>
-                </select>
-                <select value={category} onChange={(e) => setCategory(e.target.value)} className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500/50">
-                    <option value="general">General</option>
-                    <option value="attendance">Attendance</option>
-                    <option value="academics">Academics</option>
-                    <option value="finance">Finance</option>
-                    <option value="enrollment">Enrollment</option>
-                </select>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <FilterDropdown
+                    value={audience}
+                    options={[
+                        { id: 'all_teachers', label: 'All teachers' },
+                        { id: 'all_parents', label: 'All parents' },
+                        { id: 'all_students', label: 'All students' },
+                        { id: 'all_staff', label: 'All staff' },
+                        { id: 'selected', label: 'Specific people' }
+                    ]}
+                    onChange={setAudience}
+                    placeholder="Recipient Group"
+                    colorTheme="amber"
+                    fullWidth
+                />
+                <FilterDropdown
+                    value={category}
+                    options={[
+                        { id: 'general', label: 'General' },
+                        { id: 'attendance', label: 'Attendance' },
+                        { id: 'academics', label: 'Academics' },
+                        { id: 'finance', label: 'Finance' },
+                        { id: 'enrollment', label: 'Enrollment' }
+                    ]}
+                    onChange={setCategory}
+                    placeholder="Category"
+                    colorTheme="amber"
+                    fullWidth
+                />
             </div>
 
             {audience === 'selected' && (
