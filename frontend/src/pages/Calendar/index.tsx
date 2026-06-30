@@ -10,6 +10,7 @@ import {
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { Term } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 interface CalendarEvent {
     id: string;
@@ -116,6 +117,7 @@ export default function CalendarPage() {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const isParent = user?.role === 'parent';
+    const colorTheme = isAdmin ? 'amber' : (user?.role === 'teacher' ? 'emerald' : 'sky');
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -569,57 +571,55 @@ export default function CalendarPage() {
                 <div className="flex flex-wrap items-center gap-3">
                     {/* Session Selector */}
                     {!isParent && (
-                        <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                        <div className="flex items-center gap-2">
                             <span className="text-[10px] uppercase font-bold text-slate-500">Session</span>
-                            <select 
-                                value={selectedYearName} 
-                                onChange={(e) => {
-                                    setSelectedYearName(e.target.value);
-                                    // Match term
-                                    const matched = terms.find(t => t.academic_year_name === e.target.value);
+                            <FilterDropdown
+                                value={selectedYearName}
+                                options={academicYears.map(y => ({ id: y.name, label: y.name }))}
+                                onChange={(val) => {
+                                    setSelectedYearName(val);
+                                    const matched = terms.find(t => t.academic_year_name === val);
                                     if (matched) setSelectedTermId(matched.id);
                                 }}
-                                className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
-                            >
-                                {academicYears.map(y => (
-                                    <option key={y.id} value={y.name} className="bg-[#0b1523]">{y.name}</option>
-                                ))}
-                            </select>
+                                placeholder="Session"
+                                colorTheme={colorTheme}
+                            />
                         </div>
                     )}
 
                     {/* Term Selector */}
-                    <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                    <div className="flex items-center gap-2">
                         <span className="text-[10px] uppercase font-bold text-slate-500">Term</span>
-                        <select 
-                            value={selectedTermId} 
-                            onChange={(e) => setSelectedTermId(e.target.value)}
-                            className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
-                        >
-                            {terms.filter(t => isParent || t.academic_year_name === selectedYearName).map(t => (
-                                <option key={t.id} value={t.id} className="bg-[#0b1523]">
-                                    {t.name} {t.is_current ? '• Current' : ''}
-                                </option>
-                            ))}
-                        </select>
+                        <FilterDropdown
+                            value={selectedTermId}
+                            options={terms.filter(t => isParent || t.academic_year_name === selectedYearName).map(t => ({
+                                id: t.id,
+                                label: `${t.name}${t.is_current ? ' (Current)' : ''}`
+                            }))}
+                            onChange={setSelectedTermId}
+                            placeholder="Term"
+                            colorTheme={colorTheme}
+                        />
                     </div>
 
                     {/* Category Selector */}
                     {!isParent && (
-                        <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                        <div className="flex items-center gap-2">
                             <span className="text-[10px] uppercase font-bold text-slate-500">Category</span>
-                            <select 
-                                value={selectedCategory} 
-                                onChange={(e) => setSelectedCategory(e.target.value)}
-                                className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
-                            >
-                                <option value="all" className="bg-[#0b1523]">All Events</option>
-                                <option value="academic" className="bg-[#0b1523]">Academic Deadlines</option>
-                                <option value="holiday" className="bg-[#0b1523]">Public Holidays</option>
-                                <option value="exam" className="bg-[#0b1523]">Examinations</option>
-                                <option value="meeting" className="bg-[#0b1523]">PTA Meetings</option>
-                                <option value="sports" className="bg-[#0b1523]">Sports Activities</option>
-                            </select>
+                            <FilterDropdown
+                                value={selectedCategory}
+                                options={[
+                                    { id: 'all', label: 'All Events' },
+                                    { id: 'academic', label: 'Academic Deadlines' },
+                                    { id: 'holiday', label: 'Public Holidays' },
+                                    { id: 'exam', label: 'Examinations' },
+                                    { id: 'meeting', label: 'PTA Meetings' },
+                                    { id: 'sports', label: 'Sports Activities' }
+                                ]}
+                                onChange={setSelectedCategory}
+                                placeholder="Category"
+                                colorTheme={colorTheme}
+                            />
                         </div>
                     )}
                 </div>

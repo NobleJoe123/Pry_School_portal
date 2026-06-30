@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { GraduationCap, Plus, Search, Users, BookOpen, UserCircle, Edit3, X, Save, ChevronDown } from 'lucide-react';
+import { GraduationCap, Plus, Search, Users, BookOpen, UserCircle, Edit3, X, Save, ChevronDown, Trash2 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 interface SchoolClass {
     id: string;
@@ -30,10 +31,11 @@ interface ClassFormData {
     teacher: string;
 }
 
-function ClassCard({ schoolClass, teachers, onEdit }: {
+function ClassCard({ schoolClass, teachers, onEdit, onDelete }: {
     schoolClass: SchoolClass;
     teachers: Teacher[];
     onEdit: (c: SchoolClass) => void;
+    onDelete: (id: string) => void;
 }) {
     return (
         <div className="rounded-2xl border border-white/5 p-5 flex flex-col gap-4 transition-all hover:border-white/10 group"
@@ -48,10 +50,18 @@ function ClassCard({ schoolClass, teachers, onEdit }: {
                         <p className="text-slate-500 text-xs">{schoolClass.level_name}</p>
                     </div>
                 </div>
-                <button onClick={() => onEdit(schoolClass)}
-                    className="opacity-0 group-hover:opacity-100 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all">
-                    <Edit3 size={14} />
-                </button>
+                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
+                    <button onClick={() => onEdit(schoolClass)}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+                        title="Edit class">
+                        <Edit3 size={14} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(schoolClass.id); }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all"
+                        title="Delete class">
+                        <Trash2 size={14} />
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -205,6 +215,7 @@ export default function ClassesPage() {
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [search, setSearch] = useState('');
     const [filterLevel, setFilterLevel] = useState('');
+    const [filterTeacher, setFilterTeacher] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingClass, setEditingClass] = useState<SchoolClass | undefined>(undefined);
 
@@ -258,8 +269,19 @@ export default function ClassesPage() {
         fetchData();
     };
 
+    const handleDelete = async (id: string) => {
+        if (!window.confirm('Are you sure you want to delete this class? This action cannot be undone.')) return;
+        try {
+            await api.delete(endpoints.academics.classes + `${id}/`);
+            fetchData();
+        } catch (err: any) {
+            alert(err.message || 'Failed to delete class. It may have students enrolled.');
+        }
+    };
+
     const filtered = classes.filter(c => {
         if (filterLevel && c.level !== filterLevel) return false;
+        if (filterTeacher && c.teacher !== filterTeacher) return false;
         if (search) {
             const q = search.toLowerCase();
             return c.name.toLowerCase().includes(q) ||
@@ -272,6 +294,16 @@ export default function ClassesPage() {
     const totalStudents = classes.reduce((s, c) => s + (c.student_count || 0), 0);
     const assignedClasses = classes.filter(c => c.teacher).length;
     const unassignedClasses = classes.filter(c => !c.teacher).length;
+
+    const levelOptions = [
+        { id: '', label: 'All Levels' },
+        ...levels.map(l => ({ id: l.id, label: l.name }))
+    ];
+
+    const teacherOptions = [
+        { id: '', label: 'All Teachers' },
+        ...teachers.map(t => ({ id: t.id, label: t.full_name }))
+    ];
 
     return (
         <div className="space-y-6 max-w-screen-xl mx-auto">
@@ -332,15 +364,21 @@ export default function ClassesPage() {
                         className="w-full pl-9 pr-4 py-2.5 text-sm bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/50"
                     />
                 </div>
-                <div className="relative">
-                    <select
+                <div className="flex flex-wrap items-center gap-3">
+                    <FilterDropdown
                         value={filterLevel}
-                        onChange={e => setFilterLevel(e.target.value)}
-                        className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-amber-500/50 appearance-none pr-8 min-w-[160px]">
-                        <option value="">All Levels</option>
-                        {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                        options={levelOptions}
+                        onChange={setFilterLevel}
+                        placeholder="All Levels"
+                        colorTheme="amber"
+                    />
+                    <FilterDropdown
+                        value={filterTeacher}
+                        options={teacherOptions}
+                        onChange={setFilterTeacher}
+                        placeholder="All Teachers"
+                        colorTheme="amber"
+                    />
                 </div>
             </div>
 
@@ -378,6 +416,7 @@ export default function ClassesPage() {
                             schoolClass={c}
                             teachers={teachers}
                             onEdit={cls => { setEditingClass(cls); setShowModal(true); }}
+                            onDelete={handleDelete}
                         />
                     ))}
                 </div>
