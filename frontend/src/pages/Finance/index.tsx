@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import type { FeeType, StudentFee, PaymentRecord, Payroll, Term } from '../../types';
+import FilterDropdown from '../../components/ui/FilterDropdown';
 
 type Tab = 'overview' | 'fees' | 'billing' | 'payments' | 'payroll';
 
@@ -569,20 +570,25 @@ export default function Finance() {
                                         placeholder="Search pupil or fee..."
                                         className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500/50" />
                                 </div>
-                                <select value={classFilter} onChange={e => setClassFilter(e.target.value)}
-                                    className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 focus:outline-none">
-                                    <option value="" className="bg-slate-900">All Classes</option>
-                                    {classOptions.map(cls => (
-                                        <option key={cls} value={cls} className="bg-slate-900">{cls}</option>
-                                    ))}
-                                </select>
-                                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                                    className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 focus:outline-none">
-                                    <option value="" className="bg-slate-900">All Status</option>
-                                    <option value="paid" className="bg-slate-900">Paid</option>
-                                    <option value="partial" className="bg-slate-900">Partial</option>
-                                    <option value="outstanding" className="bg-slate-900">Outstanding</option>
-                                </select>
+                                <FilterDropdown
+                                    value={classFilter}
+                                    options={[{ id: '', label: 'All Classes' }, ...classOptions.map(cls => ({ id: cls, label: cls }))]}
+                                    onChange={setClassFilter}
+                                    placeholder="All Classes"
+                                    colorTheme="amber"
+                                />
+                                <FilterDropdown
+                                    value={statusFilter}
+                                    options={[
+                                        { id: '', label: 'All Status' },
+                                        { id: 'paid', label: 'Paid' },
+                                        { id: 'partial', label: 'Partial' },
+                                        { id: 'outstanding', label: 'Outstanding' }
+                                    ]}
+                                    onChange={setStatusFilter}
+                                    placeholder="All Status"
+                                    colorTheme="amber"
+                                />
                                 <span className="text-xs text-slate-500">{filteredFees.length} records</span>
                             </div>
                             <div className="overflow-x-auto">

@@ -1,4 +1,5 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { Camera, UserCircle } from 'lucide-react';
 import { Field, Input, Select, FormSection, SubmitButton } from '../../components/ui/Formfields';
 import { api, endpoints } from '../../utils/api';
 import type { ParentUser } from './index';
@@ -64,6 +65,12 @@ export default function ParentForm({ parentId, onSuccess, onCancel }: ParentForm
   const [fetching,      setFetching]      = useState(false);
   const [apiError,      setApiError]      = useState('');
   
+  // Passport photo state
+  const [passportFile, setPassportFile] = useState<File | null>(null);
+  const [passportPreview, setPassportPreview] = useState<string | null>(null);
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   // Students selection
   const [allStudents,   setAllStudents]   = useState<StudentListItem[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
@@ -112,10 +119,31 @@ export default function ParentForm({ parentId, onSuccess, onCancel }: ParentForm
           alternate_phone:         p?.alternate_phone || '',
           student_ids:             childIds,
         });
+        // Load existing profile photo if any
+        if ((u as any).profile_photo_url) {
+          setExistingPhotoUrl((u as any).profile_photo_url);
+        }
       })
       .catch(() => setApiError('Failed to load parent details.'))
       .finally(() => setFetching(false));
   }, [parentId]);
+
+  const handlePassportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      setApiError('Passport photo must be JPG, PNG, or WEBP.');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setApiError('Passport photo must be less than 3 MB.');
+      return;
+    }
+    setPassportFile(file);
+    setPassportPreview(URL.createObjectURL(file));
+    setApiError('');
+  };
 
   const set = (key: keyof FormData, value: any) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -152,6 +180,11 @@ export default function ParentForm({ parentId, onSuccess, onCancel }: ParentForm
 
     try {
       if (isEdit && parentId) {
+        if (passportFile) {
+          const fd = new FormData();
+          fd.append('profile_photo', passportFile);
+          await api.postFormData(endpoints.parents.detail(parentId) + 'upload_photo/', fd);
+        }
         await api.patch(endpoints.parents.detail(parentId), {
           first_name:              form.first_name,
           last_name:               form.last_name,
@@ -167,11 +200,25 @@ export default function ParentForm({ parentId, onSuccess, onCancel }: ParentForm
           student_ids:             form.student_ids,
         });
       } else {
-        await api.post(endpoints.parents.list, {
-          ...form,
-          date_of_birth: form.date_of_birth || undefined,
-          password:      form.password || undefined,
-        });
+        if (passportFile) {
+          const fd = new FormData();
+          Object.entries(form).forEach(([k, v]) => {
+            if (k !== 'student_ids' && v !== undefined && v !== null && v !== '') {
+              fd.append(k, String(v));
+            }
+          });
+          form.student_ids.forEach(id => {
+            fd.append('student_ids', id);
+          });
+          fd.append('profile_photo', passportFile);
+          await api.postFormData(endpoints.parents.list, fd);
+        } else {
+          await api.post(endpoints.parents.list, {
+            ...form,
+            date_of_birth: form.date_of_birth || undefined,
+            password:      form.password || undefined,
+          });
+        }
       }
       onSuccess();
     } catch (err: unknown) {
@@ -196,6 +243,8 @@ export default function ParentForm({ parentId, onSuccess, onCancel }: ParentForm
     );
   }
 
+  const avatarSrc = passportPreview || existingPhotoUrl;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {apiError && (
@@ -203,6 +252,37 @@ export default function ParentForm({ parentId, onSuccess, onCancel }: ParentForm
           ⚠ {apiError}
         </div>
       )}
+
+      {/* ── Passport Photo Upload ───────────────────────────── */}
+      <div className="flex flex-col items-center gap-3 pb-2">
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          className="relative w-24 h-24 rounded-2xl border-2 border-dashed border-sky-500/40 bg-sky-500/5 hover:border-sky-500/70 hover:bg-sky-500/10 cursor-pointer transition-all group overflow-hidden"
+          title="Click to upload passport photo"
+        >
+          {avatarSrc ? (
+            <img src={avatarSrc} alt="Passport" className="w-full h-full object-cover" />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-1.5 text-sky-400">
+              <UserCircle size={32} className="opacity-60" />
+              <p className="text-[10px] font-semibold text-center px-1">Photo</p>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <Camera size={20} className="text-white" />
+          </div>
+        </div>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handlePassportChange}
+          accept="image/*"
+          className="hidden"
+        />
+        <p className="text-slate-500 text-[10px] text-center">
+          Format: JPG, PNG, WEBP. Max size: 3MB.
+        </p>
+      </div>
 
       <FormSection title="Personal Information" />
       <div className="grid grid-cols-2 gap-4">
