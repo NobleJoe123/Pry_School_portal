@@ -49,7 +49,9 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Dashboard', icon: <LayoutDashboard size={18} />, to: '/parent', end: true, roles: ['parent'] },
     { label: 'My Children', icon: <GraduationCap size={18} />, to: '/parent/children', roles: ['parent'] },
     { label: 'Fee Payments', icon: <CreditCard size={18} />, to: '/parent/fees', roles: ['parent'] },
-    { label: 'Messages', icon: <MessageSquare size={18} />, to: '/parent/messages', roles: ['parent'] },
+    { label: 'Academic Reports', icon: <FileText size={18} />, to: '/parent/reports', roles: ['parent'] },
+    { label: 'Tickets & Messages', icon: <MessageSquare size={18} />, to: '/parent/tickets', roles: ['parent'] },
+    { label: 'Notifications', icon: <Bell size={18} />, to: '/notifications', roles: ['parent'] },
     { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['parent'] },
 
     // Student navigation
@@ -149,7 +151,7 @@ export default function Sidebar({ collapsed, onToggle, onLinkClick }: SidebarPro
             {/* Bottom Nav */}
             <div className="px-3 pb-2 space-y-0.5 border-t border-white/5 pt-3">
                 {/* Notifications for admin only */}
-                {userRole === 'teacher' || userRole === 'parent' ? (
+                {userRole === 'teacher' ? (
                     <NavLink to="/notifications" onClick={onLinkClick} className={({ isActive }) => `${linkBase} ${isActive ? activeClass : inactiveClass}`} title={collapsed ? 'Notifications' : undefined}>
                         <Bell size={18} className="shrink-0" />
                         {!collapsed && <span className="truncate">Notifications</span>}
