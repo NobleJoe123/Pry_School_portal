@@ -1,40 +1,60 @@
-# Implementation Plan — Primary Portal
+# Implementation Plan — Primary School Portal
 
 ## Summary
-No existing `implementation_plan.md` or similarly named implementation markdown was found in the repository. This document captures the next actionable steps to continue development from the current codebase state.
+Continued development from existing codebase. This document captures completed work and remaining tasks.
 
-## Current status
-- Repository inspected; no implementation markdown present.
-- Project uses Docker, Django (backend) and React/TypeScript (frontend).
+## Completed ✅
 
-## Goals
-- Identify incomplete features and continue implementation where development stopped.
-- Produce a small, verifiable set of changes to advance functionality and tests.
+### Missing Parent Pages (Critical)
+Both files were completely missing, causing import errors and broken routes in `App.tsx`.
 
-## Files/areas to inspect first
-- Backend: `backend/pry_school_portal/`, `backend/academics/`, `backend/accounts/`, `backend/attendance/`, `backend/finance/`.
-- Frontend: `frontend/src/`, `frontend/src/pages/`, `frontend/src/services/`.
-- Integration points: API endpoints in `backend/portal/urls.py`, frontend service calls in `frontend/src/services`.
+#### `frontend/src/pages/Parents/ParentReports.tsx` [NEW - DONE]
+- Full report card viewer for parents
+- Multi-child selector tabs (if multiple children)
+- Per-subject score breakdown with expandable rows and progress bars
+- Grade calculation (A/B/C/D/F) with visual indicators
+- Handles "no published report" state gracefully
+- Consumes `endpoints.academics.scores` and `endpoints.academics.reportCards`
 
-## Immediate next steps (short-term)
-1. Run project linters and tests (or the short subset) to surface failing areas.
-2. Review recent migrations and model changes in `backend/*/migrations/` for incomplete work.
-3. Search for TODO/FIXME comments across the codebase to prioritize work.
-4. Pick one small, high-impact item (API endpoint, view, or frontend page) and complete it with tests.
+#### `frontend/src/pages/Parents/ParentTickets.tsx` [NEW - DONE]
+- Support ticket system for parent-school communication
+- Create new tickets with subject, category, priority
+- View conversation thread (message drawer/side panel)
+- Filter by status (Open / In Progress / Resolved / Closed) and search
+- Reply within open tickets
+- Demo data included; backend integration ready when `/support/tickets/` endpoint is added
 
-## Suggested implementation task for first run
-- Implement and test an API endpoint for student enrollment listing and its frontend page integration:
-  - Backend: confirm serializer, viewset, and url routing in `academics` or `accounts`.
-  - Frontend: add a page or component under `frontend/src/pages/` to call the endpoint and render the list.
-  - Add minimal unit tests for backend and a smoke test for the frontend.
+### App Routes (already existed in `App.tsx`)
+```
+/parent/reports  → ParentReports
+/parent/tickets  → ParentTickets
+```
+
+### Sidebar (already existed in `Sidebar.tsx`)
+- 'Academic Reports' link → `/parent/reports`
+- QuickNavCard in `ParentDashboard` → `/parent/reports`
+
+## Current Architecture
+- **Backend**: Django REST Framework with JWT auth
+- **Frontend**: React + TypeScript + Vite, Tailwind-like utility classes (custom CSS)
+- **Auth Context**: `useAuth()` → provides `user` object with `user.children[]`
+- **API layer**: `api.get/post/patch/delete` wrappers in `frontend/src/utils/api.ts`
+
+## Remaining Tasks
+
+### Backend — Support Tickets (Optional Enhancement)
+The `ParentTickets` page currently uses demo data. A real implementation needs:
+- Django model: `SupportTicket` (parent, subject, category, priority, status, created_at)
+- Django model: `TicketMessage` (ticket FK, sender, body, timestamp)
+- DRF Serializers + ViewSets for both models
+- URL registration in `portal/urls.py`
+- Frontend `endpoints.support.tickets` entry in `api.ts`
+
+### Known Issues to Investigate
+- `ParentDashboard.tsx` references `endpoints.attendance.students` for parent view — confirm backend filters by parent's children
+- Check if `endpoints.auth.notifications` returns per-parent notifications or global
 
 ## Verification
-- Run `docker-compose up` and visit the frontend and API endpoints.
-- Run `docker-compose exec backend python manage.py test` for backend tests.
-
-## Next actions (I can perform now)
-- Run a quick grep for `TODO`/`FIXME` and list results.
-- Run backend tests and capture failures (requires Docker running).
-- Start implementing the chosen small task once you confirm priority.
-
-Please tell me which immediate action you want me to take next (grep TODOs, run backend tests, or start implementing the enrollment endpoint).
+1. Run `npm run dev` in `frontend/` → visit `/parent/reports` and `/parent/tickets`
+2. Log in as a parent account to test live data flow
+3. Run `docker-compose exec backend python manage.py test` for backend tests
