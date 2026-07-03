@@ -158,6 +158,8 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Africa/Lagos'  # Changed from UTC
+# Suppress Celery 6.0 deprecation warning — keep retrying broker connections on startup
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
