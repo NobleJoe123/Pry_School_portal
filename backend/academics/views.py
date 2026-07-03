@@ -3,12 +3,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.decorators import action
 from django.utils import timezone
-from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent
+from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent, LessonMaterial
 from .serializers import (
-    AcademicYearSerializer, TermSerializer, 
+    AcademicYearSerializer, TermSerializer,
     ClassLevelSerializer, SchoolClassSerializer, SubjectSerializer,
     AssessmentTypeSerializer, AssessmentSerializer, StudentScoreSerializer,
-    ReportCardSerializer, SchoolEventSerializer
+    ReportCardSerializer, SchoolEventSerializer, LessonMaterialSerializer
 )
 
 class AcademicYearViewSet(viewsets.ModelViewSet):
@@ -34,6 +34,7 @@ class SchoolClassViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
+        # Teachers only see their own class; admins see all
         if user.is_authenticated and user.role == 'teacher':
             queryset = queryset.filter(teacher=user)
         return queryset
@@ -292,13 +293,13 @@ class ReportCardViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(term_id=current_term.id)
             else:
                 queryset = queryset.filter(term_id=term_id)
-                
+
         return queryset
 
     def perform_create(self, serializer):
         report_card = serializer.save()
         send_report_card_notifications(report_card, self.request.user, is_new=True, was_published=False)
-        
+
     def perform_update(self, serializer):
         old_instance = self.get_object()
         was_published = old_instance.is_published
@@ -309,10 +310,10 @@ class ReportCardViewSet(viewsets.ModelViewSet):
     def bulk_comment_and_publish(self, request):
         if request.user.role != 'admin':
             return Response({'error': 'Only admins can perform this action.'}, status=status.HTTP_403_FORBIDDEN)
-            
+
         data = request.data
         term_id = data.get('term')
-        records = data.get('records', []) # list of {student_id, admin_remarks, is_published}
+        records = data.get('records', [])  # list of {student_id, admin_remarks, is_published}
 
         if not term_id or term_id == 'REPLACE_WITH_CURRENT_TERM_ID':
             current_term = Term.objects.filter(is_current=True).first()
@@ -325,14 +326,14 @@ class ReportCardViewSet(viewsets.ModelViewSet):
             student_id = record['student_id']
             old_rc = ReportCard.objects.filter(student_id=student_id, term_id=term_id).first()
             was_published = old_rc.is_published if old_rc else False
-            
-            defaults={
+
+            defaults = {
                 'admin_remarks': record.get('admin_remarks', record.get('remarks', '')),
-                'is_published': record.get('is_published', False)
+                'is_published': record.get('is_published', False),
             }
             if 'psychomotor' in record:
                 defaults['psychomotor'] = record['psychomotor']
-            
+
             rc, created = ReportCard.objects.update_or_create(
                 student_id=student_id,
                 term_id=term_id,
@@ -340,8 +341,89 @@ class ReportCardViewSet(viewsets.ModelViewSet):
             )
             send_report_card_notifications(rc, request.user, is_new=created, was_published=was_published)
             updated_count += 1
-            
+
         return Response({'message': f'Successfully updated {updated_count} report cards.'})
+
+
+class LessonMaterialViewSet(viewsets.ModelViewSet):
+    """CRUD for lesson notes/plans. Teachers own their materials;
+       admins can view all and change status."""
+
+    queryset = LessonMaterial.objects.select_related(
+        'teacher', 'school_class', 'subject'
+    ).all()
+    serializer_class = LessonMaterialSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs  = super().get_queryset()
+        user = self.request.user
+
+        if user.role == 'teacher':
+            qs = qs.filter(teacher=user)
+        # admin & other roles see all
+
+        # Optional filter params
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        school_class = self.request.query_params.get('school_class')
+        if school_class:
+            qs = qs.filter(school_class_id=school_class)
+
+        subject = self.request.query_params.get('subject')
+        if subject:
+            qs = qs.filter(subject_id=subject)
+
+        return qs
+
+    def get_parser_classes(self):
+        """Allow multipart (file uploads) alongside JSON."""
+        from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+        return [MultiPartParser, FormParser, JSONParser]
+
+    def perform_create(self, serializer):
+        serializer.save(teacher=self.request.user)
+
+    def perform_update(self, serializer):
+        # Teachers can edit their own materials until admin approval.
+        instance = self.get_object()
+        user = self.request.user
+        if user.role == 'teacher':
+            from rest_framework.exceptions import PermissionDenied
+            if instance.teacher != user:
+                raise PermissionDenied("You can only edit your own materials.")
+            if instance.status == 'approved':
+                raise PermissionDenied("Approved materials cannot be edited.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        if user.role == 'teacher' and instance.teacher != user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You can only delete your own materials.")
+        instance.delete()
+
+    @action(detail=True, methods=['patch'], url_path='set-status')
+    def set_status(self, request, pk=None):
+        """Admin-only: approve or reject a submitted material."""
+        if request.user.role != 'admin':
+            return Response(
+                {'error': 'Only admins can approve or reject materials.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        instance = self.get_object()
+        new_status = request.data.get('status')
+        if new_status not in ('approved', 'rejected', 'submitted', 'draft'):
+            return Response(
+                {'error': 'Invalid status value.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        instance.status = new_status
+        instance.save(update_fields=['status'])
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
 
 class SchoolEventViewSet(viewsets.ModelViewSet):
@@ -372,4 +454,3 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(term_id=current_term.id)
                 
         return queryset
-

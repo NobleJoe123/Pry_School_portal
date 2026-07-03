@@ -1,10 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    AcademicYearViewSet, TermViewSet, 
+    AcademicYearViewSet, TermViewSet,
     ClassLevelViewSet, SchoolClassViewSet, SubjectViewSet,
     AssessmentTypeViewSet, AssessmentViewSet, StudentScoreViewSet,
-    ReportCardViewSet, SchoolEventViewSet
+    ReportCardViewSet, SchoolEventViewSet, LessonMaterialViewSet
 )
 
 router = DefaultRouter()
@@ -18,8 +18,8 @@ router.register(r'assessments', AssessmentViewSet)
 router.register(r'scores', StudentScoreViewSet)
 router.register(r'report-cards', ReportCardViewSet)
 router.register(r'events', SchoolEventViewSet)
+router.register(r'materials', LessonMaterialViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
 ]
-
