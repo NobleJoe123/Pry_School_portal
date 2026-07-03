@@ -1,5 +1,6 @@
 from django.utils import timezone
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.contrib.auth import get_user_model
 
 class ActiveUserMiddleware:
     def __init__(self, get_response):
@@ -20,7 +21,8 @@ class ActiveUserMiddleware:
             now = timezone.now()
             last_seen = getattr(request.user, 'last_seen', None)
             if not last_seen or now - last_seen > timezone.timedelta(minutes=1):
-                type(request.user).objects.filter(pk=request.user.pk).update(last_seen=now)
+                User = get_user_model()
+                User.objects.filter(pk=request.user.pk).update(last_seen=now)
                 request.user.last_seen = now
 
         return self.get_response(request)
