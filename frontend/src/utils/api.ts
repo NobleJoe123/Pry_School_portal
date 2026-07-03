@@ -165,6 +165,12 @@ export const api = {
             body: formData,
         }),
 
+    patchFormData: <T>(endpoint: string, formData: FormData) =>
+        apiFetch<T>(endpoint, {
+            method: 'PATCH',
+            body: formData,
+        }),
+
 };
 
 
@@ -217,6 +223,9 @@ export const endpoints = {
         scores: '/academics/scores/',
         reportCards: '/academics/report-cards/',
         events: '/academics/events/',
+        materials: '/academics/materials/',
+        materialDetail: (id: string) => `/academics/materials/${id}/`,
+        materialSetStatus: (id: string) => `/academics/materials/${id}/set-status/`,
     },
 
     finance: {

@@ -245,7 +245,7 @@ export default function TeacherClass() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-white text-sm font-semibold truncate group-hover:text-amber-400 transition-colors">{student.full_name}</p>
-                                            <p className="text-slate-500 text-xs">{(student as any).admission_number || student.username}</p>
+                                            <p className="text-slate-500 text-xs">{(student as any).student_profile?.admission_number || student.username}</p>
                                         </div>
                                         <span className="text-slate-600 text-xs font-mono">#{idx + 1}</span>
                                     </button>
@@ -270,7 +270,7 @@ export default function TeacherClass() {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <h3 className="text-white font-bold text-sm leading-tight truncate">{selectedPupil.full_name}</h3>
-                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{(selectedPupil as any).admission_number || selectedPupil.username}</p>
+                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{(selectedPupil as any).student_profile?.admission_number || selectedPupil.username}</p>
                                     <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/5 mt-1.5">
                                         {currentClass?.name || 'Class Room'}
                                     </span>
@@ -312,7 +312,7 @@ export default function TeacherClass() {
                                             {[
                                                 { label: 'First Name', value: selectedPupil.first_name, icon: <UserCircle size={12} /> },
                                                 { label: 'Last Name', value: selectedPupil.last_name, icon: <UserCircle size={12} /> },
-                                                { label: 'Gender', value: (selectedPupil as any).gender === 'M' ? 'Male' : (selectedPupil as any).gender === 'F' ? 'Female' : '—', icon: <AlignLeft size={12} /> },
+                                                { label: 'Gender', value: (selectedPupil as any).student_profile?.gender === 'M' ? 'Male' : (selectedPupil as any).student_profile?.gender === 'F' ? 'Female' : '—', icon: <AlignLeft size={12} /> },
                                                 { label: 'Date of Birth', value: selectedPupil.date_of_birth || 'N/A', icon: <Calendar size={12} /> },
                                                 { label: 'Email', value: selectedPupil.email, icon: <Mail size={12} />, fullWidth: true },
                                                 { label: 'Phone Number', value: selectedPupil.phone || 'N/A', icon: <Phone size={12} /> },
