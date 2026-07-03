@@ -31,6 +31,8 @@ import AdminMaterials from './pages/AdminMaterials';
 import StudentAttendancePage from './pages/Attendance/StudentAttendance';
 import MyChildren from './pages/Parents/MyChildren';
 import FeePayments from './pages/Parents/FeePayments';
+import ParentReports from './pages/Parents/ParentReports';
+import ParentTickets from './pages/Parents/ParentTickets';
 import ClassesPage from './pages/Classes';
 
 // PlaceHolders Pages
@@ -103,7 +105,8 @@ export default function App() {
                 <Route path="/parent" element={<Dashboard />} />
                 <Route path="/parent/children" element={<MyChildren />} />
                 <Route path="/parent/fees" element={<FeePayments />} />
-                <Route path="/parent/messages" element={<TeacherMessages />} />
+                <Route path="/parent/reports" element={<ParentReports />} />
+                <Route path="/parent/tickets" element={<ParentTickets />} />
               </Route>
 
               {/* Student Only Routes */}
