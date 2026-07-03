@@ -876,7 +876,7 @@ export default function Reports() {
                                             ['Class:', activeClass?.name || '—'],
                                             ['Class Teacher:', previewTeacher?.full_name || activeClass?.teacher_name || '—'],
                                             ['Date of Birth:', formatDOB(previewStudent.date_of_birth)],
-                                            ['Gender:', (previewStudent as any).gender === 'M' ? 'Male' : (previewStudent as any).gender === 'F' ? 'Female' : '—'],
+                                            ['Gender:', (previewStudent as any).student_profile?.gender === 'M' ? 'Male' : (previewStudent as any).student_profile?.gender === 'F' ? 'Female' : '—'],
                                         ].map(([label, val]) => (
                                             <div key={label} style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>
                                                 <span style={{ color: '#475569', minWidth: '110px', fontWeight: 500 }}>{label}</span>
@@ -892,8 +892,8 @@ export default function Reports() {
                                             background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             fontSize: '7pt', color: '#94a3b8', fontWeight: 700, overflow: 'hidden', flexShrink: 0
                                         }}>
-                                            {(previewStudent as any).profile_photo
-                                                ? <img src={(previewStudent as any).profile_photo} alt="Passport" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            {(previewStudent as any).profile_photo_url
+                                                ? <img src={(previewStudent as any).profile_photo_url} alt="Passport" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 : 'PASSPORT'}
                                         </div>
                                     </div>
