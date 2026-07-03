@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent
+from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent, LessonMaterial
 from accounts.serializers import UserSerializer
 
 class AcademicYearSerializer(serializers.ModelSerializer):
@@ -114,3 +114,55 @@ class SchoolEventSerializer(serializers.ModelSerializer):
         model = SchoolEvent
         fields = '__all__'
 
+
+class LessonMaterialSerializer(serializers.ModelSerializer):
+    teacher_name      = serializers.ReadOnlyField(source='teacher.full_name')
+    class_name        = serializers.ReadOnlyField(source='school_class.name')
+    subject_name      = serializers.ReadOnlyField(source='subject.name')
+    file_url          = serializers.SerializerMethodField()
+    file_size         = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = LessonMaterial
+        fields = [
+            'id', 'teacher', 'teacher_name',
+            'school_class', 'class_name',
+            'subject', 'subject_name',
+            'week', 'topic', 'objectives', 'activities', 'evaluation',
+            'file', 'file_url', 'file_size',
+            'status', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['teacher', 'created_at', 'updated_at']
+
+    def get_file_url(self, obj):
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+
+    def get_file_size(self, obj):
+        if obj.file:
+            try:
+                size = obj.file.size
+                if size < 1024:
+                    return f"{size} B"
+                elif size < 1024 * 1024:
+                    return f"{size / 1024:.1f} KB"
+                else:
+                    return f"{size / (1024 * 1024):.1f} MB"
+            except Exception:
+                return None
+        return None
+
+    def validate_status(self, value):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            user = request.user
+            # Teachers can only set draft or submitted
+            if user.role == 'teacher' and value in ('approved', 'rejected'):
+                raise serializers.ValidationError(
+                    "Teachers cannot approve or reject materials."
+                )
+        return value

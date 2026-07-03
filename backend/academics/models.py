@@ -275,3 +275,52 @@ class SchoolEvent(models.Model):
             except Exception as e:
                 print(f"Error sending event notifications: {e}")
 
+
+class LessonMaterial(models.Model):
+    """Lesson notes / plans uploaded by teachers, reviewed by admin."""
+
+    STATUS_CHOICES = [
+        ('draft',     'Draft'),
+        ('submitted', 'Submitted'),
+        ('approved',  'Approved'),
+        ('rejected',  'Rejected'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'teacher'},
+        related_name='lesson_materials',
+    )
+    school_class = models.ForeignKey(
+        SchoolClass,
+        on_delete=models.CASCADE,
+        related_name='lesson_materials',
+    )
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='lesson_materials',
+    )
+
+    week        = models.CharField(max_length=30)   # e.g. "Week 1"
+    topic       = models.CharField(max_length=255)
+    objectives  = models.TextField()
+    activities  = models.TextField(blank=True, null=True)
+    evaluation  = models.TextField(blank=True, null=True)
+
+    # Optional file attachment
+    file        = models.FileField(upload_to='lesson_materials/', null=True, blank=True)
+
+    status      = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.topic} – {self.school_class.name} ({self.status})"
