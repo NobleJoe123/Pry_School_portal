@@ -339,6 +339,16 @@ export default function Teachers() {
 
     };
 
+    const handleReactivate = async (teacher: TeacherUser) => {
+        try {
+            await api.patch(endpoints.teachers.detail(teacher.id), { is_active: true });
+            setTeachers(current => current.map(t => t.id === teacher.id ? { ...t, is_active: true } : t));
+            setViewTarget(current => current?.id === teacher.id ? { ...current, is_active: true } : current);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to reactivate teacher.');
+        }
+    };
+
     const totalPages = Math.ceil(total / PAGE_SIZE);
     const skeletonRows = Array.from({ length: 6 });
 
@@ -499,7 +509,7 @@ export default function Teachers() {
                                                 >
                                                     <Pencil size={14} />
                                                 </button>
-                                                {t.is_active && (
+                                                {t.is_active ? (
                                                     <button 
                                                         onClick={() => setDeactivateTarget(t)}
                                                         className="p-1.5 rounded-lg text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-all" 
@@ -507,6 +517,15 @@ export default function Teachers() {
                                                         aria-label={`Deactivate ${t.full_name}`}
                                                     >
                                                         <UserX size={14} />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleReactivate(t)}
+                                                        className="p-1.5 rounded-lg text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                                                        title="Reactivate teacher"
+                                                        aria-label={`Reactivate ${t.full_name}`}
+                                                    >
+                                                        <UserCheck size={14} />
                                                     </button>
                                                 )}
                                             </div>

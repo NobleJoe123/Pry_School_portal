@@ -184,7 +184,6 @@ export default function Parents() {
   const [search,       setSearch]       = useState('');
   const [page,         setPage]         = useState(1);
   const [viewTarget,   setViewTarget]   = useState<ParentUser | null>(null);
-  const [expandedRow,  setExpandedRow]  = useState<string | null>(null);
   const [isFormOpen,   setIsFormOpen]   = useState(false);
   const [editParentId, setEditParentId] = useState<string | undefined>(undefined);
   const [togglingParent, setTogglingParent] = useState(false);
@@ -233,13 +232,14 @@ export default function Parents() {
     }
   };
 
-  const toggleParentActive = async () => {
-    if (!viewTarget) return;
+  const toggleParentActive = async (target?: ParentUser) => {
+    const parentToUpdate = target || viewTarget;
+    if (!parentToUpdate) return;
     setTogglingParent(true);
     try {
-      await api.patch(endpoints.parents.detail(viewTarget.id), { is_active: !viewTarget.is_active });
-      const updated = { ...viewTarget, is_active: !viewTarget.is_active };
-      setViewTarget(updated);
+      await api.patch(endpoints.parents.detail(parentToUpdate.id), { is_active: !parentToUpdate.is_active });
+      const updated = { ...parentToUpdate, is_active: !parentToUpdate.is_active };
+      setViewTarget(current => current?.id === updated.id ? { ...current, is_active: updated.is_active } : current);
       setParents(current => current.map(parent => parent.id === updated.id ? { ...parent, is_active: updated.is_active } : parent));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to update parent status.');
@@ -404,8 +404,7 @@ export default function Parents() {
                         </button>
                         <button
                           onClick={() => {
-                            setViewTarget(p);
-                            toggleParentActive();
+                            toggleParentActive(p);
                           }}
                           className={`p-1.5 rounded-lg transition-all ${
                             p.is_active
@@ -477,7 +476,7 @@ export default function Parents() {
         title={viewTarget?.full_name ?? 'Parent Details'}
         subtitle={viewTarget?.email}
         size="lg">
-        {viewTarget && <ParentDetail parent={viewTarget} onToggleActive={toggleParentActive} toggling={togglingParent} />}
+        {viewTarget && <ParentDetail parent={viewTarget} onToggleActive={() => toggleParentActive()} toggling={togglingParent} />}
       </Modal>
 
       {/* ── Parent Add/Edit Modal ── */}

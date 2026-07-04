@@ -71,6 +71,15 @@ export default function Settings() {
         if (storedAppearance) setAppearance(JSON.parse(storedAppearance));
     }, []);
 
+    useEffect(() => {
+        const root = document.documentElement;
+        root.dataset.theme = appearance.theme;
+        root.dataset.density = appearance.density;
+        root.classList.remove('theme-light', 'theme-dark', 'theme-slate', 'density-compact', 'density-default', 'density-relaxed');
+        root.classList.add(`theme-${appearance.theme}`, `density-${appearance.density}`);
+        localStorage.setItem('settings_appearance', JSON.stringify(appearance));
+    }, [appearance]);
+
     const fetchTerms = async () => {
         setRefreshingTerms(true);
         try {

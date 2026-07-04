@@ -38,6 +38,46 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html.theme-light body {
+  background: #eef4f8;
+}
+
+html.theme-light .bg-app,
+html.theme-light .bg-panel-gradient,
+html.theme-light .bg-card-gradient {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2edf5 100%) !important;
+}
+
+html.theme-light main {
+  background: #eef4f8 !important;
+}
+
+html.theme-slate body,
+html.theme-slate main {
+  background: #071523 !important;
+}
+
+html.theme-slate .bg-panel-gradient,
+html.theme-slate .bg-card-gradient {
+  background: linear-gradient(135deg, #102338 0%, #071523 100%) !important;
+}
+
+html.density-compact main {
+  font-size: 0.94rem;
+}
+
+html.density-compact .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem !important;
+}
+
+html.density-relaxed main {
+  letter-spacing: 0;
+}
+
+html.density-relaxed .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 2rem !important;
+}
+
 .bg-panel-gradient {
   background: linear-gradient(135deg, #0d1b2a, #0a1628);
 }

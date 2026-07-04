@@ -168,6 +168,9 @@ export default function CalendarPage() {
         term: ''
     });
     const [submitting, setSubmitting] = useState(false);
+    const [editingTermDates, setEditingTermDates] = useState(false);
+    const [termDateForm, setTermDateForm] = useState({ start_date: '', end_date: '' });
+    const [savingTermDates, setSavingTermDates] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -410,6 +413,27 @@ export default function CalendarPage() {
     };
 
     const selectedTerm = terms.find(t => t.id === selectedTermId);
+
+    const openTermDateEdit = () => {
+        if (!selectedTerm) return;
+        setTermDateForm({ start_date: selectedTerm.start_date, end_date: selectedTerm.end_date });
+        setEditingTermDates(true);
+    };
+
+    const saveTermDates = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!selectedTerm) return;
+        setSavingTermDates(true);
+        try {
+            const updated = await api.patch<Term>(`${endpoints.academics.terms}${selectedTerm.id}/`, termDateForm);
+            setTerms(current => current.map(term => term.id === updated.id ? updated : term));
+            setEditingTermDates(false);
+        } catch (err: any) {
+            setError(err.message || 'Failed to update term dates.');
+        } finally {
+            setSavingTermDates(false);
+        }
+    };
     
     // Blend backend events with milestones if none exist
     const activeTermEvents = [...filteredEvents];
@@ -624,11 +648,34 @@ export default function CalendarPage() {
                     )}
                 </div>
 
-                {selectedTerm && (
+                {selectedTerm && !editingTermDates && (
                     <div className="text-xs text-slate-500 flex flex-wrap items-center gap-3">
                         <span>Resumption: <strong className="text-slate-300 font-semibold">{new Date(selectedTerm.start_date).toLocaleDateString()}</strong></span>
                         <span>Vacation: <strong className="text-slate-300 font-semibold">{new Date(selectedTerm.end_date).toLocaleDateString()}</strong></span>
+                        {isAdmin && (
+                            <button onClick={openTermDateEdit} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-sky-400 hover:text-sky-300">
+                                <Edit3 size={11} /> Edit Dates
+                            </button>
+                        )}
                     </div>
+                )}
+                {selectedTerm && editingTermDates && (
+                    <form onSubmit={saveTermDates} className="flex flex-wrap items-end gap-2">
+                        <label className="text-[10px] uppercase font-bold text-slate-500">
+                            Resumption
+                            <input type="date" required value={termDateForm.start_date} onChange={event => setTermDateForm({ ...termDateForm, start_date: event.target.value })} className="block mt-1 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                        </label>
+                        <label className="text-[10px] uppercase font-bold text-slate-500">
+                            Vacation
+                            <input type="date" required value={termDateForm.end_date} onChange={event => setTermDateForm({ ...termDateForm, end_date: event.target.value })} className="block mt-1 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white" />
+                        </label>
+                        <button disabled={savingTermDates} className="px-3 py-2 rounded-xl bg-sky-500 text-slate-950 text-xs font-black disabled:opacity-50">
+                            {savingTermDates ? 'Saving...' : 'Save Dates'}
+                        </button>
+                        <button type="button" onClick={() => setEditingTermDates(false)} className="px-3 py-2 rounded-xl bg-white/5 text-slate-300 text-xs font-bold border border-white/10">
+                            Cancel
+                        </button>
+                    </form>
                 )}
             </div>
 

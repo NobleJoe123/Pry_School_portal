@@ -223,7 +223,7 @@ def send_report_card_notifications(report_card, user, is_new=False, was_publishe
                 )
         
         # If a teacher added/updated comments (and it's not published yet)
-        elif user.role == 'teacher' and report_card.teacher_remarks:
+        elif user.role == 'teacher':
             # Notify Admins
             admins = PortalUser.objects.filter(role='admin', is_active=True)
             student_name = report_card.student.full_name
@@ -235,7 +235,7 @@ def send_report_card_notifications(report_card, user, is_new=False, was_publishe
                         sender=user,
                         recipient=admin,
                         title=f"Report Submitted: {student_name}",
-                        message=f"Teacher {user.full_name} submitted report remarks for {student_name} ({term_name}). Please verify and publish the report card.",
+                        message=f"Teacher {user.full_name} has submitted/updated the report card details for {student_name} ({term_name}). Please review and publish the report card.",
                         category='academics',
                         audience='selected'
                     )

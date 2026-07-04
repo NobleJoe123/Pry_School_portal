@@ -15,6 +15,7 @@ const getList = <T,>(value: any): T[] => {
 
 function NotificationComposer({ onSent }: { onSent: () => void }) {
     const [audience, setAudience] = useState('all_teachers');
+    const [selectedRole, setSelectedRole] = useState<'parent' | 'teacher'>('parent');
     const [category, setCategory] = useState('general');
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
@@ -27,11 +28,14 @@ function NotificationComposer({ onSent }: { onSent: () => void }) {
         Promise.all([
             api.get<any>(endpoints.teachers.list),
             api.get<any>(endpoints.parents.list),
-            api.get<any>(endpoints.students.list),
-        ]).then(([teachers, parents, students]) => {
-            setUsers([...getList<User>(teachers), ...getList<User>(parents), ...getList<User>(students)]);
+        ]).then(([teachers, parents]) => {
+            setUsers([...getList<User>(teachers), ...getList<User>(parents)]);
         });
     }, [audience]);
+
+    useEffect(() => {
+        setSelected([]);
+    }, [selectedRole, audience]);
 
     const toggleSelected = (id: string) => {
         setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
@@ -99,14 +103,30 @@ function NotificationComposer({ onSent }: { onSent: () => void }) {
             </div>
 
             {audience === 'selected' && (
-                <div className="max-h-44 overflow-y-auto rounded-xl border border-white/10 bg-white/[0.02] p-2 space-y-1">
-                    {users.map((person) => (
-                        <label key={person.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer">
-                            <input type="checkbox" checked={selected.includes(person.id)} onChange={() => toggleSelected(person.id)} />
-                            <span className="text-sm text-white">{person.full_name}</span>
-                            <span className="text-[10px] uppercase text-slate-500 ml-auto">{person.role}</span>
-                        </label>
-                    ))}
+                <div className="space-y-3">
+                    <FilterDropdown
+                        value={selectedRole}
+                        options={[
+                            { id: 'parent', label: 'Parents' },
+                            { id: 'teacher', label: 'Teachers' },
+                        ]}
+                        onChange={(value) => setSelectedRole(value as 'parent' | 'teacher')}
+                        placeholder="Recipient Type"
+                        colorTheme="amber"
+                        fullWidth
+                    />
+                    <div className="max-h-44 overflow-y-auto rounded-xl border border-white/10 bg-white/[0.02] p-2 space-y-1">
+                        {users.filter((person) => person.role === selectedRole).map((person) => (
+                            <label key={person.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer">
+                                <input type="checkbox" checked={selected.includes(person.id)} onChange={() => toggleSelected(person.id)} />
+                                <span className="text-sm text-white">{person.full_name}</span>
+                                <span className="text-[10px] uppercase text-slate-500 ml-auto">{person.role}</span>
+                            </label>
+                        ))}
+                        {users.filter((person) => person.role === selectedRole).length === 0 && (
+                            <p className="px-3 py-4 text-center text-xs text-slate-500">No {selectedRole}s found.</p>
+                        )}
+                    </div>
                 </div>
             )}
 
