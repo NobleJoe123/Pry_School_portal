@@ -17,6 +17,26 @@ const getList = <T,>(val: any): T[] => {
     return [];
 };
 
+function ChildAvatar({ child, size = 'w-10 h-10' }: { child: any; size?: string }) {
+    const [failed, setFailed] = useState(false);
+    const user = child?.user || {};
+    const initials = `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || 'P';
+    const photoUrl = user.profile_photo_url;
+
+    return (
+        <div className={`${size} rounded-xl bg-slate-800 border border-white/10 overflow-hidden flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+            {photoUrl && !failed ? (
+                <img
+                    src={photoUrl}
+                    alt=""
+                    onError={() => setFailed(true)}
+                    className="w-full h-full object-cover"
+                />
+            ) : initials}
+        </div>
+    );
+}
+
 function QuickNavCard({ icon, label, desc, to, color }: {
     icon: React.ReactNode; label: string; desc: string; to: string; color: string;
 }) {
@@ -219,12 +239,7 @@ export default function ParentDashboard() {
                             <div className="divide-y divide-white/[0.04]">
                                 {children.map((child: any, i: number) => (
                                     <div key={i} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-all">
-                                        <div className="w-10 h-10 rounded-xl bg-slate-800 border border-white/10 overflow-hidden flex items-center justify-center text-white font-bold text-sm shrink-0">
-                                            {child.user?.profile_photo_url
-                                                ? <img src={child.user.profile_photo_url} alt={child.user?.full_name} className="w-full h-full object-cover" />
-                                                : `${child.user?.first_name?.[0] ?? ''}${child.user?.last_name?.[0] ?? ''}`
-                                            }
-                                        </div>
+                                        <ChildAvatar child={child} />
                                         <div className="flex-1 min-w-0">
                                             <p className="text-white font-bold text-sm truncate">{child.user?.full_name}</p>
                                             <p className="text-slate-500 text-xs mt-0.5">

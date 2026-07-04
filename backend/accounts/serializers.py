@@ -153,10 +153,28 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
 class ParentProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     children = StudentProfileSerializer(source='user.children', many=True, read_only=True)
+    passport_photo_url = serializers.SerializerMethodField()
+    id_document_url = serializers.SerializerMethodField()
     
     class Meta:
         model = ParentProfile
         fields = '__all__'
+
+    def get_passport_photo_url(self, obj):
+        if obj.passport_photo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.passport_photo.url)
+            return obj.passport_photo.url
+        return None
+
+    def get_id_document_url(self, obj):
+        if obj.id_document:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.id_document.url)
+            return obj.id_document.url
+        return None
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -720,12 +738,16 @@ class ParentDetailSerializer(serializers.ModelSerializer):
     """Complete parent data with children"""
     parent_profile = ParentProfileSerializer(read_only=True)
     children = serializers.SerializerMethodField()
+    profile_photo_url = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name',
-                  'role', 'phone', 'date_of_birth', 'address', 'is_active', 
-                  'date_joined', 'parent_profile', 'children']
+                  'role', 'phone', 'date_of_birth', 'address', 'is_active',
+                  'date_joined', 'profile_photo_url', 'parent_profile', 'children']
+
+    def get_profile_photo_url(self, obj):
+        return UserSerializer(obj, context=self.context).data.get('profile_photo_url')
         
     def get_children(self, obj):
         children_profiles = obj.children.all()

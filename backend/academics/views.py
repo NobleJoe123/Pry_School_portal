@@ -178,20 +178,6 @@ class StudentScoreViewSet(viewsets.ModelViewSet):
                     )
                 )
                 
-                # Parent Notice
-                if hasattr(student, 'student_profile') and student.student_profile.parent:
-                    parent = student.student_profile.parent
-                    parent_msg = f"A new grade has been recorded for your child, {student.full_name}: {score} in {subj_name} ({ass_name})."
-                    notifications.append(
-                        Notification(
-                            sender=request.user,
-                            recipient=parent,
-                            title=f"Academic Grade: {student.first_name}",
-                            message=parent_msg,
-                            category='academics',
-                            audience='selected'
-                        )
-                    )
             if notifications:
                 Notification.objects.bulk_create(notifications)
         except Exception as e:
@@ -248,8 +234,8 @@ def send_report_card_notifications(report_card, user, is_new=False, was_publishe
                     Notification(
                         sender=user,
                         recipient=admin,
-                        title=f"Teacher Remark: {student_name}",
-                        message=f"Teacher {user.full_name} has added remarks/observations for {student_name} ({term_name}). The report card is ready for administrative review.",
+                        title=f"Report Submitted: {student_name}",
+                        message=f"Teacher {user.full_name} submitted report remarks for {student_name} ({term_name}). Please verify and publish the report card.",
                         category='academics',
                         audience='selected'
                     )

@@ -17,6 +17,28 @@ const getList = <T,>(val: any): T[] => {
     return [];
 };
 
+function PupilAvatar({ user, size = 'w-14 h-14', textSize = 'text-base' }: { user: any; size?: string; textSize?: string }) {
+    const [failed, setFailed] = useState(false);
+    const initials = `${user?.first_name?.[0] ?? ''}${user?.last_name?.[0] ?? ''}`.toUpperCase() || 'P';
+
+    return (
+        <div className={`${size} rounded-xl overflow-hidden flex items-center justify-center font-black shrink-0 border-2 border-white/5`}>
+            {user?.profile_photo_url && !failed ? (
+                <img
+                    src={user.profile_photo_url}
+                    alt=""
+                    onError={() => setFailed(true)}
+                    className="w-full h-full object-cover"
+                />
+            ) : (
+                <div className={`w-full h-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white ${textSize} font-black`}>
+                    {initials}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function TabButton({ tab, active, onClick, icon, label, count }: {
     tab: ProfileTab; active: ProfileTab; onClick: (t: ProfileTab) => void;
     icon: React.ReactNode; label: string; count?: number;
@@ -66,15 +88,7 @@ function OverviewTab({ child }: { child: any }) {
             {/* Photo + name hero */}
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 p-5 rounded-2xl border border-white/5"
                 style={{ background: 'linear-gradient(135deg,#0f2235 0%,#0a1628 100%)' }}>
-                <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-amber-500/30 shadow-xl shrink-0">
-                    {user.profile_photo_url ? (
-                        <img src={user.profile_photo_url} alt={user.full_name} className="w-full h-full object-cover" />
-                    ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-2xl font-black">
-                            {`${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase()}
-                        </div>
-                    )}
-                </div>
+                <PupilAvatar user={user} size="w-24 h-24" textSize="text-2xl" />
                 <div className="flex-1 text-center sm:text-left">
                     <h3 className="text-white text-xl font-black">{user.full_name}</h3>
                     <p className="text-slate-500 text-xs font-mono mt-1">{profile.admission_number}</p>
@@ -477,14 +491,8 @@ export default function ParentChildren() {
                                     }`}
                                 style={{ background: isSelected ? 'linear-gradient(135deg,#1c1202 0%,#0d1b2a 100%)' : 'linear-gradient(135deg,#0d1b2a 0%,#0a1628 100%)' }}
                             >
-                                <div className={`w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center font-black text-lg shrink-0 border-2 ${isSelected ? 'border-amber-500/40' : 'border-white/5'}`}>
-                                    {u.profile_photo_url ? (
-                                        <img src={u.profile_photo_url} alt={u.full_name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-base font-black">
-                                            {`${u.first_name?.[0] ?? ''}${u.last_name?.[0] ?? ''}`.toUpperCase()}
-                                        </div>
-                                    )}
+                                <div className={isSelected ? 'ring-2 ring-amber-500/40 rounded-xl' : ''}>
+                                    <PupilAvatar user={u} />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className={`font-bold text-sm truncate ${isSelected ? 'text-amber-400' : 'text-white'}`}>{u.full_name}</p>

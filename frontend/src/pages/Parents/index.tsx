@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Search, RefreshCw, ChevronLeft, ChevronRight,
   Users, XCircle, CheckCircle, Eye, ChevronDown, ChevronUp,
-  Edit2, Plus
+  Edit2, Plus, UserCheck, UserX, FileText
 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import { api, endpoints } from '../../utils/api';
@@ -19,6 +19,9 @@ export type ParentUser = User & {
     office_address:          string | null;
     office_phone:            string | null;
     alternate_phone:         string | null;
+    completed_profile?:      boolean;
+    passport_photo_url?:     string | null;
+    id_document_url?:        string | null;
   };
   children?: {
     id:         string;
@@ -44,7 +47,7 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
 
 // ─── PARENT DETAIL MODAL ──────────────────────────────────────────────────────
 
-function ParentDetail({ parent }: { parent: ParentUser }) {
+function ParentDetail({ parent, onToggleActive, toggling }: { parent: ParentUser; onToggleActive: () => void; toggling: boolean }) {
   const profile  = parent.parent_profile;
   const children = (parent.children ?? []).map((child: any) => {
     if (child.user) {
@@ -85,6 +88,35 @@ function ParentDetail({ parent }: { parent: ParentUser }) {
         ))}
       </div>
 
+      <div>
+        <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest mb-3">
+          Verification Files
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { label: 'Passport Photo', url: profile?.passport_photo_url },
+            { label: 'ID Document', url: profile?.id_document_url },
+          ].map(({ label, url }) => (
+            <a
+              key={label}
+              href={url || undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-disabled={!url}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-xs transition-all ${
+                url
+                  ? 'bg-sky-500/10 border-sky-500/20 text-sky-300 hover:bg-sky-500/15'
+                  : 'bg-white/5 border-white/5 text-slate-600 pointer-events-none'
+              }`}
+            >
+              <FileText size={15} />
+              <span className="font-bold">{label}</span>
+              <span className="ml-auto">{url ? 'View' : 'Not uploaded'}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
       {/* Children */}
       <div>
         <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest mb-3">
@@ -123,6 +155,21 @@ function ParentDetail({ parent }: { parent: ParentUser }) {
           </div>
         )}
       </div>
+
+      <div className="pt-4 border-t border-white/5">
+        <button
+          onClick={onToggleActive}
+          disabled={toggling}
+          className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-50 ${
+            parent.is_active
+              ? 'bg-red-500/10 text-red-400 border border-red-500/25 hover:bg-red-500/15'
+              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/15'
+          }`}
+        >
+          {parent.is_active ? <UserX size={16} /> : <UserCheck size={16} />}
+          {toggling ? 'Updating...' : parent.is_active ? 'Deactivate Parent' : 'Reactivate Parent'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -140,6 +187,7 @@ export default function Parents() {
   const [expandedRow,  setExpandedRow]  = useState<string | null>(null);
   const [isFormOpen,   setIsFormOpen]   = useState(false);
   const [editParentId, setEditParentId] = useState<string | undefined>(undefined);
+  const [togglingParent, setTogglingParent] = useState(false);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchParents = useCallback(async () => {
@@ -174,6 +222,31 @@ export default function Parents() {
   const getChildCount   = (p: ParentUser) => p.children?.length ?? 0;
   const getInitials     = (p: ParentUser) =>
     `${p.first_name?.[0] ?? ''}${p.last_name?.[0] ?? ''}`.toUpperCase();
+
+  const openParentDetail = async (parent: ParentUser) => {
+    setViewTarget(parent);
+    try {
+      const fullParent = await api.get<ParentUser>(endpoints.parents.detail(parent.id));
+      setViewTarget(fullParent);
+    } catch {
+      setViewTarget(parent);
+    }
+  };
+
+  const toggleParentActive = async () => {
+    if (!viewTarget) return;
+    setTogglingParent(true);
+    try {
+      await api.patch(endpoints.parents.detail(viewTarget.id), { is_active: !viewTarget.is_active });
+      const updated = { ...viewTarget, is_active: !viewTarget.is_active };
+      setViewTarget(updated);
+      setParents(current => current.map(parent => parent.id === updated.id ? { ...parent, is_active: updated.is_active } : parent));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update parent status.');
+    } finally {
+      setTogglingParent(false);
+    }
+  };
 
   return (
     <div className="space-y-5 max-w-screen-xl">
@@ -324,10 +397,24 @@ export default function Parents() {
                     {/* Actions */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setViewTarget(p)}
+                        <button onClick={() => openParentDetail(p)}
                           className="p-1.5 rounded-lg text-slate-500 hover:text-sky-400
                                      hover:bg-sky-500/10 transition-all" title="View details">
                           <Eye size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setViewTarget(p);
+                            toggleParentActive();
+                          }}
+                          className={`p-1.5 rounded-lg transition-all ${
+                            p.is_active
+                              ? 'text-red-500 hover:text-red-400 hover:bg-red-500/10'
+                              : 'text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10'
+                          }`}
+                          title={p.is_active ? 'Deactivate parent' : 'Reactivate parent'}
+                        >
+                          {p.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
                         </button>
                         <button onClick={() => {
                           setEditParentId(p.id);
@@ -390,7 +477,7 @@ export default function Parents() {
         title={viewTarget?.full_name ?? 'Parent Details'}
         subtitle={viewTarget?.email}
         size="lg">
-        {viewTarget && <ParentDetail parent={viewTarget} />}
+        {viewTarget && <ParentDetail parent={viewTarget} onToggleActive={toggleParentActive} toggling={togglingParent} />}
       </Modal>
 
       {/* ── Parent Add/Edit Modal ── */}
