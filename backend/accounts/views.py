@@ -554,7 +554,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         student.save(update_fields=['profile_photo'])
         return Response({
             'message': 'Profile photo uploaded successfully!',
-            'profile_photo_url': request.build_absolute_uri(student.profile_photo.url) if student.profile_photo else None
+            'profile_photo_url': student.profile_photo.url if student.profile_photo else None
         })
     
     
@@ -640,7 +640,7 @@ class TeacherViewSet(viewsets.ModelViewSet):
         teacher.save(update_fields=['profile_photo'])
         return Response({
             'message': 'Profile photo uploaded successfully!',
-            'profile_photo_url': request.build_absolute_uri(teacher.profile_photo.url) if teacher.profile_photo else None
+            'profile_photo_url': teacher.profile_photo.url if teacher.profile_photo else None
         })
 
 
@@ -734,7 +734,7 @@ class ParentViewSet(viewsets.ModelViewSet):
         parent.save(update_fields=['profile_photo'])
         return Response({
             'message': 'Profile photo uploaded successfully!',
-            'profile_photo_url': request.build_absolute_uri(parent.profile_photo.url) if parent.profile_photo else None
+            'profile_photo_url': parent.profile_photo.url if parent.profile_photo else None
         })
 
 
@@ -1353,3 +1353,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def mark_all_read(self, request):
         updated = self.get_queryset().filter(is_read=False).update(is_read=True, read_at=timezone.now())
         return Response({'message': f'Marked {updated} notification(s) as read.'})
+
+    @action(detail=False, methods=['delete'])
+    def clear_all(self, request):
+        deleted, _ = self.get_queryset().delete()
+        return Response({'message': f'Cleared {deleted} notification(s).'})
