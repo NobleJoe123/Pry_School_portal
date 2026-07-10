@@ -25,9 +25,6 @@ class UserSerializer(serializers.ModelSerializer):
     
     def get_profile_photo_url(self, obj):
         if obj.profile_photo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_photo.url)
             return obj.profile_photo.url
         return None
 
@@ -162,17 +159,11 @@ class ParentProfileSerializer(serializers.ModelSerializer):
 
     def get_passport_photo_url(self, obj):
         if obj.passport_photo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.passport_photo.url)
             return obj.passport_photo.url
         return None
 
     def get_id_document_url(self, obj):
         if obj.id_document:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.id_document.url)
             return obj.id_document.url
         return None
 
@@ -216,9 +207,6 @@ class StudentListSerializer(serializers.ModelSerializer):
         
     def get_profile_photo_url(self, obj):
         if obj.profile_photo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_photo.url)
             return obj.profile_photo.url
         return None
         
@@ -427,9 +415,6 @@ class TeacherListSerializer(serializers.ModelSerializer):
         
     def get_profile_photo_url(self, obj):
         if obj.profile_photo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_photo.url)
             return obj.profile_photo.url
         return None
         
