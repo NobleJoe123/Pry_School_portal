@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Bell, CheckCircle, MailOpen, RefreshCw, Send, Filter, Calendar, BookOpen, Wallet, GraduationCap } from 'lucide-react';
+import { Bell, CheckCircle, MailOpen, RefreshCw, Send, Filter, Calendar, BookOpen, Wallet, GraduationCap, Trash2 } from 'lucide-react';
 import { api, endpoints } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import type { Notification, User } from '../types';
@@ -168,6 +168,26 @@ export default function Notifications() {
         fetchNotifications();
     };
 
+    const clearNotification = async (id: string) => {
+        try {
+            await api.delete(`${endpoints.auth.notifications}${id}/`);
+            setItems((current) => current.filter((item) => item.id !== id));
+        } catch (error) {
+            console.error('Error deleting notification:', error);
+        }
+    };
+
+    const clearAllNotifications = async () => {
+        if (window.confirm('Are you sure you want to clear all notifications?')) {
+            try {
+                await api.delete(`${endpoints.auth.notifications}clear_all/`);
+                setItems([]);
+            } catch (error) {
+                console.error('Error clearing notifications:', error);
+            }
+        }
+    };
+
     const unreadCount = items.filter((item) => !item.is_read).length;
 
     return (
@@ -178,13 +198,21 @@ export default function Notifications() {
                     <p className="text-slate-500 text-sm">{unreadCount} unread notice{unreadCount === 1 ? '' : 's'}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={fetchNotifications} className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white">
+                    <button onClick={fetchNotifications} className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-colors" title="Refresh">
                         <RefreshCw size={17} />
                     </button>
-                    <button onClick={markAllRead} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white text-sm">
-                        <CheckCircle size={16} />
-                        Mark all read
-                    </button>
+                    {items.length > 0 && (
+                        <>
+                            <button onClick={markAllRead} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white text-sm transition-colors">
+                                <CheckCircle size={16} />
+                                Mark all read
+                            </button>
+                            <button onClick={clearAllNotifications} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 hover:text-red-300 text-sm transition-all">
+                                <Trash2 size={16} />
+                                Clear all
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -217,11 +245,20 @@ export default function Notifications() {
                                         From {item.sender_name || 'School'} - {new Date(item.created_at).toLocaleString()}
                                     </p>
                                 </div>
-                                {!item.is_read && (
-                                    <button onClick={() => markRead(item.id)} className="self-start px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 text-slate-300 hover:text-white hover:bg-white/10">
-                                        Mark read
+                                <div className="flex flex-col sm:flex-row items-center gap-2 self-start shrink-0">
+                                    {!item.is_read && (
+                                        <button onClick={() => markRead(item.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+                                            Mark read
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={() => clearNotification(item.id)} 
+                                        className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                        title="Delete notification"
+                                    >
+                                        <Trash2 size={15} />
                                     </button>
-                                )}
+                                </div>
                             </div>
                         ))}
                     </div>
