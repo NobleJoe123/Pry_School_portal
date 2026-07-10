@@ -263,11 +263,10 @@ export default function AdminMaterials() {
                         className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-xs placeholder-slate-600 focus:outline-none focus:border-amber-500/40 transition-all"
                     />
                 </div>
-                <FilterDropdown value={levelFilter} options={[{ id: '', label: 'All Levels' }, ...levels.map((level) => ({ id: level.id, label: level.name }))]} onChange={(value) => { setLevelFilter(value); setClassFilter(''); }} placeholder="All Levels" colorTheme="amber" />
                 <FilterDropdown value={classFilter} options={classOptions} onChange={setClassFilter} placeholder="All Classes" colorTheme="amber" />
                 <FilterDropdown value={statusFilter} options={STATUS_OPTIONS} onChange={setStatusFilter} placeholder="All Statuses" colorTheme="amber" />
                 <button
-                    onClick={() => { setSearch(''); setStatusFilter(''); setLevelFilter(''); setClassFilter(''); }}
+                    onClick={() => { setSearch(''); setStatusFilter(''); setClassFilter(''); }}
                     className="ml-auto p-2.5 text-slate-500 hover:text-white rounded-xl hover:bg-white/5 transition-colors"
                     title="Clear filters"
                 >
