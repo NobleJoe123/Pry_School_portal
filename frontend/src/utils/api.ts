@@ -233,6 +233,16 @@ export const endpoints = {
         studentFees: '/finance/student-fees/',
         payments: '/finance/payments/',
         payroll: '/finance/payroll/',
+        payrollSummary: '/finance/payroll/summary/',
+        payrollStaffDirectory: '/finance/payroll/staff_directory/',
+        payrollMysalary: '/finance/payroll/my_salary/',
+        payrollGenerateMonthly: '/finance/payroll/generate_monthly/',
+        payrollBulkPay: '/finance/payroll/bulk_pay/',
+        payrollBulkApprove: '/finance/payroll/bulk_approve/',
+        payrollReports: '/finance/payroll/reports/',
+        payrollAction: (id: string, action: string) => `/finance/payroll/${id}/${action}/`,
+        payrollPayslip: (id: string) => `/finance/payroll/${id}/payslip/`,
+        payrollAuditLogs: (id: string) => `/finance/payroll/${id}/audit_logs/`,
     },
 
     attendance: {

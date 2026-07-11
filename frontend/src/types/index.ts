@@ -360,14 +360,135 @@ export interface Payroll {
     id: string;
     teacher: string;
     teacher_name?: string;
+    staff_name?: string;
+    staff_role?: string;
+    staff_id?: string;
+    employment_status?: string | null;
     month: number;
     year: number;
+    department?: string | null;
+    salary_grade?: string | null;
+    payment_schedule: 'monthly' | 'bi_weekly' | 'weekly' | 'contract';
     basic_salary: number;
+    housing_allowance: number;
+    transport_allowance: number;
+    meal_allowance: number;
+    responsibility_allowance: number;
+    overtime: number;
     bonuses: number;
+    tax: number;
+    pension: number;
+    loans: number;
+    other_deductions: number;
     deductions: number;
+    leave_adjustment: number;
+    attendance_adjustment: number;
+    gross_salary: number;
+    total_allowances: number;
+    total_bonuses: number;
+    total_deductions: number;
     net_salary: number;
-    status: 'draft' | 'paid' | 'cancelled';
+    status: 'draft' | 'preview' | 'approved' | 'locked' | 'processing' | 'paid' | 'failed' | 'reversed' | 'cancelled';
+    due_date: string | null;
     payment_date: string | null;
+    payment_method: 'bank_transfer' | 'cash' | 'cheque' | 'gateway';
+    payment_reference: string | null;
+    approved_by?: string | null;
+    approved_by_name?: string | null;
+    approved_at?: string | null;
+    locked_at?: string | null;
+    notes?: string | null;
+    profile_photo_url?: string | null;
+}
+
+export interface PayrollSummary {
+    month: number;
+    year: number;
+    total_monthly_payroll: number;
+    total_basic_salary: number;
+    staff_paid: number;
+    total_staff: number;
+    pending_salary_payments: number;
+    payroll_completion: number;
+    payroll_due_date: string | null;
+    total_deductions: number;
+    total_bonuses: number;
+    total_allowances: number;
+    payroll_processing_status: string;
+}
+
+export interface PayrollStaffDirectoryItem {
+    id: string;
+    staff_id: string;
+    full_name: string;
+    role: string;
+    department: string;
+    employment_status: string;
+    salary_grade: string | null;
+    payment_status: string;
+    net_salary: number | null;
+    basic_salary: number | null;
+    profile_photo_url: string | null;
+}
+
+export interface PayrollAuditLog {
+    id: string;
+    payroll: string;
+    user: string | null;
+    user_name: string | null;
+    action: string;
+    previous_value: Record<string, any> | null;
+    updated_value: Record<string, any> | null;
+    timestamp: string;
+}
+
+export interface PayrollDetail extends Payroll {
+    audit_logs: PayrollAuditLog[];
+    school_name: string;
+    staff_email: string | null;
+    staff_phone: string | null;
+    staff_department: string;
+    date_of_joining: string | null;
+}
+
+export type PayrollReportType = 'monthly_summary' | 'salary_register' | 'deduction_report' | 'allowance_report';
+
+export interface PayrollMonthlySummaryReport {
+    report_type: 'monthly_summary';
+    month: number;
+    year: number;
+    total_staff: number;
+    staff_paid: number;
+    total_basic_salary: number;
+    total_allowances: number;
+    total_bonuses: number;
+    total_deductions: number;
+    total_tax: number;
+    total_pension: number;
+    total_net_salary: number;
+}
+
+export interface PayrollRegisterRow {
+    staff_id: string;
+    full_name: string;
+    role: string;
+    department: string;
+    basic_salary: number;
+    total_allowances: number;
+    bonuses: number;
+    gross_salary: number;
+    total_deductions: number;
+    net_salary: number;
+    status: string;
+    payment_date: string | null;
+    payment_reference: string | null;
+}
+
+export interface PayrollSalaryRegisterReport {
+    report_type: 'salary_register';
+    month: number;
+    year: number;
+    records: PayrollRegisterRow[];
 }
 
 // Attendance Types
