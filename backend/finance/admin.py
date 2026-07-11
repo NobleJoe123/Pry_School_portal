@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import FeeType, StudentFee, PaymentRecord, Payroll
+from .models import FeeType, StudentFee, PaymentRecord, Payroll, PayrollAuditLog
 
 @admin.register(FeeType)
 class FeeTypeAdmin(admin.ModelAdmin):
@@ -21,6 +21,13 @@ class PaymentRecordAdmin(admin.ModelAdmin):
 
 @admin.register(Payroll)
 class PayrollAdmin(admin.ModelAdmin):
-    list_display = ('teacher', 'month', 'year', 'status', 'net_salary')
-    list_filter = ('status', 'month', 'year')
+    list_display = ('teacher', 'month', 'year', 'department', 'payment_schedule', 'status', 'gross_salary', 'total_deductions', 'net_salary')
+    list_filter = ('status', 'month', 'year', 'payment_schedule', 'department')
     search_fields = ('teacher__email', 'teacher__first_name', 'teacher__last_name')
+
+
+@admin.register(PayrollAuditLog)
+class PayrollAuditLogAdmin(admin.ModelAdmin):
+    list_display = ('payroll', 'user', 'action', 'timestamp')
+    list_filter = ('action', 'timestamp')
+    search_fields = ('payroll__teacher__email', 'payroll__teacher__first_name', 'payroll__teacher__last_name', 'action')
