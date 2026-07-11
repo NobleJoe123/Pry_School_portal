@@ -42,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Enter Scores', icon: <BookOpen size={18} />, to: '/teacher/scores', roles: ['teacher'] },
     { label: 'Results / Reports', icon: <FileText size={18} />, to: '/teacher/reports', roles: ['teacher'] },
     { label: 'Upload Materials', icon: <UploadCloud size={18} />, to: '/teacher/materials', roles: ['teacher'] },
+    { label: 'My Salary', icon: <CreditCard size={18} />, to: '/teacher/salary', roles: ['teacher'] },
     { label: 'Messages', icon: <MessageSquare size={18} />, to: '/teacher/messages', roles: ['teacher'] },
     { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['teacher'] },
 

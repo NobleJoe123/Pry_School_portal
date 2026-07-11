@@ -27,6 +27,7 @@ import LandingPage from './pages/LandingPage';
 import ForgotPassword from './pages/ForgotPassword';
 import UploadMaterials from './pages/Teachers/UploadMaterials';
 import TeacherMessages from './pages/Teachers/Messages';
+import MySalary from './pages/Teachers/MySalary';
 import AdminMaterials from './pages/AdminMaterials';
 import StudentAttendancePage from './pages/Attendance/StudentAttendance';
 import MyChildren from './pages/Parents/MyChildren';
@@ -97,6 +98,7 @@ export default function App() {
                 <Route path="/teacher/scores" element={<Scores />} />
                 <Route path="/teacher/reports" element={<Reports />} />
                 <Route path="/teacher/materials" element={<UploadMaterials />} />
+                <Route path="/teacher/salary" element={<MySalary />} />
                 <Route path="/teacher/messages" element={<TeacherMessages />} />
               </Route>
 
