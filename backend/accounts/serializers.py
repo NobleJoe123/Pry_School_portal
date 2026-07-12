@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest, Notification
+from .models import User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest, Notification, SupportTicket, TicketMessage
 from django.db import transaction
 
 class UserSerializer(serializers.ModelSerializer):
@@ -835,3 +835,63 @@ class NotificationCreateSerializer(serializers.Serializer):
             for recipient in recipients.exclude(id=request.user.id)
         ]
         return Notification.objects.bulk_create(notifications)
+
+
+# ─── Support Ticket Serializers ──────────────────────────────────────────────
+
+class TicketMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+    sender_role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TicketMessage
+        fields = ['id', 'sender_name', 'sender_role', 'body', 'created_at']
+        read_only_fields = ['id', 'sender_name', 'sender_role', 'created_at']
+
+    def get_sender_name(self, obj):
+        return obj.sender.full_name
+
+    def get_sender_role(self, obj):
+        return obj.sender.role
+
+
+class SupportTicketSerializer(serializers.ModelSerializer):
+    messages = TicketMessageSerializer(source='ticket_messages', many=True, read_only=True)
+    parent_name = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SupportTicket
+        fields = [
+            'id', 'parent_name', 'subject', 'category', 'status', 'priority',
+            'created_at', 'updated_at', 'messages', 'unread_count',
+        ]
+        read_only_fields = ['id', 'parent_name', 'created_at', 'updated_at', 'messages', 'unread_count']
+
+    def get_parent_name(self, obj):
+        return obj.parent.full_name
+
+    def get_unread_count(self, obj):
+        return obj.unread_admin_count
+
+
+class CreateSupportTicketSerializer(serializers.ModelSerializer):
+    body = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = SupportTicket
+        fields = ['subject', 'category', 'priority', 'body']
+
+    def create(self, validated_data):
+        body = validated_data.pop('body')
+        request = self.context['request']
+        ticket = SupportTicket.objects.create(parent=request.user, **validated_data)
+        TicketMessage.objects.create(ticket=ticket, sender=request.user, body=body)
+        return ticket
+
+
+class AddTicketMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketMessage
+        fields = ['body']
+

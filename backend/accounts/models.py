@@ -356,3 +356,85 @@ class PasswordResetToken(models.Model):
             not self.is_used and
             (timezone.now() - self.created_at) < timedelta(minutes=15)
         )
+
+
+# Support Ticket Models
+class SupportTicket(models.Model):
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed'),
+    ]
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('normal', 'Normal'),
+        ('high', 'High'),
+        ('urgent', 'Urgent'),
+    ]
+    CATEGORY_CHOICES = [
+        ('Fees & Finance', 'Fees & Finance'),
+        ('Academics', 'Academics'),
+        ('Attendance', 'Attendance'),
+        ('Health & Medical', 'Health & Medical'),
+        ('Discipline', 'Discipline'),
+        ('Admission', 'Admission'),
+        ('General Inquiry', 'General Inquiry'),
+        ('Other', 'Other'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    parent = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='support_tickets',
+        limit_choices_to={'role': 'parent'},
+    )
+    subject = models.CharField(max_length=255)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='General Inquiry')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='normal')
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['parent', 'status']),
+            models.Index(fields=['status']),
+            models.Index(fields=['priority']),
+        ]
+
+    def __str__(self):
+        return f"[{self.status.upper()}] {self.subject} – {self.parent.full_name}"
+
+    @property
+    def unread_admin_count(self):
+        """Messages sent by parent that admin hasn't marked read yet."""
+        return self.ticket_messages.filter(
+            sender__role='parent', is_read_by_admin=False
+        ).count()
+
+
+class TicketMessage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ticket = models.ForeignKey(
+        SupportTicket,
+        on_delete=models.CASCADE,
+        related_name='ticket_messages',
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='ticket_messages_sent',
+    )
+    body = models.TextField()
+    is_read_by_admin = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Msg by {self.sender.full_name} on ticket {self.ticket.subject[:30]}"
+
