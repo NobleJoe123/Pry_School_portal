@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import {
     Users, GraduationCap, BookOpen, CreditCard, CalendarCheck,
     Plus, UserCircle, ChevronRight, AlertCircle, Droplets, MapPin,
-    Phone, Mail, Calendar, Award, FileText, X, CheckCircle, Clock, TrendingUp
+    Phone, Mail, Calendar, Award, FileText, X, CheckCircle, Clock, TrendingUp,
+    Download, Eye, Loader2, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
@@ -393,24 +394,146 @@ function FeesTab({ childId, childName }: { childId: string; childName: string })
     );
 }
 
+interface ReportCardDoc {
+    id: string;
+    term_name: string;
+    academic_year_name: string;
+    is_published: boolean;
+    teacher_remarks: string;
+    admin_remarks: string;
+    psychomotor?: Record<string, number>;
+    student: string;
+    student_name: string;
+}
+
 function DocumentsTab({ child }: { child: any }) {
+    const birthCertUrl: string | null = child.profile?.birth_certificate_url || null;
+    const [reports, setReports] = useState<ReportCardDoc[]>([]);
+    const [loadingReports, setLoadingReports] = useState(true);
+    const [previewReport, setPreviewReport] = useState<ReportCardDoc | null>(null);
+
+    useEffect(() => {
+        const childId = child.user?.id;
+        if (!childId) { setLoadingReports(false); return; }
+        api.get<any>(`${endpoints.academics.reportCards}?student=${childId}`)
+            .then(res => {
+                const list: ReportCardDoc[] = Array.isArray(res) ? res : (res?.results || []);
+                setReports(list.filter((r: ReportCardDoc) => r.is_published));
+            })
+            .catch(() => setReports([]))
+            .finally(() => setLoadingReports(false));
+    }, [child.user?.id]);
+
     return (
-        <div className="space-y-4">
-            <div className="p-5 rounded-2xl border border-white/5 bg-white/[0.02] flex flex-col items-center text-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center">
-                    <FileText size={24} />
-                </div>
-                <div>
-                    <p className="text-white font-bold text-sm">Report Cards</p>
-                    <p className="text-slate-500 text-xs mt-0.5">Download term report cards for {child.user?.first_name}</p>
-                </div>
-                <a
-                    href="/parent/reports"
-                    className="px-5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-xs font-bold rounded-xl transition-all"
-                >
-                    Go to Academic Reports →
-                </a>
+        <div className="space-y-5">
+            {/* Birth Certificate */}
+            <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <ShieldCheck size={11} /> Identity Documents
+                </p>
+                {birthCertUrl ? (
+                    <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-white/[0.06] hover:border-sky-500/20 transition-all"
+                        style={{ background: 'linear-gradient(135deg,#0d1b2a 0%,#0a1628 100%)' }}>
+                        <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0">
+                                <FileText size={20} />
+                            </div>
+                            <div>
+                                <p className="text-white font-bold text-sm">Ward's Birth Certificate</p>
+                                <p className="text-slate-500 text-xs mt-0.5">Uploaded identity document</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <a href={birthCertUrl} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-xs font-bold rounded-xl transition-all">
+                                <Eye size={13} /> View
+                            </a>
+                            <a href={birthCertUrl} download
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10 text-xs font-bold rounded-xl transition-all">
+                                <Download size={13} /> Download
+                            </a>
+                        </div>
+                    </div>
+) : (
+                    <div className="flex items-center gap-3 p-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.01] text-slate-600">
+                        <AlertCircle size={16} />
+                        <p className="text-xs">Birth certificate not uploaded yet. Complete the profile to upload.</p>
+                    </div>
+                )}
             </div>
+
+            {/* Report Cards */}
+            <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <Award size={11} /> Published Report Cards
+                </p>
+                {loadingReports ? (
+                    <div className="space-y-3">
+                        {[1, 2].map(i => <div key={i} className="h-16 bg-white/5 rounded-2xl animate-pulse" />)}
+                    </div>
+                ) : reports.length === 0 ? (
+                    <div className="flex items-center gap-3 p-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.01] text-slate-600">
+                        <AlertCircle size={16} />
+                        <p className="text-xs">No published report cards yet. Check back after end of term.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {reports.map(r => (
+                            <div key={r.id}
+                                className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-white/[0.06] hover:border-amber-500/20 transition-all"
+                                style={{ background: 'linear-gradient(135deg,#0d1b2a 0%,#0a1628 100%)' }}>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                                        <FileText size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="text-white font-bold text-sm">{r.term_name}</p>
+                                        <p className="text-slate-500 text-xs mt-0.5">{r.academic_year_name}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setPreviewReport(r)}
+                                    className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-xs font-bold rounded-xl transition-all shrink-0">
+                                    <Eye size={13} /> Preview
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Quick link to full reports page */}
+            <a href="/parent/reports"
+                className="flex items-center justify-center gap-2 w-full p-3 rounded-2xl border border-sky-500/15 text-sky-400 text-xs font-bold hover:bg-sky-500/5 transition-all">
+                <TrendingUp size={13} /> Go to Full Reports Page
+                <ChevronRight size={13} />
+            </a>
+
+            {/* Simple inline preview modal */}
+            {previewReport && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setPreviewReport(null)}>
+                    <div className="relative w-full max-w-2xl bg-slate-950 border border-white/10 rounded-3xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                            <div>
+                                <p className="text-white font-bold text-sm">{previewReport.term_name} Report Card</p>
+                                <p className="text-slate-500 text-xs">{previewReport.academic_year_name}</p>
+                            </div>
+                            <button onClick={() => setPreviewReport(null)} className="text-slate-500 hover:text-white transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 text-center">
+                            <FileText size={40} className="text-amber-400 mx-auto mb-3" />
+                            <p className="text-white font-bold mb-1">{child.user?.full_name}</p>
+                            <p className="text-slate-400 text-xs mb-5">{previewReport.term_name} · {previewReport.academic_year_name}</p>
+                            <a href="/parent/reports"
+                                className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-black rounded-xl transition-all shadow-lg shadow-amber-500/20">
+                                <Eye size={15} /> View Full Report Card
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
