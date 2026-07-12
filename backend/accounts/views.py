@@ -973,7 +973,7 @@ def parent_complete_profile(request):
     if not passport_photo:
         errors['passport_photo'] = 'Passport photo is required.'
     if not id_document:
-        errors['id_document'] = 'ID document is required.'
+        errors['id_document'] = "Ward's Birth Certificate is required."
 
     # File type validation
     ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -988,9 +988,9 @@ def parent_complete_profile(request):
 
     if id_document:
         if id_document.content_type not in ALLOWED_DOC_TYPES:
-            errors['id_document'] = 'ID document must be JPG, PNG, WEBP, or PDF.'
+            errors['id_document'] = "Ward's Birth Certificate must be JPG, PNG, WEBP, or PDF."
         elif id_document.size > MAX_FILE_SIZE:
-            errors['id_document'] = 'ID document must be less than 3 MB.'
+            errors['id_document'] = "Ward's Birth Certificate must be less than 3 MB."
 
     if errors:
         return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
@@ -999,7 +999,8 @@ def parent_complete_profile(request):
     with transaction.atomic():
         user.phone = phone
         user.address = address
-        user.save(update_fields=['phone', 'address'])
+        user.profile_photo = passport_photo
+        user.save(update_fields=['phone', 'address', 'profile_photo'])
 
         profile.relationship_to_student = relationship
         profile.passport_photo = passport_photo
