@@ -53,7 +53,13 @@ class UserSerializer(serializers.ModelSerializer):
                         'emergency_contact_phone': child.emergency_contact_phone,
                         'emergency_contact_relationship': child.emergency_contact_relationship,
                         'medical_conditions': child.medical_conditions,
-                        'status': child.status
+                        'status': child.status,
+                        'birth_certificate_url': (
+                            child.parent.parent_profile.id_document.url
+                            if child.parent and hasattr(child.parent, 'parent_profile')
+                            and child.parent.parent_profile.id_document
+                            else None
+                        )
                     }
                 } for child in children
             ]
@@ -121,10 +127,19 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     parent_name = serializers.CharField(source='parent.full_name', read_only=True, allow_null=True, default=None)
+    birth_certificate_url = serializers.SerializerMethodField()
     
     class Meta:
         model = StudentProfile
         fields = '__all__'
+
+    def get_birth_certificate_url(self, obj):
+        try:
+            if obj.parent and obj.parent.parent_profile and obj.parent.parent_profile.id_document:
+                return obj.parent.parent_profile.id_document.url
+        except Exception:
+            pass
+        return None
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
