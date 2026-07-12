@@ -27,7 +27,8 @@ from .views import (
     NotificationViewSet,
     parent_enrollment_status,
     get_student_by_admission_number,
-    parent_complete_profile
+    parent_complete_profile,
+    SupportTicketViewSet
 )
 
 
@@ -37,6 +38,7 @@ router.register(r'teachers', TeacherViewSet, basename='teacher')
 router.register(r'parents', ParentViewSet, basename='parent')
 router.register(r'enrollment', EnrollmentRequestViewSet, basename='enrollment')
 router.register(r'notifications', NotificationViewSet, basename='notification')
+router.register(r'tickets', SupportTicketViewSet, basename='ticket')
 
 app_name = 'accounts'
 

@@ -11,8 +11,9 @@ from django.db.models import Count
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db import transaction
-from .models import User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest, Notification
+from .models import SupportTicket, TicketMessage, User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest, Notification
 from .serializers import (
+    SupportTicketSerializer, CreateSupportTicketSerializer, AddTicketMessageSerializer, TicketMessageSerializer,
     UserSerializer, RegisterSerializer, StudentProfileSerializer,
     TeacherProfileSerializer, ParentProfileSerializer, EnrollmentRequestSerializer,
     ChangePasswordSerializer, CreateStudentSerializer, StudentDetailSerializer, 
@@ -1359,3 +1360,81 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def clear_all(self, request):
         deleted, _ = self.get_queryset().delete()
         return Response({'message': f'Cleared {deleted} notification(s).'})
+
+
+# ─── Support Ticket ViewSet ────────────────────────────────────────────────────
+
+class SupportTicketViewSet(viewsets.ModelViewSet):
+    """
+    Parents can create / view / reply to their own tickets.
+    Admin / staff can list all tickets, reply, and change status/priority.
+    """
+    http_method_names = ['get', 'post', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = SupportTicket.objects.select_related('parent').prefetch_related('ticket_messages__sender')
+        if user.role == 'parent':
+            return qs.filter(parent=user)
+        # admin / staff see all
+        return qs
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return CreateSupportTicketSerializer
+        if self.action == 'add_message':
+            return AddTicketMessageSerializer
+        return SupportTicketSerializer
+
+    def get_permissions(self):
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'parent':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only parents can create support tickets.")
+        serializer.save()
+
+    def partial_update(self, request, *args, **kwargs):
+        if request.user.role == 'parent':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Parents cannot update ticket status/priority.")
+        return super().partial_update(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'], url_path='messages')
+    def add_message(self, request, pk=None):
+        ticket = self.get_object()
+        serializer = AddTicketMessageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Parents can only reply to own tickets
+        if request.user.role == 'parent' and ticket.parent != request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You cannot reply to this ticket.")
+
+        msg = TicketMessage.objects.create(
+            ticket=ticket,
+            sender=request.user,
+            body=serializer.validated_data['body'],
+        )
+
+        # If admin replies, mark all parent messages as read
+        if request.user.role in ('admin', 'teacher'):
+            ticket.ticket_messages.filter(sender__role='parent', is_read_by_admin=False).update(is_read_by_admin=True)
+            # Auto-move to in_progress if still open
+            if ticket.status == 'open':
+                ticket.status = 'in_progress'
+                ticket.save(update_fields=['status'])
+
+        return Response(TicketMessageSerializer(msg).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], url_path='unread-count')
+    def unread_count(self, request):
+        """Total unread (parent→admin) messages across all tickets – for badge."""
+        if request.user.role == 'parent':
+            return Response({'count': 0})
+        count = TicketMessage.objects.filter(
+            sender__role='parent', is_read_by_admin=False
+        ).count()
+        return Response({'count': count})
+
