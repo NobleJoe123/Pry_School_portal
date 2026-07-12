@@ -83,10 +83,46 @@ class ReportCardSerializer(serializers.ModelSerializer):
     student_admission = serializers.ReadOnlyField(source='student.student_profile.admission_number')
     term_name = serializers.ReadOnlyField(source='term.name')
     academic_year_name = serializers.ReadOnlyField(source='term.academic_year.name')
+    class_size = serializers.SerializerMethodField()
+    class_position = serializers.SerializerMethodField()
 
     class Meta:
         model = ReportCard
         fields = '__all__'
+
+    def get_class_size(self, obj):
+        profile = getattr(obj.student, 'student_profile', None)
+        if profile and profile.current_class:
+            from accounts.models import StudentProfile
+            return StudentProfile.objects.filter(current_class=profile.current_class, status='active').count()
+            # Return 0 if not assigned or inactive
+        return 0
+
+    def get_class_position(self, obj):
+        profile = getattr(obj.student, 'student_profile', None)
+        if not profile or not profile.current_class:
+            return 0
+        term = obj.term
+        from accounts.models import StudentProfile
+        class_students = list(StudentProfile.objects.filter(current_class=profile.current_class, status='active').values_list('user_id', flat=True))
+        from django.db.models import Sum
+        from academics.models import StudentScore
+        student_scores = StudentScore.objects.filter(
+            student_id__in=class_students,
+            assessment__term=term
+        ).values('student_id', 'assessment__subject_id').annotate(
+            subject_total=Sum('score_obtained')
+        )
+        totals = {}
+        for item in student_scores:
+            s_id = item['student_id']
+            totals[s_id] = totals.get(s_id, 0.0) + float(item['subject_total'] or 0.0)
+        sorted_students = sorted(class_students, key=lambda sid: totals.get(sid, 0.0), reverse=True)
+        try:
+            position = sorted_students.index(obj.student.id) + 1
+            return position
+        except ValueError:
+            return 0
 
     def validate(self, attrs):
         request = self.context.get('request')
