@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { UserPlus, Search, RefreshCw, Pencil, UserX, ChevronLeft, ChevronRight, GraduationCap, CheckCircle, XCircle, X, Phone, Mail, MapPin, Calendar, Droplets, AlertTriangle } from 'lucide-react';
+import { UserPlus, Search, RefreshCw, Pencil, UserX, ChevronLeft, ChevronRight, GraduationCap, CheckCircle, XCircle, X, Phone, Mail, MapPin, Calendar, Droplets, AlertTriangle, FileText, Download, Eye, Award, ShieldCheck, Loader2 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import StudentForm from './StudentForm';
 import { api, endpoints } from '../../utils/api';
@@ -96,6 +96,22 @@ function PupilDetailDrawer({ student, onClose, onEdit, onDeactivate }: {
     const status: StudentStatus = p?.status ?? 'active';
     const initials = `${student.first_name?.[0] ?? ''}${student.last_name?.[0] ?? ''}`.toUpperCase();
 
+    const [reports, setReports] = useState<any[]>([]);
+    const [loadingReports, setLoadingReports] = useState(true);
+    const birthCertUrl: string | null = (p as any)?.birth_certificate_url || null;
+
+    useEffect(() => {
+        if (!student.id) { setLoadingReports(false); return; }
+        setLoadingReports(true);
+        api.get<any>(`${endpoints.academics.reportCards}?student=${student.id}`)
+            .then(res => {
+                const list = Array.isArray(res) ? res : (res?.results || []);
+                setReports(list.filter((r: any) => r.is_published));
+            })
+            .catch(() => setReports([]))
+            .finally(() => setLoadingReports(false));
+    }, [student.id]);
+
     return (
         <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -168,6 +184,69 @@ function PupilDetailDrawer({ student, onClose, onEdit, onDeactivate }: {
                             </div>
                         </div>
                     )}
+
+                    {/* Documents Pane */}
+                    <div className="pt-4 mt-3 border-t border-white/5 space-y-4">
+                        <div>
+                            <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                <ShieldCheck size={11} /> Uploaded Documents
+                            </p>
+                            {birthCertUrl ? (
+                                <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <FileText size={16} className="text-sky-400 shrink-0" />
+                                        <div className="min-w-0">
+                                            <p className="text-white text-xs font-bold truncate">Birth Certificate</p>
+                                            <p className="text-slate-500 text-[10px]">Verification Document</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <a href={birthCertUrl} target="_blank" rel="noopener noreferrer"
+                                            className="p-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-lg transition-all">
+                                            <Eye size={12} />
+                                        </a>
+                                        <a href={birthCertUrl} download
+                                            className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-lg transition-all">
+                                            <Download size={12} />
+                                        </a>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-[11px] text-slate-600 italic">No birth certificate uploaded by parent.</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                <Award size={11} /> Published Reports
+                            </p>
+                            {loadingReports ? (
+                                <div className="flex items-center gap-2 text-slate-600 py-1">
+                                    <Loader2 size={12} className="animate-spin" />
+                                    <span className="text-[11px]">Loading report list...</span>
+                                </div>
+                            ) : reports.length === 0 ? (
+                                <p className="text-[11px] text-slate-600 italic">No published report cards for this pupil.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {reports.map((r: any) => (
+                                        <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/[0.04] bg-white/[0.01]">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <FileText size={16} className="text-amber-400 shrink-0" />
+                                                <div className="min-w-0">
+                                                    <p className="text-white text-xs font-bold truncate">{r.term_name}</p>
+                                                    <p className="text-slate-500 text-[10px] font-mono">{r.academic_year_name}</p>
+                                                </div>
+                                            </div>
+                                            <a href={`/reports?student=${student.id}&term=${r.term}`} className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-[10px] font-bold transition-all shrink-0">
+                                                View Report
+                                            </a>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 <div className="px-5 py-4 border-t border-white/5 flex gap-3 shrink-0">

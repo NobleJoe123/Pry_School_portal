@@ -243,6 +243,8 @@ export const endpoints = {
         payrollAction: (id: string, action: string) => `/finance/payroll/${id}/${action}/`,
         payrollPayslip: (id: string) => `/finance/payroll/${id}/payslip/`,
         payrollAuditLogs: (id: string) => `/finance/payroll/${id}/audit_logs/`,
+        paystackInitialize: (id: string) => `/finance/student-fees/${id}/initialize_paystack/`,
+        paystackVerify: '/finance/student-fees/verify_paystack/',
     },
 
     attendance: {
