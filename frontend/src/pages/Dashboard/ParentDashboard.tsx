@@ -172,7 +172,7 @@ export default function ParentDashboard() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-black text-white" style={{ fontFamily: "'DM Serif Display',serif" }}>
-                        Welcome back, {user?.first_name} 👋
+                        Welcome back, {user?.first_name}
                     </h1>
                     <p className="text-slate-500 text-sm mt-0.5">Here's a quick overview of your children's school life.</p>
                 </div>

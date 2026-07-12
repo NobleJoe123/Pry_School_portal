@@ -14,24 +14,24 @@ import ParentForm from './ParentForm';
 export type ParentUser = User & {
   parent_profile?: {
     relationship_to_student: string;
-    occupation:              string | null;
-    employer:                string | null;
-    office_address:          string | null;
-    office_phone:            string | null;
-    alternate_phone:         string | null;
-    completed_profile?:      boolean;
-    passport_photo_url?:     string | null;
-    id_document_url?:        string | null;
+    occupation: string | null;
+    employer: string | null;
+    office_address: string | null;
+    office_phone: string | null;
+    alternate_phone: string | null;
+    completed_profile?: boolean;
+    passport_photo_url?: string | null;
+    id_document_url?: string | null;
   };
   children?: {
-    id:         string;
-    full_name:  string;
-    email:      string;
-    is_active:  boolean;
+    id: string;
+    full_name: string;
+    email: string;
+    is_active: boolean;
     student_profile?: {
       admission_number: string;
-      current_class:    string | null;
-      status:           string;
+      current_class: string | null;
+      status: string;
     };
   }[];
 };
@@ -39,16 +39,16 @@ export type ParentUser = User & {
 const PAGE_SIZE = 10;
 
 const RELATIONSHIP_COLORS: Record<string, string> = {
-  father:   'bg-sky-500/15 text-sky-400',
-  mother:   'bg-violet-500/15 text-violet-400',
+  father: 'bg-sky-500/15 text-sky-400',
+  mother: 'bg-violet-500/15 text-violet-400',
   guardian: 'bg-amber-500/15 text-amber-400',
-  other:    'bg-slate-500/15 text-slate-400',
+  other: 'bg-slate-500/15 text-slate-400',
 };
 
 // ─── PARENT DETAIL MODAL ──────────────────────────────────────────────────────
 
 function ParentDetail({ parent, onToggleActive, toggling }: { parent: ParentUser; onToggleActive: () => void; toggling: boolean }) {
-  const profile  = parent.parent_profile;
+  const profile = parent.parent_profile;
   const children = (parent.children ?? []).map((child: any) => {
     if (child.user) {
       return {
@@ -70,14 +70,14 @@ function ParentDetail({ parent, onToggleActive, toggling }: { parent: ParentUser
       {/* Contact info */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Email',       value: parent.email       },
-          { label: 'Phone',       value: parent.phone       },
-          { label: 'Relationship',value: profile?.relationship_to_student },
-          { label: 'Occupation',  value: profile?.occupation },
-          { label: 'Employer',    value: profile?.employer   },
-          { label: 'Office Phone',value: profile?.office_phone },
-          { label: 'Alt Phone',   value: profile?.alternate_phone },
-          { label: 'Address',     value: parent.address     },
+          { label: 'Email', value: parent.email },
+          { label: 'Phone', value: parent.phone },
+          { label: 'Relationship', value: profile?.relationship_to_student },
+          { label: 'Occupation', value: profile?.occupation },
+          { label: 'Employer', value: profile?.employer },
+          { label: 'Office Phone', value: profile?.office_phone },
+          { label: 'Alt Phone', value: profile?.alternate_phone },
+          { label: 'Address', value: parent.address },
         ].map(({ label, value }) => (
           <div key={label} className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
             <p className="text-slate-500 text-[10px] uppercase tracking-wide font-semibold mb-1">
@@ -103,11 +103,10 @@ function ParentDetail({ parent, onToggleActive, toggling }: { parent: ParentUser
               target="_blank"
               rel="noopener noreferrer"
               aria-disabled={!url}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-xs transition-all ${
-                url
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-xs transition-all ${url
                   ? 'bg-sky-500/10 border-sky-500/20 text-sky-300 hover:bg-sky-500/15'
                   : 'bg-white/5 border-white/5 text-slate-600 pointer-events-none'
-              }`}
+                }`}
             >
               <FileText size={15} />
               <span className="font-bold">{label}</span>
@@ -160,11 +159,10 @@ function ParentDetail({ parent, onToggleActive, toggling }: { parent: ParentUser
         <button
           onClick={onToggleActive}
           disabled={toggling}
-          className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-50 ${
-            parent.is_active
+          className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all disabled:opacity-50 ${parent.is_active
               ? 'bg-red-500/10 text-red-400 border border-red-500/25 hover:bg-red-500/15'
               : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/15'
-          }`}
+            }`}
         >
           {parent.is_active ? <UserX size={16} /> : <UserCheck size={16} />}
           {toggling ? 'Updating...' : parent.is_active ? 'Deactivate Parent' : 'Reactivate Parent'}
@@ -177,14 +175,14 @@ function ParentDetail({ parent, onToggleActive, toggling }: { parent: ParentUser
 // ─── PARENTS PAGE ─────────────────────────────────────────────────────────────
 
 export default function Parents() {
-  const [parents,      setParents]      = useState<ParentUser[]>([]);
-  const [total,        setTotal]        = useState(0);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState('');
-  const [search,       setSearch]       = useState('');
-  const [page,         setPage]         = useState(1);
-  const [viewTarget,   setViewTarget]   = useState<ParentUser | null>(null);
-  const [isFormOpen,   setIsFormOpen]   = useState(false);
+  const [parents, setParents] = useState<ParentUser[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [viewTarget, setViewTarget] = useState<ParentUser | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editParentId, setEditParentId] = useState<string | undefined>(undefined);
   const [togglingParent, setTogglingParent] = useState(false);
 
@@ -213,13 +211,13 @@ export default function Parents() {
   useEffect(() => { fetchParents(); }, [fetchParents]);
   useEffect(() => { setPage(1); }, [search]);
 
-  const totalPages   = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
   const skeletonRows = Array.from({ length: 6 });
 
   const getRelationship = (p: ParentUser) =>
     p.parent_profile?.relationship_to_student ?? 'guardian';
-  const getChildCount   = (p: ParentUser) => p.children?.length ?? 0;
-  const getInitials     = (p: ParentUser) =>
+  const getChildCount = (p: ParentUser) => p.children?.length ?? 0;
+  const getInitials = (p: ParentUser) =>
     `${p.first_name?.[0] ?? ''}${p.last_name?.[0] ?? ''}`.toUpperCase();
 
   const openParentDetail = async (parent: ParentUser) => {
@@ -290,7 +288,7 @@ export default function Parents() {
                        text-white text-sm placeholder-slate-600 focus:outline-none
                        focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/40 transition-all" />
         </div>
-        <button 
+        <button
           onClick={fetchParents}
           className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
           title="Refresh List"
@@ -318,7 +316,7 @@ export default function Parents() {
               {loading ? (
                 skeletonRows.map((_, i) => (
                   <tr key={i} className="border-b border-white/[0.04]">
-                    {[1,2,3,4,5,6,7].map((j) => (
+                    {[1, 2, 3, 4, 5, 6, 7].map((j) => (
                       <td key={j} className="px-5 py-4">
                         <div className="h-3 bg-white/5 rounded animate-pulse w-24" />
                       </td>
@@ -384,7 +382,7 @@ export default function Parents() {
                     <td className="px-5 py-3.5">
                       {p.is_active
                         ? <CheckCircle size={15} className="text-emerald-500" />
-                        : <XCircle    size={15} className="text-red-500/60" />}
+                        : <XCircle size={15} className="text-red-500/60" />}
                     </td>
 
                     {/* Joined */}
@@ -406,11 +404,10 @@ export default function Parents() {
                           onClick={() => {
                             toggleParentActive(p);
                           }}
-                          className={`p-1.5 rounded-lg transition-all ${
-                            p.is_active
+                          className={`p-1.5 rounded-lg transition-all ${p.is_active
                               ? 'text-red-500 hover:text-red-400 hover:bg-red-500/10'
                               : 'text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10'
-                          }`}
+                            }`}
                           title={p.is_active ? 'Deactivate parent' : 'Reactivate parent'}
                         >
                           {p.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
@@ -439,8 +436,8 @@ export default function Parents() {
               Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
             </p>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setPage((p) => Math.max(1, p - 1))} 
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Previous Page"
@@ -457,7 +454,7 @@ export default function Parents() {
                   {p}
                 </button>
               ))}
-              <button 
+              <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
