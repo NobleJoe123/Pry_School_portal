@@ -142,7 +142,7 @@ export default function ParentProfileCompletionModal({ onComplete }: Props) {
         if (!address.trim()) errs.address = 'Residential address is required';
         if (!relationship) errs.relationship_to_student = 'Please select your relationship to the pupil';
         if (!passportPhoto) errs.passport_photo = 'Passport photo is required';
-        if (!idDocument) errs.id_document = 'ID document is required';
+        if (!idDocument) errs.id_document = "Ward's Birth Certificate is required";
         setErrors(errs);
         return Object.keys(errs).length === 0;
     };
@@ -274,8 +274,8 @@ export default function ParentProfileCompletionModal({ onComplete }: Props) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <FileDrop
                                 id="passport_photo"
-                                label="Passport Photo"
-                                hint="JPG, PNG, or WEBP · max 3 MB"
+                                label="Parent Passport Photo"
+                                hint="Your passport-sized photo · JPG, PNG, or WEBP · max 3 MB"
                                 icon={<Camera size={10} />}
                                 accept="image/jpeg,image/png,image/webp"
                                 value={passportPhoto}
@@ -284,8 +284,8 @@ export default function ParentProfileCompletionModal({ onComplete }: Props) {
                             />
                             <FileDrop
                                 id="id_document"
-                                label="ID Document"
-                                hint="NIN, Driver's Licence, etc. · max 3 MB"
+                                label="Ward's Birth Certificate"
+                                hint="Pupil's birth certificate · JPG, PNG, WEBP, or PDF · max 3 MB"
                                 icon={<FileText size={10} />}
                                 accept="image/jpeg,image/png,image/webp,application/pdf"
                                 value={idDocument}
