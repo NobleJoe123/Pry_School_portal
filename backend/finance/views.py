@@ -1,4 +1,6 @@
 from decimal import Decimal
+import requests
+from django.conf import settings
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -265,6 +267,196 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
         return Response({
             'message': f'Fee assigned to {created_count} student(s). {students.count() - created_count} already had this fee.'
         })
+
+    @action(detail=True, methods=['post'])
+    def initialize_paystack(self, request, pk=None):
+        """Initialize Paystack payment for a specific StudentFee."""
+        student_fee = self.get_object()
+        if student_fee.status == 'paid':
+            return Response({'error': 'Fee is already fully paid.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        amount = request.data.get('amount')
+        if not amount:
+            amount = student_fee.balance
+        else:
+            try:
+                amount = Decimal(str(amount))
+            except Exception:
+                return Response({'error': 'Invalid amount.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if amount <= 0:
+                return Response({'error': 'Amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
+            if amount > student_fee.balance:
+                return Response({'error': f'Amount exceeds outstanding balance of {student_fee.balance}.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = getattr(request.user, 'email', None) or getattr(student_fee.student, 'email', None) or 'billing@anyiprimaryschool.ng'
+
+        # If PAYSTACK_SECRET_KEY is empty, fall back to mock sandbox payment
+        paystack_key = getattr(settings, 'PAYSTACK_SECRET_KEY', '')
+        if not paystack_key:
+            ref = f"MOCK-{student_fee.id}-{int(timezone.now().timestamp())}"
+            mock_url = f"/parent/fees?mock_status=success&reference={ref}&amount={amount}&fee_id={student_fee.id}"
+            return Response({
+                'authorization_url': mock_url,
+                'reference': ref,
+                'mock': True
+            })
+
+        # Real Paystack initialization
+        ref = f"PSTK-{student_fee.id}-{int(timezone.now().timestamp())}"
+        headers = {
+            'Authorization': f'Bearer {paystack_key}',
+            'Content-Type': 'application/json',
+        }
+        
+        callback_url = request.data.get('callback_url') or request.build_absolute_uri('/parent/fees')
+        if '?' in callback_url:
+            callback_url += f"&reference={ref}"
+        else:
+            callback_url += f"?reference={ref}"
+
+        payload = {
+            'email': email,
+            'amount': int(float(amount) * 100),  # converted to kobo
+            'reference': ref,
+            'callback_url': callback_url,
+            'metadata': {
+                'student_fee_id': str(student_fee.id),
+                'amount': float(amount),
+            }
+        }
+
+        try:
+            r = requests.post('https://api.paystack.co/transaction/initialize', json=payload, headers=headers, timeout=15)
+            r_data = r.json()
+            if r.status_code == 200 and r_data.get('status') is True:
+                return Response(r_data.get('data'))
+            else:
+                return Response({'error': r_data.get('message', 'Failed to initialize Paystack transaction.')}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'Paystack API connection error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def verify_paystack(self, request):
+        """Verify transaction with Paystack and credit student fee."""
+        reference = request.data.get('reference')
+        fee_id = request.data.get('student_fee_id')
+
+        if not reference:
+            return Response({'error': 'Transaction reference is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_payment = PaymentRecord.objects.filter(transaction_id=reference).first()
+        if existing_payment:
+            return Response({
+                'message': 'Payment already verified.',
+                'student_fee': StudentFeeSerializer(existing_payment.student_fee).data
+            })
+
+        amount = None
+        student_fee = None
+        paystack_key = getattr(settings, 'PAYSTACK_SECRET_KEY', '')
+
+        # Mock reference support
+        if reference.startswith('MOCK-'):
+            if paystack_key:
+                return Response({'error': 'Mock references are not accepted in production mode.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not fee_id:
+                parts = reference.split('-')
+                if len(parts) >= 2:
+                    fee_id = parts[1]
+            
+            if not fee_id:
+                return Response({'error': 'student_fee_id is required for mock verification.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                student_fee = StudentFee.objects.get(id=fee_id)
+            except StudentFee.DoesNotExist:
+                return Response({'error': 'Student fee not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+            amount = request.data.get('amount')
+            if not amount:
+                amount = student_fee.balance
+            else:
+                amount = Decimal(str(amount))
+        else:
+            if not paystack_key:
+                return Response({'error': 'Paystack keys are not configured. Cannot verify real transactions.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            headers = {
+                'Authorization': f'Bearer {paystack_key}',
+            }
+            try:
+                r = requests.get(f'https://api.paystack.co/transaction/verify/{reference}', headers=headers, timeout=15)
+                r_data = r.json()
+                if r.status_code == 200 and r_data.get('status') is True:
+                    data = r_data.get('data')
+                    if data.get('status') != 'success':
+                        return Response({'error': f"Transaction verification failed: status is {data.get('status')}"}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    amount = Decimal(data.get('amount')) / 100
+                    fee_id = data.get('metadata', {}).get('student_fee_id') or fee_id
+                    if not fee_id:
+                        return Response({'error': 'Student fee information missing in transaction metadata.'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    try:
+                        student_fee = StudentFee.objects.get(id=fee_id)
+                    except StudentFee.DoesNotExist:
+                        return Response({'error': 'Student fee not found.'}, status=status.HTTP_404_NOT_FOUND)
+                else:
+                    return Response({'error': r_data.get('message', 'Failed to verify transaction with Paystack.')}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                return Response({'error': f'Paystack API connection error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        payment = PaymentRecord.objects.create(
+            student_fee=student_fee,
+            amount=amount,
+            payment_method='online',
+            transaction_id=reference,
+            received_by=None,
+        )
+
+        student_fee.amount_paid += Decimal(str(amount))
+        if student_fee.amount_paid >= student_fee.fee_type.amount:
+            student_fee.status = 'paid'
+        elif student_fee.amount_paid > 0:
+            student_fee.status = 'partial'
+        student_fee.save()
+
+        try:
+            from accounts.models import Notification
+            student = student_fee.student
+            fee_name = student_fee.fee_type.name
+            parent = student.student_profile.parent if hasattr(student, 'student_profile') else None
+            
+            msg = f"A payment of ₦{amount:,.2f} has been verified for {student.full_name}'s {fee_name} via online gateway. New status: {student_fee.get_status_display()}."
+            if parent:
+                Notification.objects.create(
+                    sender=None,
+                    recipient=parent,
+                    title="Online Payment Verified",
+                    message=msg,
+                    category='finance',
+                    audience='selected'
+                )
+            
+            Notification.objects.create(
+                sender=None,
+                recipient=student,
+                title="Fee Payment Recorded",
+                message=f"Online payment of ₦{amount:,.2f} was successfully recorded for your {fee_name}.",
+                category='finance',
+                audience='selected'
+            )
+        except Exception as e:
+            print(f"Error sending online payment notification: {e}")
+
+        return Response({
+            'message': 'Payment verified successfully.',
+            'payment_id': str(payment.id),
+            'student_fee': StudentFeeSerializer(student_fee).data
+        })
+
 
 
 class PaymentRecordViewSet(viewsets.ModelViewSet):
