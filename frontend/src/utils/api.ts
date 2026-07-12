@@ -253,4 +253,11 @@ export const endpoints = {
         submissions: '/attendance/submissions/',
     },
 
+    tickets: {
+        list: '/auth/tickets/',
+        detail: (id: string) => `/auth/tickets/${id}/`,
+        messages: (id: string) => `/auth/tickets/${id}/messages/`,
+        unreadCount: '/auth/tickets/unread-count/',
+    },
+
 };
