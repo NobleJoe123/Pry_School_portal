@@ -1,10 +1,12 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Users, GraduationCap, UserCheck, BookOpen,
     CreditCard, CalendarCheck, Settings, LogOut, ChevronLeft,
     ChevronRight, Bell, CalendarDays, FileText, MessageSquare, UploadCloud, FolderOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api, endpoints } from '../utils/api';
 import logo from '../assets/anyilogo.png';
 
 // Navigation Items
@@ -31,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/attendance', roles: ['admin'] },
     { label: 'Reports', icon: <FileText size={18} />, to: '/reports', roles: ['admin'] },
     { label: 'Communications', icon: <MessageSquare size={18} />, to: '/notifications', roles: ['admin'] },
+    { label: 'Support Tickets', icon: <MessageSquare size={18} />, to: '/admin/tickets', roles: ['admin'] },
     { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin'] },
 
 
@@ -91,6 +94,22 @@ export default function Sidebar({ collapsed, onToggle, onLinkClick }: SidebarPro
 
     const userRole = user?.role || '';
     const filteredNavItems = NAV_ITEMS.filter(item => item.roles.includes(userRole));
+    const [ticketUnread, setTicketUnread] = useState(0);
+
+    useEffect(() => {
+        if (userRole === 'admin') {
+            api.get<{ count: number }>(endpoints.tickets.unreadCount)
+                .then(d => setTicketUnread(d.count))
+                .catch(() => {});
+        }
+    }, [userRole]);
+
+    // Inject unread badge into admin tickets item
+    const navItemsWithBadge = filteredNavItems.map(item =>
+        item.to === '/admin/tickets' && ticketUnread > 0
+            ? { ...item, badge: ticketUnread }
+            : item
+    );
 
     return (
         <aside className="flex flex-col h-screen sticky top-0 border-r border-white/5 transition-all duration-300 shrink-0"
@@ -121,7 +140,7 @@ export default function Sidebar({ collapsed, onToggle, onLinkClick }: SidebarPro
 
             {/* Main Nav */}
             <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-                {filteredNavItems.map((item) => (
+                {navItemsWithBadge.map((item) => (
                     <NavLink
                         key={item.to}
                         to={item.to}
