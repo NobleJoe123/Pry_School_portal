@@ -1387,7 +1387,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         return SupportTicketSerializer
 
     def get_permissions(self):
-        return [permissions.IsAuthenticated()]
+        return [IsAuthenticated()]
 
     def perform_create(self, serializer):
         if self.request.user.role != 'parent':
