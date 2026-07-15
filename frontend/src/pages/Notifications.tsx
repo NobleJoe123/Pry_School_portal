@@ -71,7 +71,7 @@ function NotificationComposer({ onSent }: { onSent: () => void }) {
                 <Send size={18} className="text-sky-400" />
             </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <FilterDropdown
                     value={audience}
                     options={[
@@ -251,8 +251,8 @@ export default function Notifications() {
                                             Mark read
                                         </button>
                                     )}
-                                    <button 
-                                        onClick={() => clearNotification(item.id)} 
+                                    <button
+                                        onClick={() => clearNotification(item.id)}
                                         className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                         title="Delete notification"
                                     >
