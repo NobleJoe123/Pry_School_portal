@@ -1370,6 +1370,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
     Admin / staff can list all tickets, reply, and change status/priority.
     """
     http_method_names = ['get', 'post', 'patch', 'head', 'options']
+    pagination_class = None
 
     def get_queryset(self):
         user = self.request.user
