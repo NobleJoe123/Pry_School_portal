@@ -736,13 +736,14 @@ class UpdateParentSerializer(serializers.Serializer):
     
 class ParentDetailSerializer(serializers.ModelSerializer):
     """Complete parent data with children"""
+    full_name = serializers.CharField(read_only=True)
     parent_profile = ParentProfileSerializer(read_only=True)
     children = serializers.SerializerMethodField()
     profile_photo_url = serializers.SerializerMethodField()
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name',
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name',
                   'role', 'phone', 'date_of_birth', 'address', 'is_active',
                   'date_joined', 'profile_photo_url', 'parent_profile', 'children']
 
