@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle, MailOpen, RefreshCw, Send, Filter, Calendar, BookOpen, Wallet, GraduationCap, Trash2 } from 'lucide-react';
 import { api, endpoints } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -143,8 +144,15 @@ function NotificationComposer({ onSent }: { onSent: () => void }) {
 
 export default function Notifications() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [items, setItems] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (user?.role === 'admin') {
+            navigate('/admin/tickets', { replace: true });
+        }
+    }, [user, navigate]);
 
     const fetchNotifications = async () => {
         setLoading(true);
