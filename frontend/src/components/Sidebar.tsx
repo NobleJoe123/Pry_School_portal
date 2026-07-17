@@ -32,8 +32,7 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Finance', icon: <CreditCard size={18} />, to: '/finance', roles: ['admin'] },
     { label: 'Attendance', icon: <CalendarCheck size={18} />, to: '/attendance', roles: ['admin'] },
     { label: 'Reports', icon: <FileText size={18} />, to: '/reports', roles: ['admin'] },
-    { label: 'Communications', icon: <MessageSquare size={18} />, to: '/notifications', roles: ['admin'] },
-    { label: 'Support Tickets', icon: <MessageSquare size={18} />, to: '/admin/tickets', roles: ['admin'] },
+    { label: 'Notifications', icon: <Bell size={18} />, to: '/admin/tickets', roles: ['admin'] },
     { label: 'School Calendar', icon: <CalendarDays size={18} />, to: '/calendar', roles: ['admin'] },
 
 
@@ -100,7 +99,7 @@ export default function Sidebar({ collapsed, onToggle, onLinkClick }: SidebarPro
         if (userRole === 'admin') {
             api.get<{ count: number }>(endpoints.tickets.unreadCount)
                 .then(d => setTicketUnread(d.count))
-                .catch(() => {});
+                .catch(() => { });
         }
     }, [userRole]);
 
