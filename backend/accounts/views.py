@@ -1420,7 +1420,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         )
 
         # If admin replies, mark all parent messages as read
-        if request.user.role in ('admin', 'teacher'):
+        if request.user.role in ('admin'):
             ticket.ticket_messages.filter(sender__role='parent', is_read_by_admin=False).update(is_read_by_admin=True)
             # Auto-move to in_progress if still open
             if ticket.status == 'open':
