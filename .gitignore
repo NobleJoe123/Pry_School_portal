@@ -24,8 +24,11 @@ htmlcov/
 backend/staticfiles/
 backend/media/
 backend/celerybeat-schedule
+backend/pry_school_portal
 *.sqlite3
 db.sqlite3
+*.db
+parent_dashboard_diff.txt
 
 # Node / Vite
 node_modules/
