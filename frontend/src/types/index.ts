@@ -262,6 +262,7 @@ export interface Term {
     name: '1st Term' | '2nd Term' | '3rd Term';
     start_date: string;
     end_date: string;
+    resumption_date?: string;
     is_current: boolean;
 }
 
