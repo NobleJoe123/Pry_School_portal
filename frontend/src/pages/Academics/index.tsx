@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, GraduationCap, Calendar, Layers, BookOpen, User as UserIcon, X, CheckCircle, Bell, DollarSign, Clock } from 'lucide-react';
+import { Plus, GraduationCap, Calendar, Layers, BookOpen, User as UserIcon, X, CheckCircle, Bell, DollarSign, Clock, Trash2, Filter, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import type { AcademicYear, Term, ClassLevel, SchoolClass, Subject } from '../../types';
 
@@ -22,6 +22,13 @@ export default function Academics() {
     const [resumptionDate, setResumptionDate] = useState('');
     const [activating, setActivating] = useState(false);
     const [activationSuccess, setActivationSuccess] = useState<{ message: string; notifs: number; fees: number } | null>(null);
+
+    // Subject Deletion & Filtering State
+    const [deletingSubject, setDeletingSubject] = useState<Subject | null>(null);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [subjectLevelFilter, setSubjectLevelFilter] = useState<string>('all');
+    const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
 
     const [data, setData] = useState<{
         years: AcademicYear[];
@@ -121,6 +128,25 @@ export default function Academics() {
         }
     };
 
+    const handleDeleteSubject = async () => {
+        if (!deletingSubject) return;
+        setDeleting(true);
+        setDeleteError(null);
+        try {
+            await api.delete(`${endpoints.academics.subjects}${deletingSubject.id}/`);
+            setDeletingSubject(null);
+            await loadData();
+        } catch (err: any) {
+            setDeleteError(err.message || 'Failed to delete subject. It may be linked to recorded assessments or scores.');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const filteredLevels = subjectLevelFilter === 'all'
+        ? data.levels
+        : data.levels.filter(l => l.id === subjectLevelFilter);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -211,6 +237,56 @@ export default function Academics() {
                         {saving ? 'Saving...' : `Save ${activeLabel}`}
                     </button>
                 </form>
+            )}
+
+            {/* Delete Subject Confirmation Modal */}
+            {deletingSubject && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
+                    <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center">
+                                    <AlertTriangle size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-white">Delete Subject</h3>
+                                    <p className="text-xs text-slate-400">Confirm subject removal</p>
+                                </div>
+                            </div>
+                            <button onClick={() => { setDeletingSubject(null); setDeleteError(null); }} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/5">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                            Are you sure you want to delete <strong className="text-white font-bold">{deletingSubject.name} ({deletingSubject.code})</strong>?
+                        </p>
+                        <p className="text-[11px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl">
+                            This will remove the subject from its level curriculum ({deletingSubject.level_name || 'assigned level'}).
+                        </p>
+
+                        {deleteError && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium">
+                                {deleteError}
+                            </div>
+                        )}
+
+                        <div className="flex gap-3 pt-2">
+                            <button type="button" onClick={() => { setDeletingSubject(null); setDeleteError(null); }}
+                                className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold rounded-xl transition-all border border-white/5">
+                                Cancel
+                            </button>
+                            <button type="button" onClick={handleDeleteSubject} disabled={deleting}
+                                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-red-500/10 flex items-center justify-center gap-2">
+                                {deleting ? (
+                                    <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Deleting...</>
+                                ) : (
+                                    <><Trash2 size={14} /> Delete Subject</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Term Activation & Resumption Modal */}
@@ -357,41 +433,172 @@ export default function Academics() {
                         </div>
                     )}
 
-                    {activeTab === 'levels' && <SimpleTable headers={['Level', 'Sort Order', 'Subjects']} rows={data.levels.map(l => [l.name, String(l.numeric_level), String(data.subjects.filter(s => s.level === l.id).length)])} />}
-                    {activeTab === 'classes' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {data.classes.map(cls => (
-                                <div key={cls.id} className="p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-amber-500/30 transition-all group">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-                                            <GraduationCap size={24} />
-                                        </div>
-                                        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500 bg-white/5 px-2 py-1 rounded-md">{cls.level_name}</span>
-                                    </div>
-                                    <h3 className="text-lg font-bold text-white mb-1">{cls.name}</h3>
-                                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-4">
-                                        <UserIcon size={14} className="text-amber-500/60" />
-                                        <span>{cls.teacher_name || 'No teacher assigned'}</span>
-                                    </div>
-                                    <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                                        <span className="text-xs text-slate-500 uppercase tracking-tighter">{data.subjects.filter(s => s.level === cls.level).length} subjects</span>
-                                    </div>
-                                </div>
-                            ))}
+                    {activeTab === 'levels' && (
+                        <div className="space-y-4">
+                            <SimpleTable 
+                                headers={['Class Level', 'Sort Level Order', 'Distributed Subjects Count', 'Associated Classes']} 
+                                rows={data.levels.map(l => {
+                                    const lvlSubjects = data.subjects.filter(s => s.level === l.id);
+                                    const lvlClasses = data.classes.filter(c => c.level === l.id);
+                                    const classNames = lvlClasses.length > 0 ? lvlClasses.map(c => c.name).join(', ') : 'None';
+                                    return [l.name, String(l.numeric_level), `${lvlSubjects.length} subjects`, classNames];
+                                })} 
+                            />
                         </div>
                     )}
-                    {activeTab === 'subjects' && (
+
+                    {activeTab === 'classes' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {data.subjects.map(subject => (
-                                <div key={subject.id} className="p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-amber-500/30 transition-all">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <BookOpen size={22} className="text-amber-400" />
-                                        <span className="text-[10px] font-mono text-slate-500 bg-white/5 px-2 py-1 rounded-lg">{subject.code}</span>
+                            {data.classes.map(cls => {
+                                const classSubjects = data.subjects.filter(s => s.level === cls.level);
+                                const isExpanded = expandedClassId === cls.id;
+                                return (
+                                    <div key={cls.id} className="p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-amber-500/30 transition-all group flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex items-start justify-between mb-4">
+                                                <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                                    <GraduationCap size={24} />
+                                                </div>
+                                                <span className="text-[10px] uppercase tracking-wider font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
+                                                    {cls.level_name}
+                                                </span>
+                                            </div>
+                                            <h3 className="text-lg font-bold text-white mb-1">{cls.name}</h3>
+                                            <div className="flex items-center gap-2 text-slate-400 text-sm mb-4">
+                                                <UserIcon size={14} className="text-amber-500/60" />
+                                                <span>{cls.teacher_name || 'No teacher assigned'}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4 border-t border-white/5 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-amber-300 font-bold flex items-center gap-1.5">
+                                                    <BookOpen size={14} />
+                                                    {classSubjects.length} Subjects Distributed
+                                                </span>
+                                                <button 
+                                                    onClick={() => setExpandedClassId(isExpanded ? null : cls.id)}
+                                                    className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-[11px] font-bold text-slate-300 flex items-center gap-1 transition-all">
+                                                    {isExpanded ? <>Hide <ChevronUp size={12} /></> : <>View Subjects <ChevronDown size={12} /></>}
+                                                </button>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div className="p-3 bg-slate-950/60 rounded-xl border border-white/5 space-y-2 animate-in fade-in zoom-in-95">
+                                                    <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold border-b border-white/5 pb-1">
+                                                        Curriculum Subjects for {cls.name}:
+                                                    </p>
+                                                    {classSubjects.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {classSubjects.map(sub => (
+                                                                <span key={sub.id} className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-medium rounded-md flex items-center gap-1">
+                                                                    <span className="font-mono text-[9px] text-amber-500">{sub.code}:</span> {sub.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-slate-500 italic">No subjects added to this class level yet.</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <h3 className="text-white font-bold">{subject.name}</h3>
-                                    <p className="text-slate-500 text-xs mt-1">Current subject for {subject.level_name || 'assigned level'}</p>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {activeTab === 'subjects' && (
+                        <div className="space-y-6">
+                            {/* Filter Bar */}
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white/5 border border-white/5 rounded-2xl">
+                                <div className="flex items-center gap-2">
+                                    <Filter size={16} className="text-amber-400" />
+                                    <span className="text-xs font-bold text-white uppercase tracking-wider">Filter Subjects by Class Level:</span>
                                 </div>
-                            ))}
+                                <select 
+                                    value={subjectLevelFilter} 
+                                    onChange={e => setSubjectLevelFilter(e.target.value)}
+                                    className="px-3 py-2 bg-slate-950 border border-white/10 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-amber-500/50">
+                                    <option value="all">All Class Levels ({data.subjects.length} total subjects)</option>
+                                    {data.levels.map(l => (
+                                        <option key={l.id} value={l.id}>{l.name} ({data.subjects.filter(s => s.level === l.id).length} subjects)</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Subjects Distributed by Class Level */}
+                            {filteredLevels.map(level => {
+                                const levelSubjects = data.subjects.filter(s => s.level === level.id);
+                                const levelClasses = data.classes.filter(c => c.level === level.id);
+                                return (
+                                    <div key={level.id} className="p-6 bg-slate-900/50 border border-white/5 rounded-3xl space-y-4">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h2 className="text-lg font-bold text-white">{level.name} Level</h2>
+                                                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-mono font-bold rounded-md">
+                                                        Level {level.numeric_level}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-slate-400 mt-1">
+                                                    Distributed to {levelClasses.length} class(es): {' '}
+                                                    <span className="text-amber-300 font-medium">
+                                                        {levelClasses.length > 0 ? levelClasses.map(c => c.name).join(', ') : 'No classes created for this level yet'}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-400 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5 w-max">
+                                                {levelSubjects.length} Subject{levelSubjects.length === 1 ? '' : 's'} Distributed
+                                            </span>
+                                        </div>
+
+                                        {levelSubjects.length > 0 ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {levelSubjects.map(subject => (
+                                                    <div key={subject.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-amber-500/30 transition-all flex flex-col justify-between group">
+                                                        <div>
+                                                            <div className="flex items-center justify-between mb-3">
+                                                                <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400">
+                                                                    <BookOpen size={18} />
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md font-bold">
+                                                                        {subject.code}
+                                                                    </span>
+                                                                    <button 
+                                                                        onClick={() => setDeletingSubject(subject)}
+                                                                        title="Delete Subject"
+                                                                        className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg transition-all">
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <h3 className="text-white font-bold text-base">{subject.name}</h3>
+                                                            <p className="text-slate-400 text-xs mt-1">
+                                                                Curriculum for <span className="text-amber-300">{subject.level_name || level.name}</span>
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+                                                            <span>Distributed to {levelClasses.length} class(es)</span>
+                                                            <button 
+                                                                onClick={() => setDeletingSubject(subject)}
+                                                                className="text-red-400 hover:text-red-300 font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Trash2 size={12} /> Delete
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="p-6 text-center bg-white/[0.02] border border-dashed border-white/10 rounded-2xl text-slate-400 text-xs">
+                                                No subjects currently created for {level.name}. Click "Add Subjects" above to add subjects to this level.
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
