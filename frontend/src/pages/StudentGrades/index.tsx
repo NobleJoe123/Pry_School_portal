@@ -149,9 +149,9 @@ export default function StudentGrades() {
                             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-slate-500 mb-4">
                                 <BookOpen size={32} />
                             </div>
-                            <h3 className="text-lg font-bold text-white mb-2">No Grades Yet</h3>
-                            <p className="text-slate-500 text-sm max-w-sm">
-                                Your teachers have not published any grades for this term yet. Check back later!
+                            <h3 className="text-lg font-bold text-white mb-2">Scores Pending Admin Publication</h3>
+                            <p className="text-slate-400 text-xs max-w-md leading-relaxed">
+                                Individual student scores and terminal report cards for this term are currently under Admin review or pending official publication. Scores will be displayed here once approved and published by the administration.
                             </p>
                         </div>
                     ) : (

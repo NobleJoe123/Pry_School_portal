@@ -327,92 +327,29 @@ export default function CalendarPage() {
         const eventDate = new Date(e.date);
         const monthMatch = eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear;
         
-        return catMatch; // month mapping is handled directly inside render cells
+        return catMatch;
     });
 
-    // Generate dynamic milestones when empty
-    const getTermMilestones = (term: Term) => {
-        const start = new Date(term.start_date);
-        const end = new Date(term.end_date);
-        const diffDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        
-        return [
-            {
-                id: 'm1',
-                title: 'Term Commences / Resumption',
-                description: 'Classes start for all pupils. General assembly and registration.',
-                date: term.start_date,
-                category: 'academic' as const,
-                audience: 'all' as const,
-                priority: 'high' as const,
-                is_published: true,
-                is_important: true,
-                term: term.id
-            },
-            {
-                id: 'm2',
-                title: 'First Continuous Assessment (CA 1)',
-                description: 'Mid-term evaluation assessments commence across all subjects.',
-                date: new Date(start.getTime() + Math.round(diffDays * 0.3) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                category: 'exam' as const,
-                audience: 'all' as const,
-                priority: 'medium' as const,
-                is_published: true,
-                is_important: false,
-                term: term.id
-            },
-            {
-                id: 'm3',
-                title: 'Mid-Term Break',
-                description: 'Short termly rest period. School resumes the following Monday.',
-                date: new Date(start.getTime() + Math.round(diffDays * 0.45) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                category: 'holiday' as const,
-                audience: 'all' as const,
-                priority: 'low' as const,
-                is_published: true,
-                is_important: false,
-                term: term.id
-            },
-            {
-                id: 'm4',
-                title: 'Parent-Teacher Association Meeting',
-                description: 'PTA review and termly feedback session.',
-                date: new Date(start.getTime() + Math.round(diffDays * 0.65) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                category: 'meeting' as const,
-                audience: 'parents' as const,
-                priority: 'medium' as const,
-                is_published: true,
-                is_important: true,
-                term: term.id
-            },
-            {
-                id: 'm5',
-                title: 'Termly Final Examinations',
-                description: 'Final evaluation exams across all primary subjects.',
-                date: new Date(start.getTime() + Math.round(diffDays * 0.85) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                category: 'exam' as const,
-                audience: 'all' as const,
-                priority: 'high' as const,
-                is_published: true,
-                is_important: true,
-                term: term.id
-            },
-            {
-                id: 'm6',
-                title: 'Vacation Assembly & Closing',
-                description: 'Pupil reports published and end of term closing assembly.',
-                date: term.end_date,
-                category: 'academic' as const,
-                audience: 'all' as const,
-                priority: 'high' as const,
-                is_published: true,
-                is_important: true,
-                term: term.id
-            }
-        ];
-    };
-
     const selectedTerm = terms.find(t => t.id === selectedTermId);
+    const [transitioningVacation, setTransitioningVacation] = useState(false);
+
+    const handleTriggerVacation = async () => {
+        if (!selectedTerm) return;
+        if (!window.confirm(`Initiate vacation period for ${selectedTerm.name}? This will broadcast notifications to all teachers and parents with resumption date details for the next term.`)) return;
+        
+        setTransitioningVacation(true);
+        setError('');
+        setSuccess('');
+        try {
+            const res = await api.post<any>(`${endpoints.academics.terms}${selectedTerm.id}/transition-vacation/`, {});
+            setSuccess(res.message || 'Vacation period initiated and notifications sent to teachers & parents!');
+            loadEvents(true);
+        } catch (err: any) {
+            setError(err.message || 'Failed to initiate vacation transition.');
+        } finally {
+            setTransitioningVacation(false);
+        }
+    };
 
     const openTermDateEdit = () => {
         if (!selectedTerm) return;
@@ -435,11 +372,8 @@ export default function CalendarPage() {
         }
     };
     
-    // Blend backend events with milestones if none exist
+    // Real backend events only (no mockup data)
     const activeTermEvents = [...filteredEvents];
-    if (activeTermEvents.length === 0 && selectedTerm) {
-        activeTermEvents.push(...getTermMilestones(selectedTerm) as any);
-    }
     
     // Sort upcoming events chronologically (ignoring past events if future exist)
     const upcomingEventsList = [...activeTermEvents]
@@ -653,9 +587,14 @@ export default function CalendarPage() {
                         <span>Resumption: <strong className="text-slate-300 font-semibold">{new Date(selectedTerm.start_date).toLocaleDateString()}</strong></span>
                         <span>Vacation: <strong className="text-slate-300 font-semibold">{new Date(selectedTerm.end_date).toLocaleDateString()}</strong></span>
                         {isAdmin && (
-                            <button onClick={openTermDateEdit} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-sky-400 hover:text-sky-300">
-                                <Edit3 size={11} /> Edit Dates
-                            </button>
+                            <>
+                                <button onClick={openTermDateEdit} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-sky-400 hover:text-sky-300">
+                                    <Edit3 size={11} /> Edit Dates
+                                </button>
+                                <button onClick={handleTriggerVacation} disabled={transitioningVacation} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 transition-all font-semibold disabled:opacity-50">
+                                    <PartyPopper size={12} /> {transitioningVacation ? 'Broadcasting...' : 'Trigger Term Vacation & Broadcast Notice'}
+                                </button>
+                            </>
                         )}
                     </div>
                 )}

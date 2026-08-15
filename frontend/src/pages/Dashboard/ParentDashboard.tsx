@@ -299,7 +299,7 @@ export default function ParentDashboard() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-white text-xs font-semibold">{n.title}</p>
-                                            <p className="text-slate-500 text-[11px] mt-0.5 truncate">{n.message}</p>
+                                            <p className="text-slate-400 text-[11px] mt-0.5 leading-relaxed line-clamp-3">{n.message}</p>
                                         </div>
                                     </div>
                                 ))}

@@ -46,6 +46,23 @@ class Term(models.Model):
     def get_resumption_date(self):
         return self.resumption_date or self.start_date
 
+    def get_next_term(self):
+        """Finds the next logical term in the sequence."""
+        next_in_year = Term.objects.filter(
+            academic_year=self.academic_year,
+            start_date__gt=self.start_date
+        ).order_by('start_date').first()
+        if next_in_year:
+            return next_in_year
+        
+        # Look for the first term of the subsequent academic year
+        subsequent_year = AcademicYear.objects.filter(
+            start_date__gt=self.academic_year.start_date
+        ).order_by('start_date').first()
+        if subsequent_year:
+            return Term.objects.filter(academic_year=subsequent_year).order_by('start_date').first()
+        return None
+
     def save(self, *args, **kwargs):
         if self.is_current:
             Term.objects.exclude(id=self.id).update(is_current=False)

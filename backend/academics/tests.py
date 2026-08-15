@@ -134,3 +134,74 @@ class ReportCardTests(APITestCase):
         self.report_card.refresh_from_db()
         self.assertEqual(self.report_card.admin_remarks, 'Excellent student!')
         self.assertTrue(self.report_card.is_published)
+
+    def test_parent_score_visibility_requires_admin_publishing(self):
+        from academics.models import Subject, AssessmentType, Assessment, StudentScore
+        from accounts.models import ParentProfile
+
+        # Setup Parent and link student
+        parent_user = User.objects.create_user(
+            email="parent@test.com",
+            username="parentuser",
+            role="parent",
+            password="securepassword123"
+        )
+        ParentProfile.objects.create(user=parent_user)
+        self.student_profile.parent = parent_user
+        self.student_profile.save()
+
+        # Create Subject, Assessment, Score
+        subj = Subject.objects.create(name="Mathematics", code="MATH1", level=self.level)
+        ass_type = AssessmentType.objects.create(name="CA 1", max_score=40, weight=40)
+        assessment = Assessment.objects.create(
+            name="Math CA",
+            assessment_type=ass_type,
+            school_class=self.school_class,
+            subject=subj,
+            term=self.term
+        )
+        score = StudentScore.objects.create(student=self.student, assessment=assessment, score_obtained=35)
+
+        # Authenticate as Parent
+        self.client.force_authenticate(user=parent_user)
+        scores_url = reverse('studentscore-list')
+
+        # Before ReportCard publication, score should NOT be returned to parent
+        self.report_card.is_published = False
+        self.report_card.save()
+        res_unpublished = self.client.get(scores_url)
+        self.assertEqual(res_unpublished.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_unpublished.data.get('results', res_unpublished.data)), 0)
+
+        # After ReportCard is published by Admin, score SHOULD be visible to parent
+        self.report_card.is_published = True
+        self.report_card.save()
+        res_published = self.client.get(scores_url)
+        self.assertEqual(res_published.status_code, status.HTTP_200_OK)
+        results = res_published.data.get('results', res_published.data)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['id'], str(score.id))
+
+    def test_transition_vacation_sends_notification_with_next_term_resumption(self):
+        from accounts.models import Notification
+        
+        # Create second term
+        term2 = Term.objects.create(
+            academic_year=self.year,
+            name="2nd Term",
+            start_date="2026-01-10",
+            end_date="2026-04-10",
+            resumption_date="2026-01-10",
+            is_current=False
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        vacation_url = reverse('term-transition-vacation', kwargs={'pk': self.term.id})
+        res = self.client.post(vacation_url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Verify notification was sent containing next term resumption message
+        notif = Notification.objects.filter(title__icontains="Vacation Period").first()
+        self.assertIsNotNone(notif)
+        self.assertIn("next term begins on", notif.message.lower())
+

@@ -32,26 +32,33 @@ def seed_data():
         academic_year.save()
     print(f"Academic Year: {academic_year.name} (Current)")
 
-    # 2. Terms
+    # 2. Terms (3 terms each lasting 3 months, 3rd term followed by 1-month vacation)
     terms_info = [
-        ('1st Term', datetime.date(2025, 9, 1), datetime.date(2025, 12, 18), False),
-        ('2nd Term', datetime.date(2026, 1, 10), datetime.date(2026, 4, 3), False),
-        ('3rd Term', datetime.date(2026, 4, 20), datetime.date(2026, 7, 25), True),
+        ('1st Term', datetime.date(2025, 9, 1), datetime.date(2025, 11, 30), datetime.date(2025, 9, 1), False),
+        ('2nd Term', datetime.date(2026, 1, 10), datetime.date(2026, 4, 10), datetime.date(2026, 1, 10), False),
+        ('3rd Term', datetime.date(2026, 5, 1), datetime.date(2026, 7, 31), datetime.date(2026, 5, 1), True),
     ]
     current_term = None
-    for name, start, end, is_curr in terms_info:
+    created_terms = {}
+    for name, start, end, res_date, is_curr in terms_info:
         t, created = Term.objects.get_or_create(
             academic_year=academic_year,
             name=name,
-            defaults={'start_date': start, 'end_date': end, 'is_current': is_curr}
+            defaults={'start_date': start, 'end_date': end, 'resumption_date': res_date, 'is_current': is_curr}
         )
+        if t.start_date != start or t.end_date != end or t.resumption_date != res_date:
+            t.start_date = start
+            t.end_date = end
+            t.resumption_date = res_date
+            t.save()
         if is_curr:
             t.is_current = True
             t.save()
             current_term = t
+        created_terms[name] = t
     print(f"Current Term: {current_term.name}")
 
-    # 3. Class Levels and Subjects
+    # 3. Class Levels and NERDC BEC Curriculum Subjects
     levels_data = [
         ('Primary 1', 1),
         ('Primary 2', 2),
@@ -61,15 +68,16 @@ def seed_data():
         ('Primary 6', 6),
     ]
 
+    # NERDC BEC (Basic Education Curriculum) standard subjects
     subjects_list = [
+        ('English Studies', 'ENG'),
         ('Mathematics', 'MATH'),
-        ('English Language', 'ENG'),
-        ('Basic Science', 'SCI'),
-        ('Social Studies', 'SOC'),
-        ('Agricultural Science', 'AGR'),
-        ('Civic Education', 'CIV'),
+        ('Basic Science & Technology', 'BST'),
+        ('National Values Education', 'NVE'),
+        ('Pre-Vocational Studies', 'PVS'),
         ('Cultural & Creative Arts', 'CCA'),
-        ('Physical & Health Education', 'PHE'),
+        ('Religious Studies', 'CRS'),
+        ('Nigerian Languages', 'NIG'),
     ]
 
     levels = {}
@@ -77,14 +85,62 @@ def seed_data():
         lvl, _ = ClassLevel.objects.get_or_create(name=name, defaults={'numeric_level': num})
         levels[name] = lvl
         
-        # Create 8 subjects per class level
+        # Create or update NERDC BEC subjects per class level
         for sub_name, code_prefix in subjects_list:
-            Subject.objects.get_or_create(
-                name=sub_name,
-                level=lvl,
-                defaults={'code': f"{code_prefix}{num}"}
+            code_val = f"{code_prefix}{num}"
+            subj, created = Subject.objects.get_or_create(
+                code=code_val,
+                defaults={'name': sub_name, 'level': lvl}
             )
-    print("Class levels and 8 subjects per level created.")
+            if not created:
+                subj.name = sub_name
+                subj.level = lvl
+                subj.save()
+    print("Class levels and NERDC BEC curriculum subjects per level created.")
+
+    # 3b. Seed Real NERDC BEC School Calendar Events across all terms
+    from academics.models import SchoolEvent
+    events_data = [
+        # 1st Term Events
+        ('Term Resumption & Orientation', 'Classes start for all pupils. General assembly and registration.', datetime.date(2025, 9, 1), 'academic', 'all', 'high', created_terms['1st Term']),
+        ('First Continuous Assessment (CA 1)', 'Continuous assessment evaluations across NERDC BEC core subjects.', datetime.date(2025, 10, 15), 'exam', 'all', 'medium', created_terms['1st Term']),
+        ('Mid-Term Break', 'Mid-term break holiday period. School resumes following Monday.', datetime.date(2025, 10, 24), 'holiday', 'all', 'low', created_terms['1st Term']),
+        ('Parent-Teacher Association (PTA) Meeting', 'PTA termly evaluation and progress review meeting.', datetime.date(2025, 11, 5), 'meeting', 'parents', 'medium', created_terms['1st Term']),
+        ('1st Term Terminal Examinations', 'End of term examinations across all classes.', datetime.date(2025, 11, 17), 'exam', 'all', 'high', created_terms['1st Term']),
+        ('1st Term Vacation & Closing Assembly', 'Pupil report cards published and term closing ceremony.', datetime.date(2025, 11, 30), 'academic', 'all', 'high', created_terms['1st Term']),
+
+        # 2nd Term Events
+        ('2nd Term Resumption', 'School resumes for 2nd Academic Term.', datetime.date(2026, 1, 10), 'academic', 'all', 'high', created_terms['2nd Term']),
+        ('2nd Term CA 1 Evaluation', 'Mid-term CA testing for 2nd term.', datetime.date(2026, 2, 15), 'exam', 'all', 'medium', created_terms['2nd Term']),
+        ('2nd Term Mid-Term Break', 'Mid-term break for 2nd term.', datetime.date(2026, 2, 25), 'holiday', 'all', 'low', created_terms['2nd Term']),
+        ('Annual Inter-House Sports Competition', 'School sports day activities and track competitions.', datetime.date(2026, 3, 10), 'sports', 'all', 'medium', created_terms['2nd Term']),
+        ('2nd Term Terminal Examinations', 'End of 2nd term examinations.', datetime.date(2026, 3, 20), 'exam', 'all', 'high', created_terms['2nd Term']),
+        ('2nd Term Vacation & Closing', '2nd term closes; report cards published and vacation notice issued.', datetime.date(2026, 4, 10), 'academic', 'all', 'high', created_terms['2nd Term']),
+
+        # 3rd Term Events
+        ('3rd Term Resumption', 'School resumes for 3rd Academic Term.', datetime.date(2026, 5, 1), 'academic', 'all', 'high', created_terms['3rd Term']),
+        ('3rd Term CA 1 Evaluation', 'Continuous assessment evaluations for 3rd term.', datetime.date(2026, 6, 10), 'exam', 'all', 'medium', created_terms['3rd Term']),
+        ('3rd Term Mid-Term Break', 'Mid-term break for 3rd term.', datetime.date(2026, 6, 20), 'holiday', 'all', 'low', created_terms['3rd Term']),
+        ('Cultural & Creative Arts Exhibition', 'Exhibition of pupil artwork, music, and performance.', datetime.date(2026, 7, 5), 'sports', 'all', 'medium', created_terms['3rd Term']),
+        ('3rd Term Promotional Examinations', 'Annual promotional examinations across all primary levels.', datetime.date(2026, 7, 15), 'exam', 'all', 'high', created_terms['3rd Term']),
+        ('3rd Term Closing & 1-Month Long Vacation Commencement', 'Graduation ceremony, official report card publication, and commencement of the 1-month August long vacation.', datetime.date(2026, 7, 31), 'academic', 'all', 'high', created_terms['3rd Term']),
+    ]
+
+    for title, desc, date_val, cat, aud, prio, term_obj in events_data:
+        SchoolEvent.objects.get_or_create(
+            title=title,
+            term=term_obj,
+            defaults={
+                'description': desc,
+                'date': date_val,
+                'category': cat,
+                'audience': aud,
+                'priority': prio,
+                'is_published': True,
+                'is_important': True
+            }
+        )
+    print("Real NERDC BEC School Calendar events populated for all terms.")
 
     # 4. Teachers
     teachers_data = [

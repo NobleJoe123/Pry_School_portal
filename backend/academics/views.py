@@ -123,6 +123,57 @@ class TermViewSet(viewsets.ModelViewSet):
             'fees_generated': fees_generated_count
         }, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='transition-vacation')
+    def transition_vacation(self, request, pk=None):
+        """
+        Transitions the specified term into vacation period, calculates the next term's
+        resumption date, and broadcasts notifications to teachers and parents with the
+        added message of when the next term begins.
+        """
+        term = self.get_object()
+        next_term = term.get_next_term()
+        
+        custom_resumption = request.data.get('resumption_date')
+        if custom_resumption:
+            try:
+                from datetime import datetime
+                resumption_val = datetime.strptime(custom_resumption, '%Y-%m-%d').date()
+            except Exception:
+                resumption_val = next_term.get_resumption_date() if next_term else None
+        else:
+            resumption_val = next_term.get_resumption_date() if next_term else None
+
+        formatted_resumption = resumption_val.strftime('%A, %B %d, %Y') if resumption_val else "a date to be announced soon"
+
+        # Dispatch vacation notification to teachers and parents
+        notifications_count = 0
+        try:
+            from accounts.models import Notification, User
+            recipients = User.objects.filter(role__in=['teacher', 'parent'], is_active=True)
+            
+            notif_list = [
+                Notification(
+                    sender=request.user if request.user.is_authenticated else None,
+                    recipient=user,
+                    title=f"Vacation Period: {term.name} Ended",
+                    message=f"The {term.name} ({term.academic_year.name}) has officially come to an end and the vacation period has commenced. Please note that the next term begins on {formatted_resumption}.",
+                    category='academics',
+                    audience='all'
+                )
+                for user in recipients
+            ]
+            if notif_list:
+                Notification.objects.bulk_create(notif_list)
+                notifications_count = len(notif_list)
+        except Exception as e:
+            print(f"Error creating vacation notifications: {e}")
+
+        return Response({
+            'message': f"{term.name} vacation period initiated. Resumption notice sent for {formatted_resumption}.",
+            'next_term_resumption': str(resumption_val) if resumption_val else None,
+            'notifications_sent': notifications_count
+        }, status=status.HTTP_200_OK)
+
 class ClassLevelViewSet(viewsets.ModelViewSet):
     queryset = ClassLevel.objects.all()
     serializer_class = ClassLevelSerializer
@@ -164,11 +215,32 @@ class StudentScoreViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = super().get_queryset()
+        from django.db.models import Exists, OuterRef
 
         if user.role == 'student':
-            queryset = queryset.filter(student=user)
+            queryset = queryset.filter(
+                student=user
+            ).filter(
+                Exists(
+                    ReportCard.objects.filter(
+                        student_id=OuterRef('student_id'),
+                        term_id=OuterRef('assessment__term_id'),
+                        is_published=True
+                    )
+                )
+            )
         elif user.role == 'parent':
-            queryset = queryset.filter(student__student_profile__parent=user)
+            queryset = queryset.filter(
+                student__student_profile__parent=user
+            ).filter(
+                Exists(
+                    ReportCard.objects.filter(
+                        student_id=OuterRef('student_id'),
+                        term_id=OuterRef('assessment__term_id'),
+                        is_published=True
+                    )
+                )
+            )
         elif user.role == 'teacher':
             queryset = queryset.filter(assessment__school_class__teacher=user)
             
