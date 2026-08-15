@@ -21,6 +21,108 @@ class TermViewSet(viewsets.ModelViewSet):
     serializer_class = TermSerializer
     permission_classes = [IsAuthenticated]
 
+    @action(detail=True, methods=['post'], url_path='set-current')
+    def set_current(self, request, pk=None):
+        """
+        Mark this term as active/current, update resumption_date if provided,
+        dispatch notifications to parents & teachers, and auto-generate/refresh
+        new term school fees for all active enrolled students.
+        """
+        term = self.get_object()
+        resumption_date_str = request.data.get('resumption_date') or request.data.get('start_date')
+        
+        if resumption_date_str:
+            try:
+                from datetime import datetime
+                if isinstance(resumption_date_str, str):
+                    term.resumption_date = datetime.strptime(resumption_date_str, '%Y-%m-%d').date()
+                else:
+                    term.resumption_date = resumption_date_str
+            except Exception as e:
+                print(f"Resumption date parsing error: {e}")
+
+        term.is_current = True
+        term.save()
+
+        # 1. Dispatch Automated In-App Notifications to Parents & Teachers
+        notifications_count = 0
+        resumption_date_val = term.get_resumption_date()
+        formatted_resumption = resumption_date_val.strftime('%A, %B %d, %Y') if resumption_date_val else "TBA"
+
+        try:
+            from accounts.models import Notification, User
+            recipients = User.objects.filter(role__in=['teacher', 'parent'], is_active=True)
+            
+            notif_list = [
+                Notification(
+                    sender=request.user if request.user.is_authenticated else None,
+                    recipient=user,
+                    title=f"Academic Term Update: {term.name}",
+                    message=f"Notice: {term.name} ({term.academic_year.name}) is now active. School resumption date is set for {formatted_resumption}.",
+                    category='academics',
+                    audience='all'
+                )
+                for user in recipients
+            ]
+            if notif_list:
+                Notification.objects.bulk_create(notif_list)
+                notifications_count = len(notif_list)
+        except Exception as e:
+            print(f"Error creating term notifications: {e}")
+
+        # 2. Auto-Generate / Refresh School Fees for the Active Term
+        fees_generated_count = 0
+        try:
+            from accounts.models import User
+            from finance.models import FeeType, StudentFee
+            
+            active_students = User.objects.filter(
+                role='student',
+                is_active=True,
+                student_profile__current_class__isnull=False
+            ).select_related('student_profile__current_class__level', 'student_profile__parent')
+
+            parent_notifications = []
+
+            for student in active_students:
+                level = student.student_profile.current_class.level
+                fee_types = FeeType.objects.filter(level=level)
+
+                for ft in fee_types:
+                    sf, created = StudentFee.objects.get_or_create(
+                        student=student,
+                        fee_type=ft,
+                        term=term,
+                        defaults={'status': 'outstanding', 'amount_paid': 0}
+                    )
+                    if created:
+                        fees_generated_count += 1
+                        parent = student.student_profile.parent
+                        if parent:
+                            parent_notifications.append(
+                                Notification(
+                                    sender=request.user if request.user.is_authenticated else None,
+                                    recipient=parent,
+                                    title=f"New School Fees: {term.name}",
+                                    message=f"School fees for {term.name} ({ft.name} - ₦{ft.amount:,.2f}) have been published for {student.full_name}.",
+                                    category='finance',
+                                    audience='selected'
+                                )
+                            )
+
+            if parent_notifications:
+                Notification.objects.bulk_create(parent_notifications)
+        except Exception as e:
+            print(f"Error generating term student fees: {e}")
+
+        serializer = self.get_serializer(term)
+        return Response({
+            'message': f"{term.name} ({term.academic_year.name}) is now active. Resumption date set for {formatted_resumption}.",
+            'term': serializer.data,
+            'notifications_sent': notifications_count,
+            'fees_generated': fees_generated_count
+        }, status=status.HTTP_200_OK)
+
 class ClassLevelViewSet(viewsets.ModelViewSet):
     queryset = ClassLevel.objects.all()
     serializer_class = ClassLevelSerializer
