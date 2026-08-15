@@ -215,6 +215,7 @@ export const endpoints = {
     academics: {
         years: '/academics/years/',
         terms: '/academics/terms/',
+        setTermCurrent: (id: string) => `/academics/terms/${id}/set-current/`,
         levels: '/academics/levels/',
         classes: '/academics/classes/',
         subjects: '/academics/subjects/',
