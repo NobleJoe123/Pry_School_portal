@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Check, AlertCircle, ChevronRight } from 'lucide-react';
-import { api } from '../utils/api';
+import { api, endpoints } from '../utils/api';
 import type { StudentAdmissionDetail } from '../types';
 
 interface EnrollmentAdmissionModalProps {
@@ -50,8 +50,9 @@ export default function EnrollmentAdmissionModal({ isOpen, parentId, onSuccess }
     setLoading(true);
     setError('');
     try {
-      await api.post(`/auth/parents/${parentId}/link-students/`, {
-        admission_numbers: [studentDetails.admission_number]
+      await api.post(endpoints.parents.linkStudents, {
+        admission_numbers: [studentDetails.admission_number],
+        parent_id: parentId
       });
       setStep('success');
 
