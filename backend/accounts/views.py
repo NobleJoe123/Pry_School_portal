@@ -699,22 +699,38 @@ class ParentViewSet(viewsets.ModelViewSet):
             'message': 'Parent deactivated successfully!'
         }, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['post'])
-    def link_students(self, request):
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_path='link_students')
+    def link_students(self, request, pk=None):
+        return self._do_link_students(request, pk)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated], url_path='link-students')
+    def link_students_detail(self, request, pk=None):
+        return self._do_link_students(request, pk)
+
+    def _do_link_students(self, request, pk=None):
         admission_numbers = request.data.get('admission_numbers', [])
         if not admission_numbers:
             return Response({'error': 'No admission numbers provided'}, status=status.HTTP_400_BAD_REQUEST)
         
         user = request.user
-        if user.role != 'parent':
-            return Response({'error': 'Only parents can link students'}, status=status.HTTP_403_FORBIDDEN)
+        target_id = pk or request.data.get('parent_id')
+        if target_id and user.role == 'admin':
+            target_parent = User.objects.filter(id=target_id, role='parent').first()
+            if not target_parent:
+                return Response({'error': 'Parent user not found'}, status=status.HTTP_404_NOT_FOUND)
+        elif user.role == 'parent':
+            target_parent = user
+        elif user.role == 'admin':
+            target_parent = user
+        else:
+            return Response({'error': 'Only parents or admins can link students'}, status=status.HTTP_403_FORBIDDEN)
             
         linked_count = 0
         not_found = []
         for adm in admission_numbers:
             try:
                 student_profile = StudentProfile.objects.get(admission_number__iexact=adm)
-                student_profile.parent = user
+                student_profile.parent = target_parent
                 student_profile.save()
                 linked_count += 1
             except StudentProfile.DoesNotExist:
@@ -1420,7 +1436,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         )
 
         # If admin replies, mark all parent messages as read
-        if request.user.role in ('admin'):
+        if request.user.role in ('admin', 'teacher'):
             ticket.ticket_messages.filter(sender__role='parent', is_read_by_admin=False).update(is_read_by_admin=True)
             # Auto-move to in_progress if still open
             if ticket.status == 'open':
