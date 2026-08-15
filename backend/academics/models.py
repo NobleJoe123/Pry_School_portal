@@ -33,6 +33,7 @@ class Term(models.Model):
     name = models.CharField(max_length=20, choices=TERM_CHOICES)
     start_date = models.DateField()
     end_date = models.DateField()
+    resumption_date = models.DateField(blank=True, null=True, help_text="School resumption date for this term")
     is_current = models.BooleanField(default=False)
 
     class Meta:
@@ -42,9 +43,15 @@ class Term(models.Model):
     def __str__(self):
         return f"{self.name} ({self.academic_year.name})"
 
+    def get_resumption_date(self):
+        return self.resumption_date or self.start_date
+
     def save(self, *args, **kwargs):
         if self.is_current:
             Term.objects.exclude(id=self.id).update(is_current=False)
+            if self.academic_year:
+                self.academic_year.is_current = True
+                self.academic_year.save()
         super().save(*args, **kwargs)
 
 class ClassLevel(models.Model):
