@@ -1,51 +1,51 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { DialogProvider } from './context/DialogContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import AdminLogin from './pages/AdminLogin';
-import Enrollment from './pages/Enrollment';
-import Dashboard from './pages/Dashboard';
-import Students from './pages/Students';
-import Teachers from './pages/Teachers';
-import Parents from './pages/Parents';
-import Academics from './pages/Academics';
-import Finance from './pages/Finance';
-import Attendance from './pages/Attendance';
-import Notifications from './pages/Notifications';
 import DashboardLayout from './components/DashboardLayout';
 
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const Login = lazy(() => import('./pages/Login'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const Enrollment = lazy(() => import('./pages/Enrollment'));
 
-import Scores from './pages/Scores';
-import StudentGrades from './pages/StudentGrades';
-import Reports from './pages/Reports';
-import CalendarPage from './pages/Calendar';
-import Settings from './pages/Settings';
-import TeacherAttendance from './pages/Attendance/TeacherAttendance';
-import TeacherDashboard from './pages/Dashboard/TeacherDashboard';
-import MyClass from './pages/Teachers/MyClass';
-import LandingPage from './pages/LandingPage';
-import ForgotPassword from './pages/ForgotPassword';
-import UploadMaterials from './pages/Teachers/UploadMaterials';
-import TeacherMessages from './pages/Teachers/Messages';
-import MySalary from './pages/Teachers/MySalary';
-import AdminMaterials from './pages/AdminMaterials';
-import StudentAttendancePage from './pages/Attendance/StudentAttendance';
-import MyChildren from './pages/Parents/MyChildren';
-import FeePayments from './pages/Parents/FeePayments';
-import ParentReports from './pages/Parents/ParentReports';
-import ParentTickets from './pages/Parents/ParentTickets';
-import AdminTickets from './pages/AdminTickets';
-import ClassesPage from './pages/Classes';
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Students = lazy(() => import('./pages/Students'));
+const Teachers = lazy(() => import('./pages/Teachers'));
+const Parents = lazy(() => import('./pages/Parents'));
+const ClassesPage = lazy(() => import('./pages/Classes'));
+const Academics = lazy(() => import('./pages/Academics'));
+const Finance = lazy(() => import('./pages/Finance'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const Reports = lazy(() => import('./pages/Reports'));
+const AdminMaterials = lazy(() => import('./pages/AdminMaterials'));
+const AdminTickets = lazy(() => import('./pages/AdminTickets'));
 
-// PlaceHolders Pages
+const TeacherDashboard = lazy(() => import('./pages/Dashboard/TeacherDashboard'));
+const MyClass = lazy(() => import('./pages/Teachers/MyClass'));
+const TeacherAttendance = lazy(() => import('./pages/Attendance/TeacherAttendance'));
+const Scores = lazy(() => import('./pages/Scores'));
+const UploadMaterials = lazy(() => import('./pages/Teachers/UploadMaterials'));
+const MySalary = lazy(() => import('./pages/Teachers/MySalary'));
+const TeacherMessages = lazy(() => import('./pages/Teachers/Messages'));
 
-const Placeholder = ({ name }: { name: string }) => (
-  <div className="flex items-center justify-center h-64 rounded-2xl border border-white/5"
-    style={{ background: 'linear-gradient(135deg,#0d1b2a, #0a1628)' }}>
-    <div className="text-center">
-      <p className="text-slate-500 text-sm">{name}</p>
-      <p className="text-slate-600 text-xs mt-1">Comming soon</p>
-    </div>
+const MyChildren = lazy(() => import('./pages/Parents/MyChildren'));
+const FeePayments = lazy(() => import('./pages/Parents/FeePayments'));
+const ParentReports = lazy(() => import('./pages/Parents/ParentReports'));
+const ParentTickets = lazy(() => import('./pages/Parents/ParentTickets'));
+
+const StudentGrades = lazy(() => import('./pages/StudentGrades'));
+const StudentAttendancePage = lazy(() => import('./pages/Attendance/StudentAttendance'));
+
+const Settings = lazy(() => import('./pages/Settings'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const CalendarPage = lazy(() => import('./pages/Calendar'));
+
+const PageLoader = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="w-8 h-8 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
   </div>
 );
 
@@ -64,8 +64,10 @@ const NotFound = () => (
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+      <DialogProvider>
+        <AuthProvider>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -132,7 +134,9 @@ export default function App() {
 
 
         </Routes>
-      </AuthProvider>
+        </Suspense>
+        </AuthProvider>
+      </DialogProvider>
     </BrowserRouter>
 
   );
