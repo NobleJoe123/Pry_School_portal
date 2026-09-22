@@ -11,6 +11,17 @@ from .serializers import (
     ReportCardSerializer, SchoolEventSerializer, LessonMaterialSerializer
 )
 
+def resolve_term_id(term_id_param):
+    """
+    Resolves term_id parameter. If term_id_param is 'REPLACE_WITH_CURRENT_TERM_ID'
+    or empty/None, returns the primary key of the active Term (or None).
+    """
+    if not term_id_param or term_id_param == 'REPLACE_WITH_CURRENT_TERM_ID':
+        current_term = Term.objects.filter(is_current=True).first()
+        return current_term.id if current_term else None
+    return term_id_param
+
+
 class AcademicYearViewSet(viewsets.ModelViewSet):
     queryset = AcademicYear.objects.all()
     serializer_class = AcademicYearSerializer
@@ -252,14 +263,9 @@ class StudentScoreViewSet(viewsets.ModelViewSet):
         if subject_id:
             queryset = queryset.filter(assessment__subject_id=subject_id)
             
-        term_id = self.request.query_params.get('term')
+        term_id = resolve_term_id(self.request.query_params.get('term'))
         if term_id:
-            if term_id == 'REPLACE_WITH_CURRENT_TERM_ID':
-                current_term = Term.objects.filter(is_current=True).first()
-                if current_term:
-                    queryset = queryset.filter(assessment__term_id=current_term.id)
-            else:
-                queryset = queryset.filter(assessment__term_id=term_id)
+            queryset = queryset.filter(assessment__term_id=term_id)
             
         assessment_type_id = self.request.query_params.get('assessment_type')
         if assessment_type_id:
@@ -288,11 +294,9 @@ class StudentScoreViewSet(viewsets.ModelViewSet):
         date_administered = data.get('date', timezone.now().date())
         records = data.get('records', [])
 
-        if not term_id or term_id == 'REPLACE_WITH_CURRENT_TERM_ID':
-            current_term = Term.objects.filter(is_current=True).first()
-            if not current_term:
-                return Response({'error': 'No current term configured.'}, status=status.HTTP_400_BAD_REQUEST)
-            term_id = current_term.id
+        term_id = resolve_term_id(data.get('term'))
+        if not term_id:
+            return Response({'error': 'No current term configured.'}, status=status.HTTP_400_BAD_REQUEST)
 
         assessment, _ = Assessment.objects.get_or_create(
             school_class_id=class_id,
@@ -445,14 +449,9 @@ class ReportCardViewSet(viewsets.ModelViewSet):
         if school_class_id:
             queryset = queryset.filter(student__student_profile__current_class_id=school_class_id)
             
-        term_id = self.request.query_params.get('term')
+        term_id = resolve_term_id(self.request.query_params.get('term'))
         if term_id:
-            if term_id == 'REPLACE_WITH_CURRENT_TERM_ID':
-                current_term = Term.objects.filter(is_current=True).first()
-                if current_term:
-                    queryset = queryset.filter(term_id=current_term.id)
-            else:
-                queryset = queryset.filter(term_id=term_id)
+            queryset = queryset.filter(term_id=term_id)
 
         return queryset
 
@@ -475,11 +474,9 @@ class ReportCardViewSet(viewsets.ModelViewSet):
         term_id = data.get('term')
         records = data.get('records', [])  # list of {student_id, admin_remarks, is_published}
 
-        if not term_id or term_id == 'REPLACE_WITH_CURRENT_TERM_ID':
-            current_term = Term.objects.filter(is_current=True).first()
-            if not current_term:
-                return Response({'error': 'No current term configured.'}, status=status.HTTP_400_BAD_REQUEST)
-            term_id = current_term.id
+        term_id = resolve_term_id(data.get('term'))
+        if not term_id:
+            return Response({'error': 'No current term configured.'}, status=status.HTTP_400_BAD_REQUEST)
 
         updated_count = 0
         for record in records:
@@ -599,18 +596,9 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
         if user and user.role != 'admin':
             queryset = queryset.filter(is_published=True)
         
-        term_id = self.request.query_params.get('term')
+        term_param = self.request.query_params.get('term')
+        term_id = resolve_term_id(term_param) if term_param else resolve_term_id('REPLACE_WITH_CURRENT_TERM_ID')
         if term_id:
-            if term_id == 'REPLACE_WITH_CURRENT_TERM_ID':
-                current_term = Term.objects.filter(is_current=True).first()
-                if current_term:
-                    queryset = queryset.filter(term_id=current_term.id)
-            else:
-                queryset = queryset.filter(term_id=term_id)
-        else:
-            # default to current term
-            current_term = Term.objects.filter(is_current=True).first()
-            if current_term:
-                queryset = queryset.filter(term_id=current_term.id)
+            queryset = queryset.filter(term_id=term_id)
                 
         return queryset
