@@ -4,6 +4,7 @@ import {
     Phone, MapPin, Heart, Loader2, ShieldCheck,
 } from 'lucide-react';
 import { api, endpoints } from '../utils/api';
+import { useDialog } from '../context/DialogContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -38,6 +39,7 @@ interface FileDropProps {
 }
 
 function FileDrop({ label, hint, icon, value, accept, error, onChange, id }: FileDropProps) {
+    const { showAlert } = useDialog();
     const ref = useRef<HTMLInputElement>(null);
     const [dragging, setDragging] = useState(false);
 
@@ -54,9 +56,11 @@ function FileDrop({ label, hint, icon, value, accept, error, onChange, id }: Fil
         const err = validate(file);
         if (err) {
             onChange(null);
-            // surface via error prop via parent — we emit the invalid file so parent can catch
-            // For UX simplicity: show alert inline
-            alert(err);
+            showAlert({
+                title: 'Invalid File',
+                message: err,
+                variant: 'danger'
+            });
             return;
         }
         onChange(file);

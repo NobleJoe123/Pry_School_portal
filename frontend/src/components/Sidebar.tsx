@@ -26,7 +26,6 @@ const NAV_ITEMS: NavItem[] = [
     { label: 'Pupils', icon: <GraduationCap size={18} />, to: '/students', roles: ['admin'] },
     { label: 'Teachers', icon: <UserCheck size={18} />, to: '/teachers', roles: ['admin'] },
     { label: 'Parents', icon: <Users size={18} />, to: '/parents', roles: ['admin'] },
-    { label: 'Classes', icon: <BookOpen size={18} />, to: '/classes', roles: ['admin'] },
     { label: 'Academics', icon: <BookOpen size={18} />, to: '/academics', roles: ['admin'] },
     { label: 'Materials', icon: <FolderOpen size={18} />, to: '/admin/materials', roles: ['admin'] },
     { label: 'Finance', icon: <CreditCard size={18} />, to: '/finance', roles: ['admin'] },
