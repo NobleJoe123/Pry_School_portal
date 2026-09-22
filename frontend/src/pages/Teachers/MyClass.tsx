@@ -41,6 +41,7 @@ export default function TeacherClass() {
 
     // Sub-data for the selected pupil
     const [pupilScores, setPupilScores] = useState<StudentScore[]>([]);
+    const [pupilAttendance, setPupilAttendance] = useState<AttendanceRecord[]>([]);
     const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
     const [newBehaviorNote, setNewBehaviorNote] = useState('');
     const [behaviorCategory, setBehaviorCategory] = useState<'positive' | 'warning' | 'critical'>('positive');
@@ -83,6 +84,14 @@ export default function TeacherClass() {
         api.get<any>(`${endpoints.academics.scores}?student=${selectedPupil.id}`)
             .then(res => setPupilScores(getList<StudentScore>(res)))
             .catch(err => console.error("Error loading scores", err));
+
+        // Fetch real attendance records
+        api.get<any>(`${endpoints.attendance.students}?student=${selectedPupil.id}`)
+            .then(res => {
+                const recs = getList<any>(res);
+                setPupilAttendance(recs.map(r => ({ date: r.date, status: r.status })));
+            })
+            .catch(err => console.error("Error loading attendance history", err));
 
         // Load behavior notes from localStorage
         const storedNotes = localStorage.getItem(`behavior_notes_${selectedPupil.id}`);
@@ -134,14 +143,9 @@ export default function TeacherClass() {
 
     const currentClass = myClasses.find(c => c.id === selectedClassId);
 
-    // Mock Attendance history stats
-    const mockAttendance: AttendanceRecord[] = [
-        { date: '2026-06-15', status: 'present' },
-        { date: '2026-06-16', status: 'present' },
-        { date: '2026-06-17', status: 'late' },
-        { date: '2026-06-18', status: 'present' },
-        { date: '2026-06-19', status: 'absent' },
-    ];
+    const totalAtt = pupilAttendance.length;
+    const presentAtt = pupilAttendance.filter(a => a.status === 'present').length;
+    const attRate = totalAtt > 0 ? ((presentAtt / totalAtt) * 100).toFixed(1) : '100.0';
 
     return (
         <div className="space-y-6 max-w-screen-xl">
@@ -344,23 +348,29 @@ export default function TeacherClass() {
                                                 <p className="text-[9px] text-slate-400 mt-0.5">Absent</p>
                                             </div>
                                             <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-center">
-                                                <p className="text-sm font-black">96.8%</p>
+                                                <p className="text-sm font-black">{attRate}%</p>
                                                 <p className="text-[9px] text-slate-400 mt-0.5">Rate</p>
                                             </div>
                                         </div>
 
                                         <h4 className="text-[10px] font-bold text-white mt-4">Recent Records</h4>
                                         <div className="rounded-lg border border-white/5 overflow-hidden divide-y divide-white/5">
-                                            {mockAttendance.map((rec, i) => (
-                                                <div key={i} className="flex justify-between items-center p-2.5 bg-slate-900">
-                                                    <span className="font-mono text-[10px]">{rec.date}</span>
-                                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase ${rec.status === 'present' ? 'bg-emerald-500/10 text-emerald-400' :
-                                                            rec.status === 'late' ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'
-                                                        }`}>
-                                                        {rec.status}
-                                                    </span>
+                                            {pupilAttendance.length > 0 ? (
+                                                pupilAttendance.map((rec, i) => (
+                                                    <div key={i} className="flex justify-between items-center p-2.5 bg-slate-900">
+                                                        <span className="font-mono text-[10px]">{rec.date}</span>
+                                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase ${rec.status === 'present' ? 'bg-emerald-500/10 text-emerald-400' :
+                                                                rec.status === 'late' ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'
+                                                            }`}>
+                                                            {rec.status}
+                                                        </span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="p-4 text-center text-slate-500 text-[10px]">
+                                                    No attendance records logged yet for this pupil.
                                                 </div>
-                                            ))}
+                                            )}
                                         </div>
                                     </div>
                                 )}

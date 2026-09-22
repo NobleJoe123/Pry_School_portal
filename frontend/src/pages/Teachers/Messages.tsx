@@ -4,6 +4,7 @@ import {
     ChevronRight, CheckCircle, RefreshCw, X, ArrowLeftRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useDialog } from '../../context/DialogContext';
 import { api, endpoints } from '../../utils/api';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
@@ -51,6 +52,7 @@ const getList = <T,>(value: any): T[] => {
 
 export default function TeacherMessages() {
     const { user } = useAuth();
+    const { showAlert } = useDialog();
     const [activeTab, setActiveTab] = useState<'announcements' | 'parent_messages' | 'sent_messages'>('announcements');
     const [loading, setLoading] = useState(false);
 
@@ -174,7 +176,36 @@ export default function TeacherMessages() {
             setSentMessages(initialSentMessages);
             localStorage.setItem('sent_messages', JSON.stringify(initialSentMessages));
         }
-    }, []);
+
+        // Sync backend support tickets into messages inbox
+        api.get<any>(endpoints.tickets.list)
+            .then(res => {
+                const tickets = getList<any>(res);
+                if (tickets.length > 0) {
+                    const ticketMsgs: ParentMessage[] = tickets.map((t: any) => ({
+                        id: t.id,
+                        parentName: t.user_name || 'Parent/User',
+                        parentEmail: t.user_email || '',
+                        pupilName: t.category_display || 'Support Ticket',
+                        subject: t.subject,
+                        lastMessage: t.last_message || t.description || 'No message content',
+                        unread: t.status === 'open' || t.status === 'in_progress',
+                        updated_at: new Date(t.updated_at).toLocaleString(),
+                        thread: (t.messages || []).map((m: any) => ({
+                            sender: m.sender === user?.id ? 'teacher' : 'parent',
+                            message: m.message,
+                            timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        }))
+                    }));
+                    setParentMessages(prev => {
+                        const existingIds = new Set(prev.map(p => p.id));
+                        const newOnes = ticketMsgs.filter(tm => !existingIds.has(tm.id));
+                        return [...newOnes, ...prev];
+                    });
+                }
+            })
+            .catch(err => console.error("Error syncing tickets to inbox", err));
+    }, [user]);
 
     const markNoticeRead = async (id: string) => {
         try {
@@ -245,7 +276,11 @@ export default function TeacherMessages() {
         setShowCompose(false);
         setComposeSubject('');
         setComposeBody('');
-        alert('Message sent successfully!');
+        showAlert({
+            title: 'Message Sent',
+            message: 'Message sent successfully!',
+            variant: 'success'
+        });
     };
 
     const handleReply = (e: React.FormEvent) => {

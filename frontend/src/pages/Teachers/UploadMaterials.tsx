@@ -5,6 +5,7 @@ import {
     RefreshCw, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useDialog } from '../../context/DialogContext';
 import { api, endpoints } from '../../utils/api';
 import type { SchoolClass, Subject } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
@@ -61,6 +62,7 @@ const WEEK_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
 
 export default function UploadMaterials() {
     const { user } = useAuth();
+    const { confirm, showAlert } = useDialog();
 
     const [classes, setClasses]     = useState<SchoolClass[]>([]);
     const [subjects, setSubjects]   = useState<Subject[]>([]);
@@ -195,14 +197,22 @@ export default function UploadMaterials() {
         }
     };
 
-    // ── Delete ─────────────────────────────────────────────────────────────────
     const handleDelete = async (id: string) => {
-        if (!window.confirm('Delete this lesson note permanently?')) return;
+        if (!await confirm({
+            title: 'Delete Lesson Material',
+            message: 'Delete this lesson note permanently? This action cannot be undone.',
+            confirmText: 'Delete',
+            variant: 'danger'
+        })) return;
         try {
             await api.delete(endpoints.academics.materialDetail(id));
             setMaterials(prev => prev.filter(m => m.id !== id));
         } catch (err: any) {
-            alert(err.message || 'Failed to delete material.');
+            await showAlert({
+                title: 'Delete Failed',
+                message: err.message || 'Failed to delete material.',
+                variant: 'danger'
+            });
         }
     };
 
