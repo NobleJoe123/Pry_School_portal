@@ -73,13 +73,24 @@ TEMPLATES = [
 WSGI_APPLICATION = 'portal.wsgi.application'
 
 # Database
+import socket
+
+def resolve_db_host():
+    configured_host = config('DB_HOST', default='127.0.0.1')
+    if configured_host == 'db':
+        try:
+            socket.gethostbyname('db')
+        except socket.gaierror:
+            return '127.0.0.1'
+    return configured_host
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': config('DB_NAME', default='pry_school_portal'),
         'USER': config('DB_USER', default='portal_user'),
         'PASSWORD': config('DB_PASSWORD', default='portal_secure_password'),
-        'HOST': config('DB_HOST', default='db'),
+        'HOST': resolve_db_host(),
         'PORT': config('DB_PORT', default='5432'),
     }
 }
