@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { useDialog } from '../../context/DialogContext';
 import type { Term } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
@@ -115,6 +116,7 @@ function getCountdownText(dateStr: string): { text: string; urgent: boolean; pas
 
 export default function CalendarPage() {
     const { user } = useAuth();
+    const { confirm, showAlert } = useDialog();
     const isAdmin = user?.role === 'admin';
     const isParent = user?.role === 'parent';
     const colorTheme = isAdmin ? 'amber' : (user?.role === 'teacher' ? 'emerald' : 'sky');
@@ -309,13 +311,22 @@ export default function CalendarPage() {
     };
 
     const handleDeleteEvent = async (eventId: string) => {
-        if (!window.confirm("Are you sure you want to delete this event? This action cannot be undone.")) return;
+        if (!await confirm({
+            title: 'Delete Calendar Event',
+            message: "Are you sure you want to delete this event? This action cannot be undone.",
+            confirmText: 'Delete Event',
+            variant: 'danger'
+        })) return;
         try {
             await api.delete(`${endpoints.academics.events}${eventId}/`);
             setSelectedEventDetails(null);
             loadEvents(true);
         } catch (err: any) {
-            alert(err.message || 'Failed to delete event');
+            await showAlert({
+                title: 'Delete Failed',
+                message: err.message || 'Failed to delete event.',
+                variant: 'danger'
+            });
         }
     };
 
@@ -335,7 +346,12 @@ export default function CalendarPage() {
 
     const handleTriggerVacation = async () => {
         if (!selectedTerm) return;
-        if (!window.confirm(`Initiate vacation period for ${selectedTerm.name}? This will broadcast notifications to all teachers and parents with resumption date details for the next term.`)) return;
+        if (!await confirm({
+            title: 'Initiate Vacation Period',
+            message: `Initiate vacation period for ${selectedTerm.name}? This will broadcast notifications to all teachers and parents with resumption date details for the next term.`,
+            confirmText: 'Initiate Vacation',
+            variant: 'warning'
+        })) return;
         
         setTransitioningVacation(true);
         setError('');

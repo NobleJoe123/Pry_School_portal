@@ -7,6 +7,7 @@ import {
     CheckSquare, AlertCircle, School, UserCircle,
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
+import { useDialog } from '../../context/DialogContext';
 import type { DashboardStats } from '../../types';
 import RecentNotifications from '../../components/RecentNotifications';
 
@@ -447,6 +448,7 @@ function EnrollmentTable({
 // ──────────────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
+    const { confirm, showAlert } = useDialog();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -482,17 +484,30 @@ export default function AdminDashboard() {
             setIsSuccessOpen(true);
             fetchData();
         } catch (err: any) {
-            alert(err.message || 'Failed to approve');
+            await showAlert({
+                title: 'Approval Failed',
+                message: err.message || 'Failed to approve enrollment.',
+                variant: 'danger'
+            });
         }
     };
 
     const handleDeny = async (id: string) => {
-        if (!window.confirm("Are you sure you want to deny this enrollment?")) return;
+        if (!await confirm({
+            title: 'Deny Enrollment',
+            message: "Are you sure you want to deny this enrollment request?",
+            confirmText: 'Deny Enrollment',
+            variant: 'danger'
+        })) return;
         try {
             await api.post(`${endpoints.auth.enrollment}${id}/deny/`, {});
             fetchData();
         } catch (err: any) {
-            alert(err.message || 'Failed to deny');
+            await showAlert({
+                title: 'Denial Failed',
+                message: err.message || 'Failed to deny enrollment.',
+                variant: 'danger'
+            });
         }
     };
 

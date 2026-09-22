@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { GraduationCap, Plus, Search, Users, BookOpen, UserCircle, Edit3, X, Save, ChevronDown, Trash2 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
+import { useDialog } from '../../context/DialogContext';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
 interface SchoolClass {
@@ -209,6 +210,7 @@ function ClassFormModal({
 }
 
 export default function ClassesPage() {
+    const { confirm, showAlert } = useDialog();
     const [loading, setLoading] = useState(true);
     const [classes, setClasses] = useState<SchoolClass[]>([]);
     const [levels, setLevels] = useState<ClassLevel[]>([]);
@@ -270,12 +272,21 @@ export default function ClassesPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('Are you sure you want to delete this class? This action cannot be undone.')) return;
+        if (!await confirm({
+            title: 'Delete Class',
+            message: 'Are you sure you want to delete this class? This action cannot be undone.',
+            confirmText: 'Delete Class',
+            variant: 'danger'
+        })) return;
         try {
             await api.delete(endpoints.academics.classes + `${id}/`);
             fetchData();
         } catch (err: any) {
-            alert(err.message || 'Failed to delete class. It may have students enrolled.');
+            await showAlert({
+                title: 'Delete Failed',
+                message: err.message || 'Failed to delete class. It may have students enrolled.',
+                variant: 'danger'
+            });
         }
     };
 
