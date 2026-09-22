@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 import { api, endpoints } from '../../utils/api';
+import { useDialog } from '../../context/DialogContext';
 import type { ClassLevel, SchoolClass } from '../../types';
 
 interface Material {
@@ -144,6 +145,7 @@ function PreviewModal({ item, onClose, onApprove, onReject }: {
 }
 
 export default function AdminMaterials() {
+    const { confirm } = useDialog();
     const [materials, setMaterials] = useState<Material[]>([]);
     const [levels, setLevels] = useState<ClassLevel[]>([]);
     const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -192,7 +194,12 @@ export default function AdminMaterials() {
     };
 
     const deleteMaterial = async (id: string) => {
-        if (!window.confirm('Delete this material permanently?')) return;
+        if (!await confirm({
+            title: 'Delete Material',
+            message: 'Delete this material permanently? This action cannot be undone.',
+            confirmText: 'Delete Material',
+            variant: 'danger'
+        })) return;
         await api.delete(endpoints.academics.materialDetail(id));
         setMaterials((current) => current.filter((item) => item.id !== id));
         if (preview?.id === id) setPreview(null);

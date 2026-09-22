@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { useDialog } from '../../context/DialogContext';
 import type { StudentAttendance, SchoolClass, User } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
@@ -372,6 +373,7 @@ function EmergencyOverridePanel({ classId, className, date, onClose, onSaved }: 
 
 // ── Main Attendance Component ──────────────────────────────────────────────────
 export default function Attendance() {
+    const { showAlert } = useDialog();
     const todayStr = new Date().toISOString().split('T')[0];
     const [selectedDate, setSelectedDate] = useState(todayStr);
 
@@ -652,7 +654,11 @@ export default function Attendance() {
                                                             });
                                                             loadData();
                                                         } catch (err: any) {
-                                                            alert(err.message || 'Failed to reopen attendance.');
+                                                            await showAlert({
+                                                                title: 'Reopen Failed',
+                                                                message: err.message || 'Failed to reopen attendance.',
+                                                                variant: 'danger'
+                                                            });
                                                         }
                                                     }}
                                                     className="text-amber-400 hover:text-amber-300 font-bold transition-colors text-[10px]"

@@ -5,6 +5,7 @@ import {
     Bell, MailOpen, Trash2, Megaphone
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
+import { useDialog } from '../../context/DialogContext';
 import type { Notification, User as UserType } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
@@ -369,6 +370,7 @@ function TicketDetailPanel({ ticket, onClose, onUpdate }: {
 // ── Main Combined Page ────────────────────────────────────────────────────────
 
 export default function AdminTickets() {
+    const { confirm } = useDialog();
     const [activeTab, setActiveTab] = useState<'tickets' | 'notices'>('tickets');
     
     // Support Tickets States
@@ -447,7 +449,12 @@ export default function AdminTickets() {
     };
 
     const clearAllNotices = async () => {
-        if (window.confirm('Are you sure you want to clear all notices?')) {
+        if (await confirm({
+            title: 'Clear All Notices',
+            message: 'Are you sure you want to clear all notices? This action cannot be undone.',
+            confirmText: 'Clear All',
+            variant: 'danger'
+        })) {
             try {
                 await api.delete(`${endpoints.auth.notifications}clear_all/`);
                 setNotices([]);
