@@ -58,7 +58,7 @@ class RegisterView(generics.CreateAPIView):
         response = Response({
             'user': UserSerializer(user, context={'request': request}).data,
             'access_token': access,
-            'message': 'Registration sucessfull'
+            'message': 'Registration successful'
         }, status=status.HTTP_201_CREATED)
         
         response.set_cookie(key=REFRESH_COOKIE_NAME, value=str(refresh), **COOKIE_SETTINGS)
