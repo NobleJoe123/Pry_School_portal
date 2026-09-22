@@ -28,6 +28,7 @@ class StudentAttendance(models.Model):
     class Meta:
         unique_together = ('student', 'date')
         verbose_name_plural = "Student Attendance"
+        ordering = ['-date', 'id']
 
     def __str__(self):
         return f"{self.student.full_name} - {self.date} ({self.status})"
@@ -83,6 +84,7 @@ class TeacherAttendance(models.Model):
     class Meta:
         unique_together = ('teacher', 'date')
         verbose_name_plural = "Teacher Attendance"
+        ordering = ['-date', 'id']
 
     def __str__(self):
         return f"{self.teacher.full_name} - {self.date}"
