@@ -267,3 +267,75 @@ input::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* ── Northfield UI Design System & Animations ───────────────────── */
+
+@keyframes nf-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes nf-float-slow {
+  0%, 100% {
+    transform: translateY(0) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(1.5deg);
+  }
+}
+
+@keyframes nf-glow-pulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.08);
+  }
+}
+
+.animate-float {
+  animation: 6s ease-in-out infinite nf-float;
+}
+
+.animate-float-slow {
+  animation: 8s ease-in-out infinite nf-float-slow;
+}
+
+.animate-glow-pulse {
+  animation: 5s ease-in-out infinite nf-glow-pulse;
+}
+
+.font-display {
+  font-family: 'Fraunces', 'DM Serif Display', Georgia, serif;
+}
+
+.font-sans-clean {
+  font-family: 'Inter', 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.shadow-glow {
+  box-shadow: 0 20px 50px -15px rgba(245, 158, 11, 0.35);
+}
+
+.shadow-glow-purple {
+  box-shadow: 0 20px 50px -15px rgba(139, 92, 246, 0.35);
+}
+
+.shadow-card {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 20px 40px -20px rgba(0, 0, 0, 0.5);
+}
+
+.shadow-card-light {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 20px 40px -20px rgba(15, 23, 42, 0.1);
+}
+
+.bg-gradient-cta {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #ec4899 100%);
+}
+
