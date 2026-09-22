@@ -142,7 +142,7 @@ export type RelationshipType = 'father' | 'mother' | 'guardian' | 'other';
 
 export interface ParentProfile {
     id: string;
-    relatioship_to_student: RelationshipType;
+    relationship_to_student: RelationshipType;
     occupation: string | null;
     employer: string | null;
     office_address: string | null;

@@ -18,16 +18,12 @@ export const AccessToken = {
 let _isRefreshing = false;
 
 let _refreshQueue:
-    ((token: string) => void)[] = [];
+    ((token: string | null) => void)[] = [];
 
-
-
-const drainQueue = (token: string) => {
+const drainQueue = (token: string | null) => {
     _refreshQueue.forEach((resolve) => resolve(token));
     _refreshQueue = [];
-
 };
-
 
 export const refreshAccessToken = async (): Promise<string | null> => {
     try {
@@ -95,22 +91,19 @@ export async function apiFetch<T>(
             _isRefreshing = true;
             try {
                 const newToken = await refreshAccessToken();
-
-                if (newToken) drainQueue(newToken);
-
+                drainQueue(newToken);
             } finally {
                 _isRefreshing = false;
             }
 
         } else {
-
-            await new Promise<string>((resolve) => _refreshQueue.push(resolve));
+            await new Promise<string | null>((resolve) => _refreshQueue.push(resolve));
         }
 
         const refreshed = AccessToken.get();
         if (refreshed)
             headers['Authorization'] = `Bearer ${refreshed}`;
-        res = await fetch(url, { ...rest, headers, credentials: 'include', })
+        res = await fetch(url, { ...rest, headers, credentials: 'include', });
     }
 
     if (!res.ok) {
