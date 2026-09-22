@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { useDialog } from '../../context/DialogContext';
 import logo from '../../assets/anyilogo.png';
 import type { SchoolClass, Term, User, StudentScore } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
@@ -76,6 +77,7 @@ const getList = <T,>(val: any): T[] => {
 
 export default function Reports() {
     const { user } = useAuth();
+    const { confirm, showAlert } = useDialog();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -356,7 +358,11 @@ export default function Reports() {
             loadReportData(true);
         } catch (err) {
             console.error(err);
-            alert("Failed to save report card details.");
+            await showAlert({
+                title: 'Save Failed',
+                message: "Failed to save report card details.",
+                variant: 'danger'
+            });
         } finally {
             setSaving(false);
         }
@@ -365,7 +371,12 @@ export default function Reports() {
     // Bulk Publish reports (admins only)
     const handleBulkPublish = async () => {
         if (!selectedTermId || students.length === 0) return;
-        if (!window.confirm("Are you sure you want to publish report cards for all students in this class?")) return;
+        if (!await confirm({
+            title: 'Bulk Publish Reports',
+            message: "Are you sure you want to publish report cards for all students in this class? Students and parents will be notified immediately.",
+            confirmText: 'Publish All',
+            variant: 'warning'
+        })) return;
         setSaving(true);
         try {
             const records = students.map(s => ({
@@ -382,7 +393,11 @@ export default function Reports() {
             loadReportData(true);
         } catch (err) {
             console.error(err);
-            alert("Failed to bulk publish report cards.");
+            await showAlert({
+                title: 'Publish Failed',
+                message: "Failed to bulk publish report cards.",
+                variant: 'danger'
+            });
         } finally {
             setSaving(false);
         }

@@ -10,6 +10,7 @@ import {
     CircleDollarSign, FileBarChart2, BookOpen, CheckSquare, Square
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
+import { useDialog } from '../../context/DialogContext';
 import type {
     FeeType, StudentFee, PaymentRecord, Payroll, PayrollDetail,
     PayrollSummary, PayrollStaffDirectoryItem, Term,
@@ -161,6 +162,7 @@ function AddFeeModal({ onClose, onSuccess, levels }: AddFeeModalProps) {
 // ── Generate Payroll Modal ─────────────────────────────────────────────────────
 interface GeneratePayrollModalProps { onClose: () => void; onSuccess: () => void; }
 function GeneratePayrollModal({ onClose, onSuccess }: GeneratePayrollModalProps) {
+    const { showAlert } = useDialog();
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
@@ -172,7 +174,13 @@ function GeneratePayrollModal({ onClose, onSuccess }: GeneratePayrollModalProps)
         e.preventDefault(); setSubmitting(true);
         try {
             const res: any = await api.post(endpoints.finance.payrollGenerateMonthly, { month, year, due_date: dueDate || undefined, include_admin: includeAdmin });
-            alert(res.message || 'Payroll generated!'); onSuccess(); onClose();
+            await showAlert({
+                title: 'Payroll Generated',
+                message: res.message || 'Payroll generated successfully!',
+                variant: 'success'
+            });
+            onSuccess();
+            onClose();
         } catch (err: any) { setError(err.message || 'Failed to generate payroll.'); }
         finally { setSubmitting(false); }
     };
@@ -487,6 +495,7 @@ function PayslipDrawer({ payrollId, onClose }: PayslipDrawerProps) {
 
 // ── Main Finance Component ────────────────────────────────────────────────────
 export default function Finance() {
+    const { showAlert } = useDialog();
     const [activeTab, setActiveTab] = useState<Tab>('overview');
     const [payrollSubTab, setPayrollSubTab] = useState<PayrollSubTab>('dashboard');
     const [loading, setLoading] = useState(true);
@@ -587,14 +596,14 @@ export default function Finance() {
 
     const handlePayrollAction = async (id: string, action: string) => {
         try { await api.post<any>(endpoints.finance.payrollAction(id, action), {}); loadData(true); }
-        catch (err: any) { alert(err.message || `Failed to ${action} payroll.`); }
+        catch (err: any) { await showAlert({ title: 'Payroll Error', message: err.message || `Failed to ${action} payroll.`, variant: 'danger' }); }
     };
 
     const handleReversePayroll = async (id: string) => {
         const reason = window.prompt('Reason for reversing this payroll?');
         if (reason === null) return;
         try { await api.post<any>(endpoints.finance.payrollAction(id, 'reverse'), { reason }); loadData(true); }
-        catch (err: any) { alert(err.message || 'Failed to reverse payroll.'); }
+        catch (err: any) { await showAlert({ title: 'Reverse Failed', message: err.message || 'Failed to reverse payroll.', variant: 'danger' }); }
     };
 
     const handleBulkPay = async () => {
@@ -603,16 +612,20 @@ export default function Finance() {
         if (!method) return;
         try {
             const res: any = await api.post(endpoints.finance.payrollBulkPay, { ids: Array.from(selectedPayrollIds), payment_method: method });
-            alert(res.message); setSelectedPayrollIds(new Set()); loadData(true);
-        } catch (err: any) { alert(err.message || 'Bulk pay failed.'); }
+            await showAlert({ title: 'Bulk Payment', message: res.message || 'Bulk payment processed.', variant: 'success' });
+            setSelectedPayrollIds(new Set());
+            loadData(true);
+        } catch (err: any) { await showAlert({ title: 'Bulk Payment Failed', message: err.message || 'Bulk pay failed.', variant: 'danger' }); }
     };
 
     const handleBulkApprove = async () => {
         if (!selectedPayrollIds.size) return;
         try {
             const res: any = await api.post(endpoints.finance.payrollBulkApprove, { ids: Array.from(selectedPayrollIds) });
-            alert(res.message); setSelectedPayrollIds(new Set()); loadData(true);
-        } catch (err: any) { alert(err.message || 'Bulk approve failed.'); }
+            await showAlert({ title: 'Bulk Approval', message: res.message || 'Bulk approval processed.', variant: 'success' });
+            setSelectedPayrollIds(new Set());
+            loadData(true);
+        } catch (err: any) { await showAlert({ title: 'Bulk Approve Failed', message: err.message || 'Bulk approve failed.', variant: 'danger' }); }
     };
 
     const toggleSelect = (id: string) => {
@@ -624,7 +637,7 @@ export default function Finance() {
         try {
             const res = await api.get<any>(`${endpoints.finance.payrollReports}?month=${payrollMonth}&year=${payrollYear}&type=${reportType}`);
             setReport(res);
-        } catch (err: any) { alert(err.message || 'Failed to load report.'); }
+        } catch (err: any) { await showAlert({ title: 'Report Error', message: err.message || 'Failed to load report.', variant: 'danger' }); }
         finally { setReportLoading(false); }
     };
 

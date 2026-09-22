@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { useDialog } from '../../context/DialogContext';
 import type { SchoolClass, User, Subject, AssessmentType, Term } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
@@ -24,6 +25,7 @@ const getList = <T,>(value: any): T[] => {
 
 export default function Scores() {
     const { user } = useAuth();
+    const { showAlert } = useDialog();
     const [loading, setLoading] = useState(true);
 
     // Filters Meta
@@ -270,7 +272,11 @@ export default function Scores() {
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             console.error("Bulk save error", err);
-            alert("Failed to save scores. Ensure valid inputs.");
+            await showAlert({
+                title: 'Save Failed',
+                message: "Failed to save scores. Ensure valid inputs.",
+                variant: 'danger'
+            });
         } finally {
             setSaving(false);
         }
