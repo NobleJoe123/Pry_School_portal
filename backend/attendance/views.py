@@ -29,7 +29,7 @@ class StudentAttendanceViewSet(viewsets.ModelViewSet):
         if school_class:
             queryset = queryset.filter(school_class_id=school_class)
 
-        return queryset
+        return queryset.order_by('-date', 'id')
 
     @action(detail=False, methods=['post'])
     def bulk_mark(self, request):
@@ -215,5 +215,5 @@ class TeacherAttendanceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'teacher':
-            return TeacherAttendance.objects.filter(teacher=user)
-        return TeacherAttendance.objects.all()
+            return TeacherAttendance.objects.filter(teacher=user).order_by('-date', 'id')
+        return TeacherAttendance.objects.all().order_by('-date', 'id')
