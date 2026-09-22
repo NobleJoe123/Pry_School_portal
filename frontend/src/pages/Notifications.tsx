@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle, MailOpen, RefreshCw, Send, Filter, Calendar, BookOpen, Wallet, GraduationCap, Trash2 } from 'lucide-react';
 import { api, endpoints } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useDialog } from '../context/DialogContext';
 import type { Notification, User } from '../types';
 import FilterDropdown from '../components/ui/FilterDropdown';
 
@@ -144,6 +145,7 @@ function NotificationComposer({ onSent }: { onSent: () => void }) {
 
 export default function Notifications() {
     const { user } = useAuth();
+    const { confirm } = useDialog();
     const navigate = useNavigate();
     const [items, setItems] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
@@ -186,7 +188,12 @@ export default function Notifications() {
     };
 
     const clearAllNotifications = async () => {
-        if (window.confirm('Are you sure you want to clear all notifications?')) {
+        if (await confirm({
+            title: 'Clear All Notifications',
+            message: 'Are you sure you want to clear all notifications? This cannot be undone.',
+            confirmText: 'Clear All',
+            variant: 'danger'
+        })) {
             try {
                 await api.delete(`${endpoints.auth.notifications}clear_all/`);
                 setItems([]);

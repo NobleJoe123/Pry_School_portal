@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, GraduationCap, Calendar, Layers, BookOpen, User as UserIcon, X, CheckCircle, Bell, DollarSign, Clock, Trash2, Filter, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
+import { useDialog } from '../../context/DialogContext';
 import type { AcademicYear, Term, ClassLevel, SchoolClass, Subject } from '../../types';
 
 type Tab = 'years' | 'terms' | 'levels' | 'classes' | 'subjects';
@@ -13,6 +14,7 @@ const getList = <T,>(res: any): T[] => {
 };
 
 export default function Academics() {
+    const { showAlert } = useDialog();
     const [activeTab, setActiveTab] = useState<Tab>('classes');
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
@@ -122,7 +124,11 @@ export default function Academics() {
             });
             await loadData();
         } catch (err: any) {
-            alert(err.message || 'Failed to activate term.');
+            await showAlert({
+                title: 'Activation Failed',
+                message: err.message || 'Failed to activate term.',
+                variant: 'danger'
+            });
         } finally {
             setActivating(false);
         }
