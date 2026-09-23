@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Users, GraduationCap, BookOpen, CreditCard, CalendarCheck,
     Plus, UserCircle, ChevronRight, AlertCircle, Droplets, MapPin,
@@ -320,6 +321,7 @@ function AcademicsTab({ childId }: { childId: string }) {
 }
 
 function FeesTab({ childId, childName }: { childId: string; childName: string }) {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [fees, setFees] = useState<any[]>([]);
     const [payments, setPayments] = useState<any[]>([]);
@@ -362,6 +364,16 @@ function FeesTab({ childId, childName }: { childId: string; childName: string })
                     <p className="text-white text-xl font-black mt-1">₦{totalPaid.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
                     <p className="text-slate-500 text-[11px] mt-0.5">{paid.length} invoice{paid.length !== 1 ? 's' : ''} cleared</p>
                 </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fee Invoices</p>
+                <button
+                    onClick={() => navigate('/parent/fees')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md shadow-amber-500/15"
+                >
+                    <CreditCard size={13} /> Manage & Pay Fees →
+                </button>
             </div>
 
             {loading ? (

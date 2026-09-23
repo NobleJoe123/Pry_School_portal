@@ -335,11 +335,14 @@ export interface StudentFee {
     id: string;
     student: string;
     student_name?: string;
+    admission_number?: string | null;
     class_name?: string | null;
     fee_type: string;
     fee_type_name?: string;
+    fee_type_amount?: string | number;
     term: string;
     term_name?: string;
+    academic_year_name?: string | null;
     status: 'paid' | 'partial' | 'outstanding';
     amount_paid: number;
     balance: number;
@@ -355,6 +358,23 @@ export interface PaymentRecord {
     received_by: string | null;
     received_by_name?: string;
     student_name?: string;
+    student_id?: string;
+    admission_number?: string | null;
+    class_name?: string | null;
+    fee_type_name?: string;
+    fee_type_amount?: string | number;
+    term_name?: string;
+    academic_year_name?: string | null;
+    balance_after?: string;
+    fee_status?: string;
+    parent_name?: string | null;
+    receipt_number?: string;
+    // Admin confirmation fields
+    is_confirmed: boolean;
+    confirmed_by?: string | null;
+    confirmed_by_name?: string | null;
+    confirmed_at?: string | null;
+    notes?: string | null;
 }
 
 export interface Payroll {
