@@ -71,6 +71,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: pry_school_portal-backend:latest
     container_name: primary_portal_backend
     restart: unless-stopped
     command: gunicorn portal.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
@@ -96,6 +97,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    image: pry_school_portal-frontend:latest
     container_name: primary_portal_frontend
     restart: unless-stopped
     ports:
@@ -116,6 +118,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: pry_school_portal-backend:latest
     container_name: primary_portal_celery_worker
     restart: unless-stopped
     command: celery -A portal worker --loglevel=info --concurrency=2
@@ -138,6 +141,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: pry_school_portal-backend:latest
     container_name: primary_portal_celery_beat
     restart: unless-stopped
     command: celery -A portal beat --loglevel=info
