@@ -23,6 +23,7 @@ export default function Navbar({ onMenuClick, title = 'Dashboard', showMenuIcon 
     });
 
     const fetchNotifications = async () => {
+        if (!user) return;
         try {
             const res = await api.get<any>(`${endpoints.auth.notifications}?page_size=5`);
             const getList = (val: any) => {
@@ -38,10 +39,11 @@ export default function Navbar({ onMenuClick, title = 'Dashboard', showMenuIcon 
     };
 
     useEffect(() => {
+        if (!user) return;
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 60000);
         return () => clearInterval(interval);
-    }, []);
+    }, [user]);
 
     // Close dropdown on outside click
     useEffect(() => {
