@@ -1013,17 +1013,23 @@ def parent_complete_profile(request):
         return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
 
     # Save everything atomically
-    with transaction.atomic():
-        user.phone = phone
-        user.address = address
-        user.profile_photo = passport_photo
-        user.save(update_fields=['phone', 'address', 'profile_photo'])
+    try:
+        with transaction.atomic():
+            profile.relationship_to_student = relationship
+            profile.passport_photo = passport_photo
+            profile.id_document = id_document
+            profile.completed_profile = True
+            profile.save(update_fields=['relationship_to_student', 'passport_photo', 'id_document', 'completed_profile'])
 
-        profile.relationship_to_student = relationship
-        profile.passport_photo = passport_photo
-        profile.id_document = id_document
-        profile.completed_profile = True
-        profile.save(update_fields=['relationship_to_student', 'passport_photo', 'id_document', 'completed_profile'])
+            user.phone = phone
+            user.address = address
+            if profile.passport_photo:
+                user.profile_photo = profile.passport_photo.name
+            user.first_login_completed = True
+            user.save(update_fields=['phone', 'address', 'profile_photo', 'first_login_completed'])
+    except Exception as e:
+        print(f"Error saving parent profile completion: {e}")
+        return Response({'error': f'Failed to save profile: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # Notify admins
     try:
