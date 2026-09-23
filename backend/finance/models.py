@@ -36,6 +36,99 @@ class StudentFee(models.Model):
     def balance(self):
         return self.fee_type.amount - self.amount_paid
 
+    def apply_payment(self, amount, payment_method, transaction_id=None, received_by=None, actor=None, is_confirmed=True):
+        """
+        Thread-safe method to apply a payment to this StudentFee using row-locking.
+        Updates amount_paid, status, and creates a PaymentRecord atomically.
+
+        Args:
+            is_confirmed: True for manual payments recorded by admin staff (cash/transfer/card).
+                          False for parent-initiated gateway payments pending admin review.
+        """
+        from decimal import Decimal
+        from django.db import transaction
+        import logging
+        logger = logging.getLogger(__name__)
+
+        amount_decimal = Decimal(str(amount))
+        if amount_decimal <= Decimal('0'):
+            raise ValueError("Payment amount must be greater than zero.")
+
+        with transaction.atomic():
+            locked_fee = StudentFee.objects.select_for_update().get(id=self.id)
+            if locked_fee.status == 'paid':
+                raise ValueError("Fee is already fully paid.")
+
+            if amount_decimal > locked_fee.balance:
+                raise ValueError(f"Amount ₦{amount_decimal:,.2f} exceeds outstanding balance of ₦{locked_fee.balance:,.2f}.")
+
+            payment = PaymentRecord.objects.create(
+                student_fee=locked_fee,
+                amount=amount_decimal,
+                payment_method=payment_method,
+                transaction_id=transaction_id,
+                received_by=received_by,
+                is_confirmed=is_confirmed,
+                confirmed_by=received_by if is_confirmed else None,
+            )
+
+            # Only credit the fee balance if payment is confirmed
+            if is_confirmed:
+                locked_fee.amount_paid += amount_decimal
+                if locked_fee.amount_paid >= locked_fee.fee_type.amount:
+                    locked_fee.status = 'paid'
+                elif locked_fee.amount_paid > Decimal('0'):
+                    locked_fee.status = 'partial'
+                locked_fee.save()
+
+                self.amount_paid = locked_fee.amount_paid
+                self.status = locked_fee.status
+
+        # Send notifications with robust logging
+        try:
+            from accounts.models import Notification
+            student = self.student
+            fee_name = self.fee_type.name
+            parent = getattr(getattr(student, 'student_profile', None), 'parent', None)
+
+            if is_confirmed:
+                msg = (
+                    f"A payment of ₦{amount_decimal:,.2f} ({payment.get_payment_method_display()}) "
+                    f"was recorded for {student.full_name}'s {fee_name}. New status: {self.get_status_display()}."
+                )
+                if transaction_id:
+                    msg += f" Ref: {transaction_id}."
+                student_msg = f"A payment of ₦{amount_decimal:,.2f} was recorded for your {fee_name}."
+            else:
+                msg = (
+                    f"An online payment of ₦{amount_decimal:,.2f} for {student.full_name}'s {fee_name} "
+                    f"is pending admin confirmation. Ref: {transaction_id or 'N/A'}."
+                )
+                student_msg = f"Your payment of ₦{amount_decimal:,.2f} for {fee_name} is pending admin confirmation."
+
+            sender_user = actor or received_by
+            if parent:
+                Notification.objects.create(
+                    sender=sender_user,
+                    recipient=parent,
+                    title="Fee Payment Recorded" if is_confirmed else "Payment Pending Confirmation",
+                    message=msg,
+                    category='finance',
+                    audience='selected'
+                )
+            Notification.objects.create(
+                sender=sender_user,
+                recipient=student,
+                title="Fee Payment Recorded" if is_confirmed else "Payment Pending Confirmation",
+                message=student_msg,
+                category='finance',
+                audience='selected'
+            )
+        except Exception as e:
+            logger.warning(f"Error dispatching payment notification for fee {self.id}: {e}")
+
+        return payment
+
     class Meta:
         unique_together = ('student', 'fee_type', 'term')
         ordering = ['student', 'term']
@@ -57,14 +150,32 @@ class PaymentRecord(models.Model):
     transaction_id = models.CharField(max_length=100, blank=True, null=True)
     date = models.DateTimeField(default=timezone.now)
     received_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
         null=True,
+        blank=True,
+        related_name='received_payments',
+        limit_choices_to={'role__in': ['admin', 'teacher']}
+    )
+    # Admin confirmation fields
+    is_confirmed = models.BooleanField(
+        default=True,
+        help_text='True for manually recorded payments; False for gateway payments awaiting admin review.'
+    )
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='confirmed_payments',
         limit_choices_to={'role': 'admin'}
     )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, null=True, help_text='Admin notes for confirmation or rejection reason.')
 
     def __str__(self):
-        return f"Payment of {self.amount} for {self.student_fee.student.full_name}"
+        confirmed_label = 'confirmed' if self.is_confirmed else 'pending'
+        return f"Payment of {self.amount} for {self.student_fee.student.full_name} ({confirmed_label})"
 
 class Payroll(models.Model):
     STATUS_CHOICES = [
