@@ -92,7 +92,7 @@ function SummaryCard({ label, value, icon, iconBg, iconColor, subtext, to, alert
                         {/* Quick action */}
                         {!loading && to && (
                             <div className="mt-3">
-                                <Link to={to} className="text-sky-400 text-xs font-semibold hover:text-sky-300">Take Action</Link>
+                                <span className="text-sky-400 text-xs font-semibold hover:text-sky-300 inline-flex items-center gap-1">Take Action &rarr;</span>
                             </div>
                         )}
                     </>

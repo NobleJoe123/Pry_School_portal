@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Wallet, Receipt, CreditCard, TrendingUp, Users,
-    Plus, Search, Filter, Download, CheckCircle, Clock,
+    Plus, Search, Download, CheckCircle, Clock,
     AlertCircle, DollarSign, X, RefreshCw, FileText,
     ArrowUpRight, BarChart3, Banknote, Lock, ShieldCheck, RotateCcw,
-    ChevronDown, ChevronRight, Eye, Edit2, Building2, UserCheck,
-    Calendar, Printer, List, LayoutGrid, AlertTriangle,
-    TrendingDown, PiggyBank, Car, Home, Utensils, Award,
-    CircleDollarSign, FileBarChart2, BookOpen, CheckSquare, Square
+    Eye, Edit2, UserCheck, User,
+    Calendar, Printer,
+    TrendingDown, Award,
+    CircleDollarSign, FileBarChart2, BookOpen, CheckSquare, Square, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useDialog } from '../../context/DialogContext';
@@ -120,6 +120,190 @@ function PaymentModal({ fee, onClose, onSuccess }: PaymentModalProps) {
                     <button type="submit" disabled={submitting} className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl transition-all flex items-center justify-center gap-2">
                         {submitting ? <><Spinner />Processing...</> : <><CheckCircle size={16} />Confirm Payment</>}
                     </button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── Confirm Payment Modal ─────────────────────────────────────────────────────
+interface ConfirmPaymentModalProps { payment: PaymentRecord | null; onClose: () => void; onSuccess: () => void; }
+function ConfirmPaymentModal({ payment, onClose, onSuccess }: ConfirmPaymentModalProps) {
+    const [notes, setNotes] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    if (!payment) return null;
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            await api.post(endpoints.finance.confirmPayment(payment.id), { notes });
+            onSuccess(); onClose();
+        } catch (err: any) { setError(err.message || 'Failed to confirm payment.'); }
+        finally { setSubmitting(false); }
+    };
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400"><ThumbsUp size={18} /></div>
+                        <div>
+                            <h2 className="text-base font-bold text-white">Confirm Gateway Payment</h2>
+                            <p className="text-xs text-slate-500">{payment.student_name}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X size={18} /></button>
+                </div>
+                <div className="p-5 bg-emerald-500/5 border-b border-emerald-500/10">
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div><p className="text-slate-500 mb-0.5">Amount</p><p className="text-white font-black text-lg">{formatCurrency(payment.amount)}</p></div>
+                        <div><p className="text-slate-500 mb-0.5">Method</p><p className="text-white font-semibold capitalize">{payment.payment_method}</p></div>
+                        <div><p className="text-slate-500 mb-0.5">Fee Item</p><p className="text-slate-300">{payment.fee_type_name || '—'}</p></div>
+                        <div><p className="text-slate-500 mb-0.5">Ref</p><p className="text-slate-400 font-mono text-[10px] truncate">{payment.transaction_id || '—'}</p></div>
+                    </div>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {error && <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm"><AlertCircle size={14} />{error}</div>}
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-2">Admin Note (optional)</label>
+                        <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Verified via bank statement..." className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50" />
+                    </div>
+                    <div className="flex gap-3">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all">Cancel</button>
+                        <button type="submit" disabled={submitting} className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl transition-all flex items-center justify-center gap-2">
+                            {submitting ? <><Spinner />Confirming...</> : <><ThumbsUp size={15} />Confirm Payment</>}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── Reject Payment Modal ──────────────────────────────────────────────────────
+interface RejectPaymentModalProps { payment: PaymentRecord | null; onClose: () => void; onSuccess: () => void; }
+function RejectPaymentModal({ payment, onClose, onSuccess }: RejectPaymentModalProps) {
+    const [reason, setReason] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    if (!payment) return null;
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!reason.trim()) { setError('Rejection reason is required.'); return; }
+        setSubmitting(true);
+        try {
+            await api.post(endpoints.finance.rejectPayment(payment.id), { reason: reason.trim() });
+            onSuccess(); onClose();
+        } catch (err: any) { setError(err.message || 'Failed to reject payment.'); }
+        finally { setSubmitting(false); }
+    };
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-red-500/10 rounded-xl text-red-400"><ThumbsDown size={18} /></div>
+                        <div>
+                            <h2 className="text-base font-bold text-white">Reject Payment</h2>
+                            <p className="text-xs text-slate-500">{payment.student_name} — {formatCurrency(payment.amount)}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X size={18} /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {error && <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm"><AlertCircle size={14} />{error}</div>}
+                    <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl text-amber-400 text-xs">
+                        <p className="font-bold mb-1">Note:</p>
+                        <p>The payment record will be kept for audit purposes. The student's fee balance will NOT be credited. The student/parent will be notified.</p>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-2">Rejection Reason <span className="text-red-400">*</span></label>
+                        <textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Transaction reference not found in bank records..." rows={3} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-red-500/50 resize-none" />
+                    </div>
+                    <div className="flex gap-3">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all">Cancel</button>
+                        <button type="submit" disabled={submitting} className="flex-1 py-3 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2">
+                            {submitting ? <><Spinner />Rejecting...</> : <><ThumbsDown size={15} />Reject Payment</>}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── Reverse Payroll Modal ─────────────────────────────────────────────────────
+interface ReversePayrollModalProps { payrollId: string | null; onClose: () => void; onSuccess: () => void; }
+function ReversePayrollModal({ payrollId, onClose, onSuccess }: ReversePayrollModalProps) {
+    const [reason, setReason] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    if (!payrollId) return null;
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!reason.trim()) { setError('Reversal reason is required.'); return; }
+        setSubmitting(true);
+        try {
+            await api.post(endpoints.finance.payrollAction(payrollId, 'reverse'), { reason: reason.trim() });
+            onSuccess(); onClose();
+        } catch (err: any) { setError(err.message || 'Failed to reverse payroll.'); }
+        finally { setSubmitting(false); }
+    };
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                    <div><h2 className="text-base font-bold text-white">Reverse Payroll</h2><p className="text-xs text-slate-500 mt-0.5">State the reason for this reversal</p></div>
+                    <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X size={18} /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {error && <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{error}</div>}
+                    <div><label className="block text-xs font-semibold text-slate-400 mb-2">Reason <span className="text-red-400">*</span></label>
+                        <textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Duplicate payment, wrong amount..." rows={3} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-red-500/50 resize-none" />
+                    </div>
+                    <div className="flex gap-3">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all">Cancel</button>
+                        <button type="submit" disabled={submitting} className="flex-1 py-3 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2">{submitting ? <><Spinner />Reversing...</> : <><RotateCcw size={14} />Reverse</>}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── Bulk Pay Method Modal ─────────────────────────────────────────────────────
+interface BulkPayMethodModalProps { count: number; ids: string[]; onClose: () => void; onSuccess: () => void; }
+function BulkPayMethodModal({ count, ids, onClose, onSuccess }: BulkPayMethodModalProps) {
+    const { showAlert } = useDialog();
+    const [method, setMethod] = useState<'bank_transfer' | 'cash' | 'cheque' | 'gateway'>('bank_transfer');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault(); setSubmitting(true);
+        try {
+            const res: any = await api.post(endpoints.finance.payrollBulkPay, { ids, payment_method: method });
+            await showAlert({ title: 'Bulk Payment', message: res.message || 'Bulk payment processed.', variant: 'success' });
+            onSuccess(); onClose();
+        } catch (err: any) { setError(err.message || 'Bulk pay failed.'); }
+        finally { setSubmitting(false); }
+    };
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                    <div><h2 className="text-base font-bold text-white">Bulk Process Payment</h2><p className="text-xs text-slate-500 mt-0.5">{count} payroll record{count !== 1 ? 's' : ''} selected</p></div>
+                    <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X size={18} /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {error && <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{error}</div>}
+                    <div><label className="block text-xs font-semibold text-slate-400 mb-2">Payment Method</label>
+                        <div className="grid grid-cols-2 gap-2">{(['bank_transfer', 'cash', 'cheque', 'gateway'] as const).map(m => (<button key={m} type="button" onClick={() => setMethod(m)} className={`py-2.5 text-xs font-bold rounded-xl border transition-all capitalize ${method === m ? 'bg-emerald-500 text-slate-950 border-emerald-500' : 'text-slate-400 border-white/10 bg-white/5 hover:border-white/20'}`}>{m.replace('_', ' ')}</button>))}</div>
+                    </div>
+                    <div className="flex gap-3">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all">Cancel</button>
+                        <button type="submit" disabled={submitting} className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl transition-all flex items-center justify-center gap-2">{submitting ? <><Spinner />Processing...</> : <><CheckCircle size={14} />Pay All</>}</button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -522,10 +706,14 @@ export default function Finance() {
 
     // Modals
     const [paymentFee, setPaymentFee] = useState<StudentFee | null>(null);
+    const [confirmingPayment, setConfirmingPayment] = useState<PaymentRecord | null>(null);
+    const [rejectingPayment, setRejectingPayment] = useState<PaymentRecord | null>(null);
     const [showAddFee, setShowAddFee] = useState(false);
     const [showGenPayroll, setShowGenPayroll] = useState(false);
     const [editPayroll, setEditPayroll] = useState<Payroll | null>(null);
     const [payPayroll, setPayPayroll] = useState<Payroll | null>(null);
+    const [reversePayrollId, setReversePayrollId] = useState<string | null>(null);
+    const [showBulkPay, setShowBulkPay] = useState(false);
     const [payslipId, setPayslipId] = useState<string | null>(null);
 
     // Bulk selection
@@ -535,6 +723,8 @@ export default function Finance() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [classFilter, setClassFilter] = useState('');
+    const [paymentSearch, setPaymentSearch] = useState('');
+    const [paymentConfirmationFilter, setPaymentConfirmationFilter] = useState<'all' | 'pending' | 'confirmed'>('all');
     const [payrollSearch, setPayrollSearch] = useState('');
     const [payrollStatusFilter, setPayrollStatusFilter] = useState('');
     const [dirSearch, setDirSearch] = useState('');
@@ -599,23 +789,13 @@ export default function Finance() {
         catch (err: any) { await showAlert({ title: 'Payroll Error', message: err.message || `Failed to ${action} payroll.`, variant: 'danger' }); }
     };
 
-    const handleReversePayroll = async (id: string) => {
-        const reason = window.prompt('Reason for reversing this payroll?');
-        if (reason === null) return;
-        try { await api.post<any>(endpoints.finance.payrollAction(id, 'reverse'), { reason }); loadData(true); }
-        catch (err: any) { await showAlert({ title: 'Reverse Failed', message: err.message || 'Failed to reverse payroll.', variant: 'danger' }); }
+    const handleReversePayroll = (id: string) => {
+        setReversePayrollId(id);
     };
 
-    const handleBulkPay = async () => {
+    const handleBulkPay = () => {
         if (!selectedPayrollIds.size) return;
-        const method = window.prompt('Payment method? (bank_transfer / cash / cheque / gateway)', 'bank_transfer');
-        if (!method) return;
-        try {
-            const res: any = await api.post(endpoints.finance.payrollBulkPay, { ids: Array.from(selectedPayrollIds), payment_method: method });
-            await showAlert({ title: 'Bulk Payment', message: res.message || 'Bulk payment processed.', variant: 'success' });
-            setSelectedPayrollIds(new Set());
-            loadData(true);
-        } catch (err: any) { await showAlert({ title: 'Bulk Payment Failed', message: err.message || 'Bulk pay failed.', variant: 'danger' }); }
+        setShowBulkPay(true);
     };
 
     const handleBulkApprove = async () => {
@@ -641,10 +821,12 @@ export default function Finance() {
         finally { setReportLoading(false); }
     };
 
+    const pendingPaymentsCount = payments.filter(p => !p.is_confirmed).length;
+
     const tabs = [
         { id: 'overview', label: 'Overview', icon: BarChart3 },
         { id: 'billing', label: 'Student Billing', icon: Receipt },
-        { id: 'payments', label: 'Payments', icon: CreditCard },
+        { id: 'payments', label: 'Payments', icon: CreditCard, badge: pendingPaymentsCount },
         { id: 'fees', label: 'Fee Structures', icon: TrendingUp },
         { id: 'payroll', label: 'Payroll', icon: Users },
     ];
@@ -661,10 +843,14 @@ export default function Finance() {
         <div className="space-y-6 max-w-screen-xl">
             {/* Modals & Drawers */}
             {paymentFee && <PaymentModal fee={paymentFee} onClose={() => setPaymentFee(null)} onSuccess={() => loadData(true)} />}
+            {confirmingPayment && <ConfirmPaymentModal payment={confirmingPayment} onClose={() => setConfirmingPayment(null)} onSuccess={() => loadData(true)} />}
+            {rejectingPayment && <RejectPaymentModal payment={rejectingPayment} onClose={() => setRejectingPayment(null)} onSuccess={() => loadData(true)} />}
             {showAddFee && <AddFeeModal onClose={() => setShowAddFee(false)} onSuccess={() => loadData(true)} levels={levels} />}
             {showGenPayroll && <GeneratePayrollModal onClose={() => setShowGenPayroll(false)} onSuccess={() => loadData(true)} />}
             {editPayroll && <EditSalaryModal payroll={editPayroll} onClose={() => setEditPayroll(null)} onSuccess={() => { loadData(true); setEditPayroll(null); }} />}
             {payPayroll && <PayModal payroll={payPayroll} onClose={() => setPayPayroll(null)} onSuccess={() => { loadData(true); setPayPayroll(null); }} />}
+            {reversePayrollId && <ReversePayrollModal payrollId={reversePayrollId} onClose={() => setReversePayrollId(null)} onSuccess={() => loadData(true)} />}
+            {showBulkPay && <BulkPayMethodModal count={selectedPayrollIds.size} ids={Array.from(selectedPayrollIds)} onClose={() => setShowBulkPay(false)} onSuccess={() => { setSelectedPayrollIds(new Set()); loadData(true); }} />}
             {payslipId && <PayslipDrawer payrollId={payslipId} onClose={() => setPayslipId(null)} />}
 
             {/* Header */}
@@ -711,6 +897,11 @@ export default function Finance() {
                     <button key={tab.id} id={`finance-tab-${tab.id}`} onClick={() => setActiveTab(tab.id as Tab)}
                         className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                         <tab.icon size={16} />{tab.label}
+                        {Boolean(tab.badge && tab.badge > 0) && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-slate-950 animate-pulse">
+                                {tab.badge}
+                            </span>
+                        )}
                     </button>
                 ))}
             </div>
@@ -806,20 +997,225 @@ export default function Finance() {
                     )}
 
                     {/* PAYMENTS */}
-                    {activeTab === 'payments' && (
-                        <div className="space-y-3">
-                            {payments.map(payment => (
-                                <div key={payment.id} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/[0.08] transition-all">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Banknote size={20} /></div>
-                                        <div><p className="text-sm font-bold text-white">{payment.student_name || 'Unknown'}</p><p className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">{new Date(payment.date).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })} · <span className="capitalize">{payment.payment_method}</span></p></div>
+                    {activeTab === 'payments' && (() => {
+                        const filteredPayments = payments.filter(payment => {
+                            const matchFilter =
+                                paymentConfirmationFilter === 'all' ? true :
+                                paymentConfirmationFilter === 'pending' ? !payment.is_confirmed :
+                                payment.is_confirmed;
+                            const q = paymentSearch.toLowerCase().trim();
+                            const matchSearch = !q ||
+                                (payment.student_name || '').toLowerCase().includes(q) ||
+                                (payment.parent_name || '').toLowerCase().includes(q) ||
+                                (payment.fee_type_name || '').toLowerCase().includes(q) ||
+                                (payment.transaction_id || '').toLowerCase().includes(q) ||
+                                (payment.receipt_number || '').toLowerCase().includes(q) ||
+                                (payment.admission_number || '').toLowerCase().includes(q);
+                            return matchFilter && matchSearch;
+                        });
+                        const confirmedCount = payments.filter(p => p.is_confirmed).length;
+
+                        return (
+                            <div className="space-y-4">
+                                {/* Filter bar */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
+                                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                                        <button
+                                            onClick={() => setPaymentConfirmationFilter('all')}
+                                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${paymentConfirmationFilter === 'all' ? 'bg-emerald-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white bg-white/5'}`}
+                                        >
+                                            All Payments ({payments.length})
+                                        </button>
+                                        <button
+                                            onClick={() => setPaymentConfirmationFilter('pending')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${paymentConfirmationFilter === 'pending' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white bg-white/5'}`}
+                                        >
+                                            <Clock size={12} />
+                                            Pending Review ({pendingPaymentsCount})
+                                            {pendingPaymentsCount > 0 && (
+                                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={() => setPaymentConfirmationFilter('confirmed')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${paymentConfirmationFilter === 'confirmed' ? 'bg-emerald-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white bg-white/5'}`}
+                                        >
+                                            <CheckCircle size={12} />
+                                            Confirmed ({confirmedCount})
+                                        </button>
                                     </div>
-                                    <div className="text-right"><p className="text-sm font-black text-emerald-400">{formatCurrency(payment.amount)}</p><p className="text-[10px] text-slate-600 font-mono mt-0.5">{payment.transaction_id || 'CASH-REC'}</p></div>
+                                    <div className="relative sm:w-72">
+                                        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                                        <input
+                                            type="text"
+                                            value={paymentSearch}
+                                            onChange={e => setPaymentSearch(e.target.value)}
+                                            placeholder="Search student, parent, ref..."
+                                            className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500/50"
+                                        />
+                                        {paymentSearch && (
+                                            <button onClick={() => setPaymentSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                                                <X size={12} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                            ))}
-                            {payments.length === 0 && <div className="flex flex-col items-center justify-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10"><CreditCard size={32} className="text-slate-600 mb-3" /><p className="text-slate-500 text-sm">No payments recorded yet.</p></div>}
-                        </div>
-                    )}
+
+                                {/* Payments list */}
+                                <div className="space-y-3">
+                                    {filteredPayments.map(payment => (
+                                        <div
+                                            key={payment.id}
+                                            className={`p-5 rounded-2xl border transition-all ${
+                                                !payment.is_confirmed
+                                                    ? 'bg-amber-500/[0.04] border-amber-500/20 hover:border-amber-500/40'
+                                                    : 'bg-white/5 border-white/5 hover:bg-white/[0.08]'
+                                            }`}
+                                        >
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                {/* Left details */}
+                                                <div className="flex items-start gap-4">
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                                                        !payment.is_confirmed ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'
+                                                    }`}>
+                                                        <Banknote size={22} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <p className="text-base font-bold text-white">{payment.student_name || 'Unknown Student'}</p>
+                                                            {payment.admission_number && (
+                                                                <span className="px-2 py-0.5 rounded-md bg-white/10 text-slate-300 font-mono text-[10px]">
+                                                                    {payment.admission_number}
+                                                                </span>
+                                                            )}
+                                                            {payment.class_name && (
+                                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
+                                                                    {payment.class_name}
+                                                                </span>
+                                                            )}
+                                                            {/* Confirmation badge */}
+                                                            {payment.is_confirmed ? (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                                    <CheckCircle size={10} /> Confirmed
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse">
+                                                                    <Clock size={10} /> Pending Confirmation
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Metadata row */}
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-400">
+                                                            {payment.parent_name && (
+                                                                <span className="flex items-center gap-1 text-slate-300">
+                                                                    <User size={11} className="text-slate-500" />
+                                                                    <span className="text-slate-500">Parent:</span> {payment.parent_name}
+                                                                </span>
+                                                            )}
+                                                            {payment.fee_type_name && (
+                                                                <span className="text-slate-400">
+                                                                    {payment.fee_type_name}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-slate-600">·</span>
+                                                            <span className="capitalize text-slate-400">
+                                                                {payment.payment_method}
+                                                            </span>
+                                                            <span className="text-slate-600">·</span>
+                                                            <span className="text-slate-500">
+                                                                {new Date(payment.date).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Transaction / Receipt & Notes */}
+                                                        <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px]">
+                                                            {payment.receipt_number && (
+                                                                <span className="text-emerald-400/90 font-mono">
+                                                                    Receipt: {payment.receipt_number}
+                                                                </span>
+                                                            )}
+                                                            {payment.transaction_id && (
+                                                                <span className="text-slate-500 font-mono">
+                                                                    Ref: {payment.transaction_id}
+                                                                </span>
+                                                            )}
+                                                            {payment.confirmed_by_name && (
+                                                                <span className="text-slate-500">
+                                                                    Confirmed by {payment.confirmed_by_name}
+                                                                </span>
+                                                            )}
+                                                            {payment.notes && (
+                                                                <span className="text-amber-400/80 italic">
+                                                                    Note: {payment.notes}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Right: Amount & Actions */}
+                                                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5">
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-black text-emerald-400 font-mono">
+                                                            {formatCurrency(payment.amount)}
+                                                        </p>
+                                                        {payment.balance_after !== undefined && (
+                                                            <p className="text-[10px] text-slate-500">
+                                                                Balance after: {formatCurrency(payment.balance_after)}
+                                                            </p>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Admin actions for pending payments */}
+                                                    {!payment.is_confirmed && (
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => setConfirmingPayment(payment)}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/20"
+                                                                title="Verify and confirm payment"
+                                                            >
+                                                                <ThumbsUp size={13} />
+                                                                <span>Confirm</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setRejectingPayment(payment)}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 font-bold text-xs rounded-xl transition-all"
+                                                                title="Reject payment"
+                                                            >
+                                                                <ThumbsDown size={13} />
+                                                                <span>Reject</span>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {filteredPayments.length === 0 && (
+                                        <div className="flex flex-col items-center justify-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
+                                            <CreditCard size={32} className="text-slate-600 mb-3" />
+                                            <p className="text-slate-400 text-sm font-semibold">
+                                                {paymentConfirmationFilter === 'pending'
+                                                    ? 'No payments pending review'
+                                                    : paymentConfirmationFilter === 'confirmed'
+                                                    ? 'No confirmed payments found'
+                                                    : 'No payments found'}
+                                            </p>
+                                            <p className="text-slate-600 text-xs mt-1">
+                                                {paymentSearch
+                                                    ? 'Try adjusting your search query'
+                                                    : paymentConfirmationFilter === 'pending'
+                                                    ? 'All gateway and online payments have been reviewed!'
+                                                    : 'Payments recorded in the system will appear here.'}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* FEE STRUCTURES */}
                     {activeTab === 'fees' && (
