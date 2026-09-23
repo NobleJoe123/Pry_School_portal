@@ -11,9 +11,12 @@ class FeeTypeSerializer(serializers.ModelSerializer):
 
 class StudentFeeSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)
+    admission_number = serializers.CharField(source='student.student_profile.admission_number', read_only=True, allow_null=True, default=None)
     class_name = serializers.CharField(source='student.student_profile.current_class.name', read_only=True, allow_null=True, default=None)
     fee_type_name = serializers.CharField(source='fee_type.name', read_only=True)
+    fee_type_amount = serializers.DecimalField(source='fee_type.amount', max_digits=12, decimal_places=2, read_only=True)
     term_name = serializers.CharField(source='term.name', read_only=True)
+    academic_year_name = serializers.CharField(source='term.academic_year.name', read_only=True, allow_null=True, default=None)
     balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
@@ -22,7 +25,23 @@ class StudentFeeSerializer(serializers.ModelSerializer):
 
 class PaymentRecordSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student_fee.student.full_name', read_only=True)
-    received_by_name = serializers.CharField(source='received_by.full_name', read_only=True)
+    student_id = serializers.CharField(source='student_fee.student.id', read_only=True)
+    admission_number = serializers.CharField(source='student_fee.student.student_profile.admission_number', read_only=True, allow_null=True, default=None)
+    class_name = serializers.CharField(source='student_fee.student.student_profile.current_class.name', read_only=True, allow_null=True, default=None)
+    fee_type_name = serializers.CharField(source='student_fee.fee_type.name', read_only=True)
+    fee_type_amount = serializers.DecimalField(source='student_fee.fee_type.amount', max_digits=12, decimal_places=2, read_only=True)
+    term_name = serializers.CharField(source='student_fee.term.name', read_only=True)
+    academic_year_name = serializers.CharField(source='student_fee.term.academic_year.name', read_only=True, allow_null=True, default=None)
+    balance_after = serializers.DecimalField(source='student_fee.balance', max_digits=12, decimal_places=2, read_only=True)
+    fee_status = serializers.CharField(source='student_fee.status', read_only=True)
+    received_by_name = serializers.CharField(source='received_by.full_name', read_only=True, allow_null=True)
+    parent_name = serializers.CharField(source='student_fee.student.student_profile.parent.full_name', read_only=True, allow_null=True, default=None)
+    confirmed_by_name = serializers.CharField(source='confirmed_by.full_name', read_only=True, allow_null=True)
+    receipt_number = serializers.SerializerMethodField()
+
+    def get_receipt_number(self, obj):
+        short_id = str(obj.id).replace('-', '')[:8].upper()
+        return f"REC-{short_id}"
 
     class Meta:
         model = PaymentRecord

@@ -1,28 +1,45 @@
+import logging
 from decimal import Decimal
 import requests
 from django.conf import settings
+from django.db import transaction
+from django.db.models import Sum, Q, Count
+from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django.db.models import Sum, Q, Count
-from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
+
 from .models import FeeType, StudentFee, PaymentRecord, Payroll, PayrollAuditLog
 from .serializers import (
     FeeTypeSerializer, StudentFeeSerializer, PaymentRecordSerializer,
     PayrollSerializer, PayrollDetailSerializer, PayrollAuditLogSerializer,
 )
 
+logger = logging.getLogger(__name__)
 
-PAYROLL_MANAGER_ROLES = {'admin', 'finance_officer'}
-PAYROLL_READONLY_ROLES = {'school_proprietor'}
+FINANCE_MANAGER_ROLES = {'admin', 'finance_officer'}
+FINANCE_READONLY_ROLES = {'school_proprietor'}
+
+
+def can_manage_finance(user):
+    return getattr(user, 'role', None) in FINANCE_MANAGER_ROLES or getattr(user, 'is_superuser', False)
+
+
+def can_view_finance(user):
+    return can_manage_finance(user) or getattr(user, 'role', None) in FINANCE_READONLY_ROLES
+
+
+PAYROLL_MANAGER_ROLES = FINANCE_MANAGER_ROLES
+PAYROLL_READONLY_ROLES = FINANCE_READONLY_ROLES
 
 
 def can_manage_payroll(user):
-    return getattr(user, 'role', None) in PAYROLL_MANAGER_ROLES or getattr(user, 'is_superuser', False)
+    return can_manage_finance(user)
 
 
 def can_view_payroll_analytics(user):
-    return can_manage_payroll(user) or getattr(user, 'role', None) in PAYROLL_READONLY_ROLES
+    return can_view_finance(user)
 
 
 def log_payroll_action(payroll, user, action, previous_value=None, updated_value=None):
@@ -46,6 +63,21 @@ class FeeTypeViewSet(viewsets.ModelViewSet):
         if level_id:
             queryset = queryset.filter(level_id=level_id)
         return queryset
+
+    def perform_create(self, serializer):
+        if not can_manage_finance(self.request.user):
+            raise PermissionDenied("Only finance managers and administrators can create fee types.")
+        serializer.save()
+
+    def perform_update(self, serializer):
+        if not can_manage_finance(self.request.user):
+            raise PermissionDenied("Only finance managers and administrators can update fee types.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not can_manage_finance(self.request.user):
+            raise PermissionDenied("Only finance managers and administrators can delete fee types.")
+        instance.delete()
 
 
 class StudentFeeViewSet(viewsets.ModelViewSet):
@@ -85,6 +117,21 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    def perform_create(self, serializer):
+        if not can_manage_finance(self.request.user):
+            raise PermissionDenied("Only finance managers and administrators can assign fees.")
+        serializer.save()
+
+    def perform_update(self, serializer):
+        if not can_manage_finance(self.request.user):
+            raise PermissionDenied("Only finance managers and administrators can update fee records.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not can_manage_finance(self.request.user):
+            raise PermissionDenied("Only finance managers and administrators can delete fee records.")
+        instance.delete()
+
     @action(detail=False, methods=['get'])
     def summary(self, request):
         queryset = self.get_queryset()
@@ -92,102 +139,73 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
             status__in=['outstanding', 'partial']
         ).aggregate(
             total=Sum('fee_type__amount')
-        )['total'] or 0
+        )['total'] or Decimal('0.00')
 
         total_partial_paid = queryset.filter(
             status='partial'
-        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        ).aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
 
         total_paid = queryset.filter(
             status='paid'
-        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        ).aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
 
-        actual_paid = float(total_paid) + float(total_partial_paid)
-        outstanding_amount = float(total_outstanding) - float(total_partial_paid)
+        actual_paid = total_paid + total_partial_paid
+        outstanding_amount = total_outstanding - total_partial_paid
 
         grand_total = actual_paid + outstanding_amount
-        collection_rate = (actual_paid / grand_total * 100) if grand_total > 0 else 0
+        collection_rate = (float(actual_paid) / float(grand_total) * 100) if grand_total > 0 else 0
 
         return Response({
-            'total_outstanding': round(outstanding_amount, 2),
-            'total_paid': round(actual_paid, 2),
+            'total_outstanding': round(float(outstanding_amount), 2),
+            'total_paid': round(float(actual_paid), 2),
             'collection_rate': round(collection_rate, 1),
         })
 
     @action(detail=True, methods=['post'])
     def record_payment(self, request, pk=None):
-        """Record a payment for a specific StudentFee."""
-        student_fee = self.get_object()
-        amount = request.data.get('amount')
-        payment_method = request.data.get('payment_method', 'cash')
-        transaction_id = request.data.get('transaction_id', '')
+        """Record a manual payment for a specific StudentFee (Finance Staff only)."""
+        if not can_manage_finance(request.user):
+            return Response(
+                {'error': 'Unauthorized. Only finance managers and administrators can record manual payments. For online self-service payments, use the Pay Online checkout.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-        if not amount:
+        student_fee = self.get_object()
+        amount_raw = request.data.get('amount')
+        payment_method = request.data.get('payment_method', 'cash')
+        transaction_id = request.data.get('transaction_id', '').strip() or None
+
+        if not amount_raw:
             return Response({'error': 'amount is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            amount = float(amount)
-        except (TypeError, ValueError):
+            amount = Decimal(str(amount_raw))
+        except Exception:
             return Response({'error': 'Invalid amount.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if amount <= 0:
+        if amount <= Decimal('0'):
             return Response({'error': 'Amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        remaining_balance = float(student_fee.fee_type.amount) - float(student_fee.amount_paid)
-        if amount > remaining_balance:
-            return Response({
-                'error': f'Amount ₦{amount:,.2f} exceeds remaining balance of ₦{remaining_balance:,.2f}.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # Idempotency check if transaction_id is provided
+        if transaction_id:
+            existing = PaymentRecord.objects.filter(transaction_id=transaction_id).first()
+            if existing:
+                return Response({
+                    'message': 'Payment with this transaction reference already recorded.',
+                    'payment_id': str(existing.id),
+                    'student_fee': StudentFeeSerializer(existing.student_fee).data
+                })
 
-        # Create payment record
-        payment = PaymentRecord.objects.create(
-            student_fee=student_fee,
-            amount=amount,
-            payment_method=payment_method,
-            transaction_id=transaction_id or None,
-            received_by=request.user,
-        )
-
-        # Update StudentFee
-        from decimal import Decimal
-        student_fee.amount_paid += Decimal(str(amount))
-        if student_fee.amount_paid >= student_fee.fee_type.amount:
-            student_fee.status = 'paid'
-        elif student_fee.amount_paid > 0:
-            student_fee.status = 'partial'
-        student_fee.save()
-
-        # Send payment notifications
         try:
-            from accounts.models import Notification
-            student = student_fee.student
-            fee_name = student_fee.fee_type.name
-            parent = student.student_profile.parent if hasattr(student, 'student_profile') else None
-
-            msg = f"A payment of ₦{amount:,.2f} has been received for {student.full_name}'s {fee_name}. New status: {student_fee.get_status_display()}."
-            if transaction_id:
-                msg += f" Transaction ID: {transaction_id}."
-
-            if parent:
-                Notification.objects.create(
-                    sender=request.user,
-                    recipient=parent,
-                    title="Payment Received",
-                    message=msg,
-                    category='finance',
-                    audience='selected'
-                )
-
-            Notification.objects.create(
-                sender=request.user,
-                recipient=student,
-                title="Fee Payment Recorded",
-                message=f"A payment of ₦{amount:,.2f} was recorded for your {fee_name}.",
-                category='finance',
-                audience='selected'
+            payment = student_fee.apply_payment(
+                amount=amount,
+                payment_method=payment_method,
+                transaction_id=transaction_id,
+                received_by=request.user,
+                actor=request.user
             )
-        except Exception as e:
-            print(f"Error sending payment notification: {e}")
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(student_fee)
         return Response({
@@ -198,7 +216,10 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def bulk_assign(self, request):
-        """Bulk assign fee types to all students in a class or term."""
+        """Bulk assign fee types to all students in a class or term (Finance Staff only)."""
+        if not can_manage_finance(request.user):
+            return Response({'error': 'Unauthorized. Only finance managers and administrators can assign fees.'}, status=status.HTTP_403_FORBIDDEN)
+
         fee_type_id = request.data.get('fee_type')
         term_id = request.data.get('term')
         student_ids = request.data.get('student_ids', [])
@@ -227,42 +248,43 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
         except ImportError:
             Notification = None
 
-        for student in students:
-            sf, created = StudentFee.objects.get_or_create(
-                student=student,
-                fee_type=fee_type,
-                term_id=term_id,
-                defaults={'status': 'outstanding', 'amount_paid': 0}
-            )
-            if created:
-                created_count += 1
-                if Notification:
-                    msg = f"A new fee of ₦{fee_type.amount:,.2f} for {fee_type.name} has been assigned for this term."
-                    notifications.append(
-                        Notification(
-                            sender=request.user,
-                            recipient=student,
-                            title=f"New Fee: {fee_type.name}",
-                            message=msg,
-                            category='finance',
-                            audience='selected'
-                        )
-                    )
-                    parent = student.student_profile.parent if hasattr(student, 'student_profile') else None
-                    if parent:
-                        parent_msg = f"A new fee of ₦{fee_type.amount:,.2f} for {fee_type.name} has been assigned to your child, {student.full_name}."
+        with transaction.atomic():
+            for student in students:
+                sf, created = StudentFee.objects.get_or_create(
+                    student=student,
+                    fee_type=fee_type,
+                    term_id=term_id,
+                    defaults={'status': 'outstanding', 'amount_paid': Decimal('0.00')}
+                )
+                if created:
+                    created_count += 1
+                    if Notification:
+                        msg = f"A new fee of ₦{fee_type.amount:,.2f} for {fee_type.name} has been assigned for this term."
                         notifications.append(
                             Notification(
                                 sender=request.user,
-                                recipient=parent,
-                                title=f"Tuition Invoice: {student.first_name}",
-                                message=parent_msg,
+                                recipient=student,
+                                title=f"New Fee: {fee_type.name}",
+                                message=msg,
                                 category='finance',
                                 audience='selected'
                             )
                         )
-        if notifications and Notification:
-            Notification.objects.bulk_create(notifications)
+                        parent = getattr(getattr(student, 'student_profile', None), 'parent', None)
+                        if parent:
+                            parent_msg = f"A new fee of ₦{fee_type.amount:,.2f} for {fee_type.name} has been assigned to your child, {student.full_name}."
+                            notifications.append(
+                                Notification(
+                                    sender=request.user,
+                                    recipient=parent,
+                                    title=f"Tuition Invoice: {student.first_name}",
+                                    message=parent_msg,
+                                    category='finance',
+                                    audience='selected'
+                                )
+                            )
+            if notifications and Notification:
+                Notification.objects.bulk_create(notifications)
 
         return Response({
             'message': f'Fee assigned to {created_count} student(s). {students.count() - created_count} already had this fee.'
@@ -272,37 +294,42 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
     def initialize_paystack(self, request, pk=None):
         """Initialize Paystack payment for a specific StudentFee."""
         student_fee = self.get_object()
+
+        # Authorization check: Caller must be the student, their parent, or finance staff
+        user = request.user
+        if user.role == 'student' and student_fee.student != user:
+            return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+        if user.role == 'parent':
+            parent = getattr(getattr(student_fee.student, 'student_profile', None), 'parent', None)
+            if parent != user:
+                return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+
         if student_fee.status == 'paid':
             return Response({'error': 'Fee is already fully paid.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        amount = request.data.get('amount')
-        if not amount:
+        amount_raw = request.data.get('amount')
+        if not amount_raw:
             amount = student_fee.balance
         else:
             try:
-                amount = Decimal(str(amount))
+                amount = Decimal(str(amount_raw))
             except Exception:
                 return Response({'error': 'Invalid amount.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            if amount <= 0:
+            if amount <= Decimal('0'):
                 return Response({'error': 'Amount must be greater than zero.'}, status=status.HTTP_400_BAD_REQUEST)
             if amount > student_fee.balance:
-                return Response({'error': f'Amount exceeds outstanding balance of {student_fee.balance}.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': f'Amount exceeds outstanding balance of ₦{student_fee.balance:,.2f}.'}, status=status.HTTP_400_BAD_REQUEST)
 
         email = getattr(request.user, 'email', None) or getattr(student_fee.student, 'email', None) or 'billing@anyiprimaryschool.ng'
 
-        # If PAYSTACK_SECRET_KEY is empty, fall back to mock sandbox payment
         paystack_key = getattr(settings, 'PAYSTACK_SECRET_KEY', '')
         if not paystack_key:
-            ref = f"MOCK-{student_fee.id}-{int(timezone.now().timestamp())}"
-            mock_url = f"/parent/fees?mock_status=success&reference={ref}&amount={amount}&fee_id={student_fee.id}"
-            return Response({
-                'authorization_url': mock_url,
-                'reference': ref,
-                'mock': True
-            })
+            return Response(
+                {'error': 'Paystack payment gateway is not configured on the portal. Please contact the school administration or pay via bank transfer.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Real Paystack initialization
         ref = f"PSTK-{student_fee.id}-{int(timezone.now().timestamp())}"
         headers = {
             'Authorization': f'Bearer {paystack_key}',
@@ -315,14 +342,17 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
         else:
             callback_url += f"?reference={ref}"
 
+        # Pure Decimal kobo conversion to prevent floating-point drift
+        amount_kobo = int((amount * Decimal('100')).to_integral_value())
+
         payload = {
             'email': email,
-            'amount': int(float(amount) * 100),  # converted to kobo
+            'amount': amount_kobo,
             'reference': ref,
             'callback_url': callback_url,
             'metadata': {
                 'student_fee_id': str(student_fee.id),
-                'amount': float(amount),
+                'amount': str(amount),
             }
         }
 
@@ -334,6 +364,7 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
             else:
                 return Response({'error': r_data.get('message', 'Failed to initialize Paystack transaction.')}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            logger.exception(f"Paystack API connection error on fee {student_fee.id}: {e}")
             return Response({'error': f'Paystack API connection error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'])
@@ -352,174 +383,240 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
                 'student_fee': StudentFeeSerializer(existing_payment.student_fee).data
             })
 
-        amount = None
-        student_fee = None
         paystack_key = getattr(settings, 'PAYSTACK_SECRET_KEY', '')
+        if not paystack_key:
+            return Response({'error': 'Paystack gateway is not configured. Cannot verify transactions.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Mock reference support
-        if reference.startswith('MOCK-'):
-            if paystack_key:
-                return Response({'error': 'Mock references are not accepted in production mode.'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            if not fee_id:
-                parts = reference.split('-')
-                if len(parts) >= 2:
-                    fee_id = parts[1]
-            
-            if not fee_id:
-                return Response({'error': 'student_fee_id is required for mock verification.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                student_fee = StudentFee.objects.get(id=fee_id)
-            except StudentFee.DoesNotExist:
-                return Response({'error': 'Student fee not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-            amount = request.data.get('amount')
-            if not amount:
-                amount = student_fee.balance
+        headers = {
+            'Authorization': f'Bearer {paystack_key}',
+        }
+        try:
+            r = requests.get(f'https://api.paystack.co/transaction/verify/{reference}', headers=headers, timeout=15)
+            r_data = r.json()
+            if r.status_code == 200 and r_data.get('status') is True:
+                data = r_data.get('data')
+                if data.get('status') != 'success':
+                    return Response({'error': f"Transaction verification failed: status is {data.get('status')}"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                amount = Decimal(str(data.get('amount'))) / Decimal('100')
+                fee_id = data.get('metadata', {}).get('student_fee_id') or fee_id
+                if not fee_id:
+                    return Response({'error': 'Student fee information missing in transaction metadata.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                try:
+                    student_fee = StudentFee.objects.get(id=fee_id)
+                except StudentFee.DoesNotExist:
+                    return Response({'error': 'Student fee not found.'}, status=status.HTTP_404_NOT_FOUND)
             else:
-                amount = Decimal(str(amount))
-        else:
-            if not paystack_key:
-                return Response({'error': 'Paystack keys are not configured. Cannot verify real transactions.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            headers = {
-                'Authorization': f'Bearer {paystack_key}',
-            }
-            try:
-                r = requests.get(f'https://api.paystack.co/transaction/verify/{reference}', headers=headers, timeout=15)
-                r_data = r.json()
-                if r.status_code == 200 and r_data.get('status') is True:
-                    data = r_data.get('data')
-                    if data.get('status') != 'success':
-                        return Response({'error': f"Transaction verification failed: status is {data.get('status')}"}, status=status.HTTP_400_BAD_REQUEST)
-                    
-                    amount = Decimal(data.get('amount')) / 100
-                    fee_id = data.get('metadata', {}).get('student_fee_id') or fee_id
-                    if not fee_id:
-                        return Response({'error': 'Student fee information missing in transaction metadata.'}, status=status.HTTP_400_BAD_REQUEST)
-                    
-                    try:
-                        student_fee = StudentFee.objects.get(id=fee_id)
-                    except StudentFee.DoesNotExist:
-                        return Response({'error': 'Student fee not found.'}, status=status.HTTP_404_NOT_FOUND)
-                else:
-                    return Response({'error': r_data.get('message', 'Failed to verify transaction with Paystack.')}, status=status.HTTP_400_BAD_REQUEST)
-            except Exception as e:
-                return Response({'error': f'Paystack API connection error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        payment = PaymentRecord.objects.create(
-            student_fee=student_fee,
-            amount=amount,
-            payment_method='online',
-            transaction_id=reference,
-            received_by=None,
-        )
-
-        student_fee.amount_paid += Decimal(str(amount))
-        if student_fee.amount_paid >= student_fee.fee_type.amount:
-            student_fee.status = 'paid'
-        elif student_fee.amount_paid > 0:
-            student_fee.status = 'partial'
-        student_fee.save()
+                return Response({'error': r_data.get('message', 'Failed to verify transaction with Paystack.')}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception(f"Paystack verification error for ref {reference}: {e}")
+            return Response({'error': f'Paystack API connection error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
-            from accounts.models import Notification
-            student = student_fee.student
-            fee_name = student_fee.fee_type.name
-            parent = student.student_profile.parent if hasattr(student, 'student_profile') else None
-            
-            msg = f"A payment of ₦{amount:,.2f} has been verified for {student.full_name}'s {fee_name} via online gateway. New status: {student_fee.get_status_display()}."
-            if parent:
-                Notification.objects.create(
-                    sender=None,
-                    recipient=parent,
-                    title="Online Payment Verified",
-                    message=msg,
-                    category='finance',
-                    audience='selected'
-                )
-            
-            Notification.objects.create(
-                sender=None,
-                recipient=student,
-                title="Fee Payment Recorded",
-                message=f"Online payment of ₦{amount:,.2f} was successfully recorded for your {fee_name}.",
-                category='finance',
-                audience='selected'
+            payment = student_fee.apply_payment(
+                amount=amount,
+                payment_method='online',
+                transaction_id=reference,
+                actor=None,
+                is_confirmed=False,  # Gateway payments require admin confirmation
             )
-        except Exception as e:
-            print(f"Error sending online payment notification: {e}")
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
-            'message': 'Payment verified successfully.',
+            'message': 'Payment recorded and pending admin confirmation. Your fee records will be updated once confirmed.',
             'payment_id': str(payment.id),
             'student_fee': StudentFeeSerializer(student_fee).data
         })
 
 
-
 class PaymentRecordViewSet(viewsets.ModelViewSet):
     queryset = PaymentRecord.objects.select_related(
-        'student_fee__student', 'received_by'
+        'student_fee__student', 'student_fee__fee_type', 'student_fee__term', 'received_by'
     ).all()
     serializer_class = PaymentRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        user = self.request.user
         queryset = super().get_queryset()
+
+        if user.role == 'student':
+            queryset = queryset.filter(student_fee__student=user)
+        elif user.role == 'parent':
+            queryset = queryset.filter(student_fee__student__student_profile__parent=user)
+
         student_id = self.request.query_params.get('student')
         if student_id:
             queryset = queryset.filter(student_fee__student_id=student_id)
+
+        term_id = self.request.query_params.get('term')
+        if term_id:
+            queryset = queryset.filter(student_fee__term_id=term_id)
 
         payment_method = self.request.query_params.get('payment_method')
         if payment_method:
             queryset = queryset.filter(payment_method=payment_method)
 
+        # Filter by confirmation status: ?confirmed=true or ?confirmed=false
+        confirmed_param = self.request.query_params.get('confirmed')
+        if confirmed_param is not None:
+            queryset = queryset.filter(is_confirmed=(confirmed_param.lower() != 'false'))
+
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(student_fee__student__first_name__icontains=search) |
+                Q(student_fee__student__last_name__icontains=search) |
+                Q(student_fee__fee_type__name__icontains=search) |
+                Q(transaction_id__icontains=search)
+            )
+
         return queryset.order_by('-date')
 
     def perform_create(self, serializer):
-        payment = serializer.save(received_by=self.request.user)
-        # Update StudentFee status and amount_paid
-        fee = payment.student_fee
-        from decimal import Decimal
-        fee.amount_paid += Decimal(str(payment.amount))
-        if fee.amount_paid >= fee.fee_type.amount:
-            fee.status = 'paid'
-        elif fee.amount_paid > 0:
-            fee.status = 'partial'
-        fee.save()
+        if not can_manage_finance(self.request.user):
+            raise PermissionDenied("Only finance managers and administrators can record manual payments.")
+        fee = serializer.validated_data.get('student_fee')
+        amount = serializer.validated_data.get('amount')
+        payment_method = serializer.validated_data.get('payment_method', 'cash')
+        transaction_id = serializer.validated_data.get('transaction_id')
 
-        # Send payment notifications
+        try:
+            fee.apply_payment(
+                amount=amount,
+                payment_method=payment_method,
+                transaction_id=transaction_id,
+                received_by=self.request.user,
+                actor=self.request.user,
+                is_confirmed=True,  # Admin-recorded payments are auto-confirmed
+            )
+        except ValueError as e:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'error': str(e)})
+
+    def perform_update(self, serializer):
+        if not can_manage_finance(self.request.user):
+            raise PermissionDenied("Only finance managers can modify payment records.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not can_manage_finance(self.request.user):
+            raise PermissionDenied("Only finance managers can delete payment records.")
+        instance.delete()
+
+    @action(detail=True, methods=['post'])
+    def confirm_payment(self, request, pk=None):
+        """Admin confirms a pending gateway payment, crediting the student's fee balance."""
+        if not can_manage_finance(request.user):
+            return Response({'error': 'Only finance managers can confirm payments.'}, status=status.HTTP_403_FORBIDDEN)
+
+        payment = self.get_object()
+        if payment.is_confirmed:
+            return Response({'error': 'Payment is already confirmed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            locked_payment = PaymentRecord.objects.select_for_update().get(id=payment.id)
+            student_fee = StudentFee.objects.select_for_update().get(id=locked_payment.student_fee_id)
+
+            # Credit the fee balance now that admin has confirmed
+            amount = locked_payment.amount
+            if amount > student_fee.balance:
+                return Response(
+                    {'error': f'Payment amount (₦{amount:,.2f}) exceeds current fee balance (₦{student_fee.balance:,.2f}). The fee may have already been credited.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            student_fee.amount_paid += amount
+            if student_fee.amount_paid >= student_fee.fee_type.amount:
+                student_fee.status = 'paid'
+            elif student_fee.amount_paid > Decimal('0'):
+                student_fee.status = 'partial'
+            student_fee.save()
+
+            locked_payment.is_confirmed = True
+            locked_payment.confirmed_by = request.user
+            locked_payment.confirmed_at = timezone.now()
+            locked_payment.notes = request.data.get('notes', locked_payment.notes)
+            locked_payment.save()
+
+        # Notify student and parent
         try:
             from accounts.models import Notification
-            student = fee.student
-            fee_name = fee.fee_type.name
-            parent = student.student_profile.parent if hasattr(student, 'student_profile') else None
-
-            msg = f"A payment of ₦{payment.amount:,.2f} has been received for {student.full_name}'s {fee_name}. New status: {fee.get_status_display()}."
-            if payment.transaction_id:
-                msg += f" Transaction ID: {payment.transaction_id}."
-
+            student = student_fee.student
+            parent = getattr(getattr(student, 'student_profile', None), 'parent', None)
+            msg = (
+                f"Your online payment of ₦{amount:,.2f} for {student_fee.fee_type.name} "
+                f"has been confirmed by {request.user.full_name}. New status: {student_fee.get_status_display()}."
+            )
             if parent:
                 Notification.objects.create(
-                    sender=self.request.user,
-                    recipient=parent,
-                    title="Payment Received",
-                    message=msg,
-                    category='finance',
-                    audience='selected'
+                    sender=request.user, recipient=parent,
+                    title="Payment Confirmed", message=msg,
+                    category='finance', audience='selected'
                 )
             Notification.objects.create(
-                sender=self.request.user,
-                recipient=student,
-                title="Fee Payment Recorded",
-                message=f"A payment of ₦{payment.amount:,.2f} was recorded for your {fee_name}.",
-                category='finance',
-                audience='selected'
+                sender=request.user, recipient=student,
+                title="Payment Confirmed", message=msg,
+                category='finance', audience='selected'
             )
-        except Exception as e:
-            print(f"Error sending payment notification: {e}")
+        except Exception as exc:
+            logger.warning(f"Notification error after confirming payment {payment.id}: {exc}")
+
+        return Response({
+            'message': f'Payment of ₦{amount:,.2f} confirmed successfully.',
+            'payment': PaymentRecordSerializer(locked_payment).data,
+            'student_fee': StudentFeeSerializer(student_fee).data,
+        })
+
+    @action(detail=True, methods=['post'])
+    def reject_payment(self, request, pk=None):
+        """Admin rejects a pending gateway payment. The payment record is kept for audit; the fee balance is NOT credited."""
+        if not can_manage_finance(request.user):
+            return Response({'error': 'Only finance managers can reject payments.'}, status=status.HTTP_403_FORBIDDEN)
+
+        payment = self.get_object()
+        if payment.is_confirmed:
+            return Response({'error': 'Cannot reject an already confirmed payment.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        reason = request.data.get('reason', '').strip()
+        if not reason:
+            return Response({'error': 'A rejection reason is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            payment.notes = f"REJECTED by {request.user.full_name}: {reason}"
+            payment.is_confirmed = False  # Keep as unconfirmed / rejected
+            payment.save()
+
+        # Notify student and parent
+        try:
+            from accounts.models import Notification
+            student = payment.student_fee.student
+            parent = getattr(getattr(student, 'student_profile', None), 'parent', None)
+            msg = (
+                f"Your payment claim of ₦{payment.amount:,.2f} for {payment.student_fee.fee_type.name} "
+                f"could not be confirmed. Reason: {reason}. Please contact the school finance office."
+            )
+            if parent:
+                Notification.objects.create(
+                    sender=request.user, recipient=parent,
+                    title="Payment Not Confirmed", message=msg,
+                    category='finance', audience='selected'
+                )
+            Notification.objects.create(
+                sender=request.user, recipient=student,
+                title="Payment Not Confirmed", message=msg,
+                category='finance', audience='selected'
+            )
+        except Exception as exc:
+            logger.warning(f"Notification error after rejecting payment {payment.id}: {exc}")
+
+        return Response({
+            'message': 'Payment rejected and student/parent notified.',
+            'payment_id': str(payment.id),
+            'notes': payment.notes,
+        })
 
 
 class PayrollViewSet(viewsets.ModelViewSet):
@@ -567,13 +664,13 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if not can_manage_payroll(self.request.user):
-            raise permissions.PermissionDenied('You do not have permission to create payroll records.')
+            raise PermissionDenied('You do not have permission to create payroll records.')
         payroll = serializer.save()
         log_payroll_action(payroll, self.request.user, 'payroll_created', updated_value=self.get_serializer(payroll).data)
 
     def perform_update(self, serializer):
         if not can_manage_payroll(self.request.user):
-            raise permissions.PermissionDenied('You do not have permission to update payroll records.')
+            raise PermissionDenied('You do not have permission to update payroll records.')
         previous = self.get_serializer(self.get_object()).data
         payroll = serializer.save()
         log_payroll_action(payroll, self.request.user, 'payroll_updated', previous, self.get_serializer(payroll).data)
@@ -612,16 +709,16 @@ class PayrollViewSet(viewsets.ModelViewSet):
         return Response({
             'month': month,
             'year': year,
-            'total_monthly_payroll': total_payroll,
-            'total_basic_salary': total_basic,
+            'total_monthly_payroll': float(total_payroll),
+            'total_basic_salary': float(total_basic),
             'staff_paid': staff_paid,
             'total_staff': total_staff,
             'pending_salary_payments': pending,
             'payroll_completion': completion,
             'payroll_due_date': due_date,
-            'total_deductions': total_deductions,
-            'total_bonuses': total_bonuses,
-            'total_allowances': total_allowances,
+            'total_deductions': float(total_deductions),
+            'total_bonuses': float(total_bonuses),
+            'total_allowances': float(total_allowances),
             'payroll_processing_status': (
                 'locked' if locked_count and locked_count == total_staff
                 else 'approved' if approved_count
@@ -656,7 +753,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
                 Q(teacher_profile__staff_id__icontains=search)
             )
 
-        # Get the target period (from query params or latest available)
         target_month = request.query_params.get('month')
         target_year = request.query_params.get('year')
         if target_month and target_year:
@@ -704,7 +800,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def preview(self, request, pk=None):
-        """Transition payroll from draft to preview state."""
         if not can_manage_payroll(request.user):
             return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
         payroll = self.get_object()
@@ -792,7 +887,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def recalculate(self, request, pk=None):
-        """Force recalculate and update salary structure from request data, then save."""
         if not can_manage_payroll(request.user):
             return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
         payroll = self.get_object()
@@ -801,7 +895,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
         previous = PayrollDetailSerializer(payroll).data
 
-        # Apply all salary structure fields from request body if provided
         salary_fields = [
             'basic_salary', 'housing_allowance', 'transport_allowance',
             'meal_allowance', 'responsibility_allowance', 'overtime', 'bonuses',
@@ -841,7 +934,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def bulk_pay(self, request):
-        """Mark multiple payroll records as paid in one call."""
         if not can_manage_payroll(request.user):
             return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
         ids = request.data.get('ids', [])
@@ -851,26 +943,27 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
         records = Payroll.objects.filter(id__in=ids).exclude(status__in=['paid', 'reversed', 'cancelled'])
         paid_count = 0
-        for payroll in records:
-            previous = {'status': payroll.status}
-            payroll.status = 'paid'
-            payroll.payment_date = timezone.now().date()
-            payroll.payment_method = payment_method
-            payroll.payment_reference = f"BULK-{payroll.year}{payroll.month:02d}-{str(payroll.id)[:8].upper()}"
-            payroll.save()
-            log_payroll_action(payroll, request.user, 'salary_payment_processed', previous, {'status': 'paid', 'method': payment_method})
-            self._notify_staff(
-                payroll, 'Salary Paid',
-                f'Your salary of ₦{float(payroll.net_salary):,.2f} for {payroll.month}/{payroll.year} has been paid. '
-                f'Reference: {payroll.payment_reference}.'
-            )
-            paid_count += 1
+        
+        with transaction.atomic():
+            for payroll in records:
+                previous = {'status': payroll.status}
+                payroll.status = 'paid'
+                payroll.payment_date = timezone.now().date()
+                payroll.payment_method = payment_method
+                payroll.payment_reference = f"BULK-{payroll.year}{payroll.month:02d}-{str(payroll.id)[:8].upper()}"
+                payroll.save()
+                log_payroll_action(payroll, request.user, 'salary_payment_processed', previous, {'status': 'paid', 'method': payment_method})
+                self._notify_staff(
+                    payroll, 'Salary Paid',
+                    f'Your salary of ₦{float(payroll.net_salary):,.2f} for {payroll.month}/{payroll.year} has been paid. '
+                    f'Reference: {payroll.payment_reference}.'
+                )
+                paid_count += 1
 
         return Response({'message': f'{paid_count} payroll record(s) marked as paid.', 'paid_count': paid_count})
 
     @action(detail=False, methods=['post'])
     def bulk_approve(self, request):
-        """Approve multiple draft/preview payroll records."""
         if not can_manage_payroll(request.user):
             return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
         ids = request.data.get('ids', [])
@@ -879,15 +972,17 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
         records = Payroll.objects.filter(id__in=ids, status__in=['draft', 'preview'])
         count = 0
-        for payroll in records:
-            previous = {'status': payroll.status}
-            payroll.status = 'approved'
-            payroll.approved_by = request.user
-            payroll.approved_at = timezone.now()
-            payroll.save()
-            log_payroll_action(payroll, request.user, 'payroll_approved', previous, {'status': 'approved'})
-            self._notify_staff(payroll, 'Payroll Approved', f'Your payroll for {payroll.month}/{payroll.year} has been approved.')
-            count += 1
+        
+        with transaction.atomic():
+            for payroll in records:
+                previous = {'status': payroll.status}
+                payroll.status = 'approved'
+                payroll.approved_by = request.user
+                payroll.approved_at = timezone.now()
+                payroll.save()
+                log_payroll_action(payroll, request.user, 'payroll_approved', previous, {'status': 'approved'})
+                self._notify_staff(payroll, 'Payroll Approved', f'Your payroll for {payroll.month}/{payroll.year} has been approved.')
+                count += 1
 
         return Response({'message': f'{count} payroll record(s) approved.', 'approved_count': count})
 
@@ -911,7 +1006,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def generate_monthly(self, request):
-        """Auto-generate payroll for all active staff for a given month/year."""
         if not can_manage_payroll(request.user):
             return Response({'error': 'You do not have permission to generate payroll.'}, status=status.HTTP_403_FORBIDDEN)
         month = request.data.get('month', timezone.now().month)
@@ -927,33 +1021,34 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
         created_count = 0
         skipped_count = 0
-        for member in staff:
-            salary = Decimal('0.00')
-            if hasattr(member, 'teacher_profile') and member.teacher_profile.monthly_salary:
-                salary = member.teacher_profile.monthly_salary
+        
+        with transaction.atomic():
+            for member in staff:
+                salary = Decimal('0.00')
+                if hasattr(member, 'teacher_profile') and member.teacher_profile.monthly_salary:
+                    salary = member.teacher_profile.monthly_salary
 
-            _, created = Payroll.objects.get_or_create(
-                teacher=member,
-                month=month,
-                year=year,
-                defaults={
-                    'basic_salary': salary or Decimal('50000.00'),
-                    'bonuses': 0,
-                    'deductions': 0,
-                    'status': 'draft',
-                    'department': request.data.get('department') or (
-                        'Teaching' if member.role == 'teacher' else 'Administration'
-                    ),
-                    'salary_grade': request.data.get('salary_grade') or None,
-                    'due_date': due_date or None,
-                }
-            )
-            if created:
-                created_count += 1
-                payroll_obj = Payroll.objects.get(teacher=member, month=month, year=year)
-                log_payroll_action(payroll_obj, request.user, 'payroll_generation', updated_value={'month': month, 'year': year})
-            else:
-                skipped_count += 1
+                payroll_obj, created = Payroll.objects.get_or_create(
+                    teacher=member,
+                    month=month,
+                    year=year,
+                    defaults={
+                        'basic_salary': salary or Decimal('50000.00'),
+                        'bonuses': 0,
+                        'deductions': 0,
+                        'status': 'draft',
+                        'department': request.data.get('department') or (
+                            'Teaching' if member.role == 'teacher' else 'Administration'
+                        ),
+                        'salary_grade': request.data.get('salary_grade') or None,
+                        'due_date': due_date or None,
+                    }
+                )
+                if created:
+                    created_count += 1
+                    log_payroll_action(payroll_obj, request.user, 'payroll_generation', updated_value={'month': month, 'year': year})
+                else:
+                    skipped_count += 1
 
         return Response({
             'message': f'Generated payroll for {created_count} staff member(s). {skipped_count} already existed.',
@@ -965,7 +1060,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def reports(self, request):
-        """Return structured payroll report data for the requested period."""
         if not can_view_payroll_analytics(request.user):
             return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -1069,4 +1163,4 @@ class PayrollViewSet(viewsets.ModelViewSet):
                 audience='selected'
             )
         except Exception as exc:
-            print(f"Error sending payroll notification: {exc}")
+            logger.warning(f"Error sending payroll notification to {payroll.teacher_id}: {exc}")

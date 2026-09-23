@@ -261,19 +261,62 @@ class PaymentRecordTests(FinanceTestBase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", resp.data)
 
-    def test_zero_amount_is_rejected(self):
+    def test_student_cannot_record_payment_on_own_fee(self):
+        """Students must not be able to manually mark their fees as paid."""
+        self.client.force_authenticate(user=self.student)
+        resp = self.client.post(self.record_url, {
+            "amount": "25000",
+            "payment_method": "cash",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_parent_cannot_record_payment_on_child_fee(self):
+        """Parents must not be able to manually mark cash payments on their child's fees."""
+        self.client.force_authenticate(user=self.parent)
+        resp = self.client.post(self.record_url, {
+            "amount": "25000",
+            "payment_method": "cash",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_student_cannot_bulk_assign_fees(self):
+        """Non-finance staff cannot bulk assign fees."""
+        url = reverse("studentfee-bulk-assign")
+        self.client.force_authenticate(user=self.student)
+        resp = self.client.post(url, {
+            "fee_type": str(self.fee_type.id),
+            "term": str(self.term.id),
+        })
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_idempotent_payment_recording_with_transaction_id(self):
+        """Recording payment with an existing transaction_id returns existing payment gracefully."""
         self.client.force_authenticate(user=self.admin)
-        resp = self.client.post(self.record_url, {"amount": "0"})
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        resp1 = self.client.post(self.record_url, {
+            "amount": "10000",
+            "payment_method": "transfer",
+            "transaction_id": "IDEM-REF-100",
+        })
+        self.assertEqual(resp1.status_code, status.HTTP_200_OK)
+
+        resp2 = self.client.post(self.record_url, {
+            "amount": "10000",
+            "payment_method": "transfer",
+            "transaction_id": "IDEM-REF-100",
+        })
+        self.assertEqual(resp2.status_code, status.HTTP_200_OK)
+        self.assertIn("already recorded", resp2.data.get("message", "").lower())
+        self.student_fee.refresh_from_db()
+        self.assertEqual(self.student_fee.amount_paid, Decimal("10000.00"))
 
 
 # ────────────────────────────────────────────────────────────
-#   Paystack mock payment flow tests
+#   Paystack payment flow tests
 # ────────────────────────────────────────────────────────────
 
-class PaystackMockTests(FinanceTestBase):
+class PaystackPaymentTests(FinanceTestBase):
     """
-    Tests the mock Paystack sandbox flow (no PAYSTACK_SECRET_KEY set).
+    Tests the real Paystack payment flow and error handling.
     """
 
     def setUp(self):
@@ -284,15 +327,13 @@ class PaystackMockTests(FinanceTestBase):
         self.verify_url = reverse("studentfee-verify-paystack")
 
     @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "")
-    def test_initialize_returns_mock_url_when_no_key(self):
+    def test_initialize_returns_error_when_no_key(self):
         self.client.force_authenticate(user=self.parent)
         resp = self.client.post(self.init_url, {"amount": "20000"})
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertTrue(resp.data.get("mock"))
-        self.assertIn("authorization_url", resp.data)
-        self.assertIn("MOCK-", resp.data["reference"])
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("not configured", resp.data.get("error", "").lower())
 
-    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "")
+    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "sk_test_mock_secret_key")
     def test_initialize_rejects_already_paid_fee(self):
         self.student_fee.status = "paid"
         self.student_fee.save()
@@ -300,44 +341,92 @@ class PaystackMockTests(FinanceTestBase):
         resp = self.client.post(self.init_url, {"amount": "10000"})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "")
-    def test_verify_mock_payment_credits_student_fee(self):
-        """Full mock payment journey: init → verify → fee credited."""
+    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "sk_test_mock_secret_key")
+    @patch("requests.post")
+    def test_initialize_success_with_paystack(self, mock_post):
+        mock_resp = mock_post.return_value
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "status": True,
+            "data": {
+                "authorization_url": "https://checkout.paystack.com/test-auth-url",
+                "access_code": "code_123",
+                "reference": "PSTK-test-ref-123"
+            }
+        }
+        self.client.force_authenticate(user=self.parent)
+        resp = self.client.post(self.init_url, {"amount": "20000"})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["authorization_url"], "https://checkout.paystack.com/test-auth-url")
+
+    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "sk_test_mock_secret_key")
+    @patch("requests.get")
+    def test_verify_paystack_payment_credits_student_fee(self, mock_get):
+        """Verify real Paystack payment credits student fee and creates payment record."""
+        mock_resp = mock_get.return_value
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "status": True,
+            "data": {
+                "status": "success",
+                "amount": 5000000,  # 50,000 NGN in kobo
+                "reference": "PSTK-real-ref-999",
+                "metadata": {
+                    "student_fee_id": str(self.student_fee.id),
+                    "amount": 50000,
+                }
+            }
+        }
         self.client.force_authenticate(user=self.parent)
 
-        # Initialize
-        init_resp = self.client.post(self.init_url, {"amount": "50000"})
-        self.assertEqual(init_resp.status_code, status.HTTP_200_OK)
-        reference = init_resp.data["reference"]
-
-        # Verify
         verify_resp = self.client.post(self.verify_url, {
-            "reference": reference,
+            "reference": "PSTK-real-ref-999",
             "student_fee_id": str(self.student_fee.id),
-            "amount": "50000",
         })
         self.assertEqual(verify_resp.status_code, status.HTTP_200_OK)
         self.student_fee.refresh_from_db()
         self.assertEqual(self.student_fee.status, "paid")
         self.assertEqual(self.student_fee.amount_paid, Decimal("50000.00"))
+        
+        # Verify payment record
+        payment = PaymentRecord.objects.filter(transaction_id="PSTK-real-ref-999").first()
+        self.assertIsNotNone(payment)
+        self.assertEqual(payment.payment_method, "online")
 
-    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "")
+    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "sk_test_mock_secret_key")
     def test_verify_rejects_duplicate_reference(self):
         """Verifying an already-used reference returns a graceful response."""
         PaymentRecord.objects.create(
             student_fee=self.student_fee,
             amount=Decimal("50000"),
             payment_method="online",
-            transaction_id="MOCK-dup-ref-12345",
+            transaction_id="PSTK-dup-ref-12345",
         )
         self.client.force_authenticate(user=self.parent)
         resp = self.client.post(self.verify_url, {
-            "reference": "MOCK-dup-ref-12345",
+            "reference": "PSTK-dup-ref-12345",
             "student_fee_id": str(self.student_fee.id),
             "amount": "50000",
         })
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIn("already verified", resp.data.get("message", "").lower())
+
+    def test_payment_record_role_scoping(self):
+        """Verify payment records list is scoped to parent's children."""
+        PaymentRecord.objects.create(
+            student_fee=self.student_fee,
+            amount=Decimal("10000"),
+            payment_method="transfer",
+            transaction_id="TXN-PARENT-1",
+        )
+        url = reverse("paymentrecord-list")
+        self.client.force_authenticate(user=self.parent)
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        results = resp.data if isinstance(resp.data, list) else resp.data.get("results", [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["transaction_id"], "TXN-PARENT-1")
+        self.assertIn("receipt_number", results[0])
 
 
 # ────────────────────────────────────────────────────────────
