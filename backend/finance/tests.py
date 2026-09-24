@@ -362,7 +362,7 @@ class PaystackPaymentTests(FinanceTestBase):
     @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "sk_test_mock_secret_key")
     @patch("requests.get")
     def test_verify_paystack_payment_credits_student_fee(self, mock_get):
-        """Verify real Paystack payment credits student fee and creates payment record."""
+        """Verify gateway payment creates a pending PaymentRecord; fee stays outstanding until admin confirms."""
         mock_resp = mock_get.return_value
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
@@ -384,14 +384,21 @@ class PaystackPaymentTests(FinanceTestBase):
             "student_fee_id": str(self.student_fee.id),
         })
         self.assertEqual(verify_resp.status_code, status.HTTP_200_OK)
+
+        # Gateway payments are pending admin confirmation — fee status must NOT change yet.
         self.student_fee.refresh_from_db()
-        self.assertEqual(self.student_fee.status, "paid")
-        self.assertEqual(self.student_fee.amount_paid, Decimal("50000.00"))
-        
-        # Verify payment record
+        self.assertEqual(
+            self.student_fee.status, "outstanding",
+            "Fee must stay outstanding until admin confirms the gateway payment."
+        )
+        self.assertEqual(self.student_fee.amount_paid, Decimal("0.00"))
+
+        # A PaymentRecord is created but marked as unconfirmed (is_confirmed=False).
         payment = PaymentRecord.objects.filter(transaction_id="PSTK-real-ref-999").first()
         self.assertIsNotNone(payment)
         self.assertEqual(payment.payment_method, "online")
+        self.assertFalse(payment.is_confirmed)
+        self.assertFalse(payment.is_rejected)
 
     @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "sk_test_mock_secret_key")
     def test_verify_rejects_duplicate_reference(self):
@@ -554,3 +561,239 @@ class PayrollWorkflowTests(FinanceTestBase):
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIn("total_monthly_payroll", resp.data)
+
+
+# ────────────────────────────────────────────────────────────
+#   Security: initialize_paystack allow-list
+# ────────────────────────────────────────────────────────────
+
+class InitializePaystackAuthTests(FinanceTestBase):
+    """
+    Ensures only the fee's own student, their linked parent, or finance staff
+    can initiate a Paystack checkout — no other role can slip through.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.init_url = reverse(
+            "studentfee-initialize-paystack", kwargs={"pk": self.student_fee.id}
+        )
+
+    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "sk_test_mock")
+    def test_teacher_cannot_initialize_payment_for_any_student(self):
+        """A teacher must receive 403 — even though they are authenticated."""
+        self.client.force_authenticate(user=self.teacher)
+        resp = self.client.post(self.init_url, {"amount": "20000"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "sk_test_mock")
+    def test_unrelated_parent_cannot_initialize_another_childs_fee(self):
+        """A parent cannot initiate payment for a student who is not their child."""
+        other_parent = User.objects.create_user(
+            email="other_parent@test.com",
+            username="other_parent",
+            first_name="Other",
+            last_name="Parent",
+            role="parent",
+            password="pass1234",
+        )
+        self.client.force_authenticate(user=other_parent)
+        resp = self.client.post(self.init_url, {"amount": "20000"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("django.conf.settings.PAYSTACK_SECRET_KEY", "sk_test_mock")
+    def test_student_cannot_initialize_another_students_fee(self):
+        """A student cannot initiate payment for another student's fee."""
+        other_student = User.objects.create_user(
+            email="other_s@test.com",
+            username="other_stud2",
+            first_name="Other",
+            last_name="Student",
+            role="student",
+            password="pass1234",
+        )
+        self.client.force_authenticate(user=other_student)
+        resp = self.client.post(self.init_url, {"amount": "20000"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+
+# ────────────────────────────────────────────────────────────
+#   Payment confirmation / rejection lifecycle
+# ────────────────────────────────────────────────────────────
+
+class PaymentRejectionTests(FinanceTestBase):
+    """Tests the reject_payment action and its new explicit field tracking."""
+
+    def setUp(self):
+        super().setUp()
+        # Create a pending (unconfirmed) payment record as if from Paystack
+        self.pending_payment = PaymentRecord.objects.create(
+            student_fee=self.student_fee,
+            amount=Decimal("20000.00"),
+            payment_method="online",
+            transaction_id="PSTK-PENDING-001",
+            is_confirmed=False,
+        )
+        self.reject_url = reverse(
+            "paymentrecord-reject-payment", kwargs={"pk": self.pending_payment.id}
+        )
+        self.confirm_url = reverse(
+            "paymentrecord-confirm-payment", kwargs={"pk": self.pending_payment.id}
+        )
+
+    def test_reject_payment_sets_is_rejected_flag(self):
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.post(self.reject_url, {"reason": "Screenshot did not match."})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.pending_payment.refresh_from_db()
+        self.assertTrue(self.pending_payment.is_rejected)
+        self.assertIsNotNone(self.pending_payment.rejected_by)
+        self.assertIsNotNone(self.pending_payment.rejected_at)
+        self.assertIn("REJECTED", self.pending_payment.notes)
+
+    def test_reject_payment_requires_reason(self):
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.post(self.reject_url, {})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_reject_already_rejected_payment(self):
+        self.pending_payment.is_rejected = True
+        self.pending_payment.save()
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.post(self.reject_url, {"reason": "Duplicate"})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_confirm_already_rejected_payment(self):
+        self.pending_payment.is_rejected = True
+        self.pending_payment.save()
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.post(self.confirm_url, {})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_payment_status_field_in_serializer(self):
+        """PaymentRecordSerializer returns a correct payment_status string."""
+        from finance.serializers import PaymentRecordSerializer
+        serialized = PaymentRecordSerializer(self.pending_payment).data
+        self.assertEqual(serialized["payment_status"], "pending")
+
+        self.pending_payment.is_rejected = True
+        self.pending_payment.save()
+        serialized = PaymentRecordSerializer(self.pending_payment).data
+        self.assertEqual(serialized["payment_status"], "rejected")
+
+
+# ────────────────────────────────────────────────────────────
+#   Student Directory (pupil billing overview + parent_linked)
+# ────────────────────────────────────────────────────────────
+
+class StudentDirectoryTests(FinanceTestBase):
+    """
+    Tests the /finance/student-fees/student_directory/ endpoint.
+    Validates billing_status derivation and parent_linked flag.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("studentfee-student-directory")
+
+    def test_admin_can_access_student_directory(self):
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(resp.data, list)
+
+    def test_teacher_cannot_access_student_directory(self):
+        self.client.force_authenticate(user=self.teacher)
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_parent_linked_is_true_for_student_with_parent(self):
+        """Our fixture student has a parent linked."""
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        entry = next((r for r in resp.data if r["id"] == str(self.student.id)), None)
+        self.assertIsNotNone(entry)
+        self.assertTrue(entry["parent_linked"])
+        self.assertEqual(entry["parent_name"], self.parent.full_name)
+
+    def test_parent_linked_is_false_for_student_without_parent(self):
+        """A student with no parent linked must have parent_linked=False."""
+        orphan_student = User.objects.create_user(
+            email="orphan@test.com",
+            username="orphan_stud",
+            first_name="Orphan",
+            last_name="Student",
+            role="student",
+            password="pass1234",
+        )
+        from accounts.models import StudentProfile as SP
+        SP.objects.create(
+            user=orphan_student,
+            admission_number="ADM-ORPHAN-001",
+            current_class=self.school_class,
+            parent=None,
+        )
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.get(self.url)
+        entry = next((r for r in resp.data if r["id"] == str(orphan_student.id)), None)
+        self.assertIsNotNone(entry)
+        self.assertFalse(entry["parent_linked"])
+        self.assertIsNone(entry["parent_name"])
+
+    def test_unbilled_student_has_correct_billing_status(self):
+        """A student with no StudentFee in the current term is 'unbilled'."""
+        unbilled = User.objects.create_user(
+            email="unbilled@test.com",
+            username="unbilled_stud",
+            first_name="Unbilled",
+            last_name="Student",
+            role="student",
+            password="pass1234",
+        )
+        from accounts.models import StudentProfile as SP
+        SP.objects.create(
+            user=unbilled,
+            admission_number="ADM-UNBILLED-001",
+            current_class=self.school_class,
+        )
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.get(self.url, {"term": str(self.term.id)})
+        entry = next((r for r in resp.data if r["id"] == str(unbilled.id)), None)
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry["billing_status"], "unbilled")
+        self.assertEqual(entry["fee_count"], 0)
+
+    def test_billing_status_filter(self):
+        """?billing_status=unbilled should exclude fully-billed students."""
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.get(self.url, {
+            "term": str(self.term.id),
+            "billing_status": "outstanding",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        for entry in resp.data:
+            self.assertEqual(entry["billing_status"], "outstanding")
+
+    def test_parent_linked_filter(self):
+        """?parent_linked=false returns only students with no parent linked."""
+        orphan_student = User.objects.create_user(
+            email="orphan2@test.com",
+            username="orphan_stud2",
+            first_name="Orphan2",
+            last_name="Student",
+            role="student",
+            password="pass1234",
+        )
+        from accounts.models import StudentProfile as SP
+        SP.objects.create(
+            user=orphan_student,
+            admission_number="ADM-ORPHAN-002",
+            current_class=self.school_class,
+            parent=None,
+        )
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.get(self.url, {"parent_linked": "false"})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        for entry in resp.data:
+            self.assertFalse(entry["parent_linked"])

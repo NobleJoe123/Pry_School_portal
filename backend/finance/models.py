@@ -171,11 +171,30 @@ class PaymentRecord(models.Model):
         limit_choices_to={'role': 'admin'}
     )
     confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Rejection tracking
+    is_rejected = models.BooleanField(
+        default=False,
+        help_text='True when an admin has explicitly rejected this gateway payment.'
+    )
+    rejected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='rejected_payments',
+        limit_choices_to={'role': 'admin'}
+    )
+    rejected_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True, null=True, help_text='Admin notes for confirmation or rejection reason.')
 
     def __str__(self):
-        confirmed_label = 'confirmed' if self.is_confirmed else 'pending'
-        return f"Payment of {self.amount} for {self.student_fee.student.full_name} ({confirmed_label})"
+        if self.is_rejected:
+            label = 'rejected'
+        elif self.is_confirmed:
+            label = 'confirmed'
+        else:
+            label = 'pending'
+        return f"Payment of {self.amount} for {self.student_fee.student.full_name} ({label})"
 
 class Payroll(models.Model):
     STATUS_CHOICES = [

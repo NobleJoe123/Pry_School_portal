@@ -37,7 +37,17 @@ class PaymentRecordSerializer(serializers.ModelSerializer):
     received_by_name = serializers.CharField(source='received_by.full_name', read_only=True, allow_null=True)
     parent_name = serializers.CharField(source='student_fee.student.student_profile.parent.full_name', read_only=True, allow_null=True, default=None)
     confirmed_by_name = serializers.CharField(source='confirmed_by.full_name', read_only=True, allow_null=True)
+    rejected_by_name = serializers.CharField(source='rejected_by.full_name', read_only=True, allow_null=True)
+    payment_status = serializers.SerializerMethodField()
     receipt_number = serializers.SerializerMethodField()
+
+    def get_payment_status(self, obj):
+        """Convenience field: 'confirmed' | 'rejected' | 'pending'"""
+        if obj.is_rejected:
+            return 'rejected'
+        if obj.is_confirmed:
+            return 'confirmed'
+        return 'pending'
 
     def get_receipt_number(self, obj):
         short_id = str(obj.id).replace('-', '')[:8].upper()
