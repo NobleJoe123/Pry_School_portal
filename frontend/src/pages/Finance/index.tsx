@@ -14,11 +14,12 @@ import { useDialog } from '../../context/DialogContext';
 import type {
     FeeType, StudentFee, PaymentRecord, Payroll, PayrollDetail,
     PayrollSummary, PayrollStaffDirectoryItem, Term,
-    PayrollAuditLog, PayrollMonthlySummaryReport, PayrollSalaryRegisterReport
+    PayrollAuditLog, PayrollMonthlySummaryReport, PayrollSalaryRegisterReport,
+    StudentDirectoryItem
 } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
-type Tab = 'overview' | 'fees' | 'billing' | 'payments' | 'payroll';
+type Tab = 'overview' | 'fees' | 'billing' | 'payments' | 'payroll' | 'pupil-directory';
 type PayrollSubTab = 'dashboard' | 'directory' | 'records' | 'reports' | 'audit';
 
 const getList = (res: any): any[] => {
@@ -691,6 +692,7 @@ export default function Finance() {
     const [payroll, setPayroll] = useState<Payroll[]>([]);
     const [payrollSummary, setPayrollSummary] = useState<PayrollSummary>(emptyPayrollSummary);
     const [staffDirectory, setStaffDirectory] = useState<PayrollStaffDirectoryItem[]>([]);
+    const [studentDirectory, setStudentDirectory] = useState<StudentDirectoryItem[]>([]);
     const [terms, setTerms] = useState<Term[]>([]);
     const [levels, setLevels] = useState<{ id: string; name: string }[]>([]);
 
@@ -730,11 +732,15 @@ export default function Finance() {
     const [dirSearch, setDirSearch] = useState('');
     const [dirRoleFilter, setDirRoleFilter] = useState('');
     const [dirStatusFilter, setDirStatusFilter] = useState('');
+    // Pupil directory filters
+    const [pupilSearch, setPupilSearch] = useState('');
+    const [pupilBillingFilter, setPupilBillingFilter] = useState('');
+    const [pupilParentFilter, setPupilParentFilter] = useState<'' | 'linked' | 'unlinked'>('');
 
     const loadData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true); else setRefreshing(true);
         try {
-            const [summary, feeTypesRes, studentFeesRes, paymentsRes, payrollRes, payrollSummaryRes, staffDirectoryRes, termsRes, levelsRes] = await Promise.all([
+            const [summary, feeTypesRes, studentFeesRes, paymentsRes, payrollRes, payrollSummaryRes, staffDirectoryRes, termsRes, levelsRes, studentDirectoryRes] = await Promise.all([
                 api.get<any>(`${endpoints.finance.studentFees}summary/`),
                 api.get<any>(endpoints.finance.feeTypes),
                 api.get<any>(endpoints.finance.studentFees),
@@ -744,6 +750,7 @@ export default function Finance() {
                 api.get<any>(endpoints.finance.payrollStaffDirectory),
                 api.get<any>(endpoints.academics.terms),
                 api.get<any>(endpoints.academics.levels),
+                api.get<any>(endpoints.finance.studentDirectory).catch(() => []),
             ]);
             setStats(summary);
             setFeeTypes(getList(feeTypesRes));
@@ -752,6 +759,7 @@ export default function Finance() {
             setPayroll(getList(payrollRes));
             setPayrollSummary(payrollSummaryRes || emptyPayrollSummary);
             setStaffDirectory(getList(staffDirectoryRes));
+            setStudentDirectory(getList(studentDirectoryRes));
             setTerms(getList(termsRes));
             setLevels(getList(levelsRes));
         } catch (err) { console.error('Failed to fetch finance data', err); }
@@ -821,11 +829,12 @@ export default function Finance() {
         finally { setReportLoading(false); }
     };
 
-    const pendingPaymentsCount = payments.filter(p => !p.is_confirmed).length;
+    const pendingPaymentsCount = payments.filter(p => !p.is_confirmed && !p.is_rejected).length;
 
     const tabs = [
         { id: 'overview', label: 'Overview', icon: BarChart3 },
         { id: 'billing', label: 'Student Billing', icon: Receipt },
+        { id: 'pupil-directory', label: 'Pupil Directory', icon: UserCheck },
         { id: 'payments', label: 'Payments', icon: CreditCard, badge: pendingPaymentsCount },
         { id: 'fees', label: 'Fee Structures', icon: TrendingUp },
         { id: 'payroll', label: 'Payroll', icon: Users },
@@ -962,6 +971,201 @@ export default function Finance() {
                             </div>
                         </div>
                     )}
+
+                    {/* PUPIL DIRECTORY */}
+                    {activeTab === 'pupil-directory' && (() => {
+                        const filtered = studentDirectory.filter(s => {
+                            const q = pupilSearch.toLowerCase();
+                            const matchSearch = !q ||
+                                s.full_name.toLowerCase().includes(q) ||
+                                (s.admission_number || '').toLowerCase().includes(q) ||
+                                (s.class_name || '').toLowerCase().includes(q);
+                            const matchBilling = !pupilBillingFilter || s.billing_status === pupilBillingFilter;
+                            const matchParent =
+                                pupilParentFilter === '' ? true :
+                                pupilParentFilter === 'linked' ? s.parent_linked :
+                                !s.parent_linked;
+                            return matchSearch && matchBilling && matchParent;
+                        });
+
+                        const unbilledCount = studentDirectory.filter(s => s.billing_status === 'unbilled').length;
+                        const unlinkedCount = studentDirectory.filter(s => !s.parent_linked).length;
+
+                        const billingBadge = (status: StudentDirectoryItem['billing_status']) => {
+                            const map: Record<string, string> = {
+                                paid: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                                outstanding: 'bg-red-500/10 text-red-400 border-red-500/20',
+                                partial: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                                unbilled: 'bg-slate-500/15 text-slate-400 border-slate-500/20',
+                                mixed: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+                            };
+                            return map[status] || map.unbilled;
+                        };
+
+                        return (
+                            <div className="space-y-4">
+                                {/* Alert banners */}
+                                {(unbilledCount > 0 || unlinkedCount > 0) && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {unbilledCount > 0 && (
+                                            <button
+                                                onClick={() => { setPupilBillingFilter('unbilled'); setPupilParentFilter(''); }}
+                                                className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-left hover:bg-amber-500/15 transition-all"
+                                            >
+                                                <AlertCircle size={20} className="text-amber-400 shrink-0" />
+                                                <div>
+                                                    <p className="text-sm font-black text-amber-400">{unbilledCount} Unbilled Pupil{unbilledCount !== 1 ? 's' : ''}</p>
+                                                    <p className="text-xs text-amber-400/60">No fee assigned this term — click to filter</p>
+                                                </div>
+                                            </button>
+                                        )}
+                                        {unlinkedCount > 0 && (
+                                            <button
+                                                onClick={() => { setPupilParentFilter('unlinked'); setPupilBillingFilter(''); }}
+                                                className="flex items-center gap-3 p-4 bg-violet-500/10 border border-violet-500/30 rounded-2xl text-left hover:bg-violet-500/15 transition-all"
+                                            >
+                                                <User size={20} className="text-violet-400 shrink-0" />
+                                                <div>
+                                                    <p className="text-sm font-black text-violet-400">{unlinkedCount} Pupil{unlinkedCount !== 1 ? 's' : ''} Without Parent</p>
+                                                    <p className="text-xs text-violet-400/60">No parent account linked — won't appear on parent portal</p>
+                                                </div>
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Filter bar */}
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                    <div className="relative flex-1 max-w-xs">
+                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                                        <input
+                                            id="pupil-dir-search"
+                                            type="text"
+                                            value={pupilSearch}
+                                            onChange={e => setPupilSearch(e.target.value)}
+                                            placeholder="Name, admission no., class..."
+                                            className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500/50"
+                                        />
+                                    </div>
+                                    <FilterDropdown
+                                        value={pupilBillingFilter}
+                                        options={[
+                                            { id: '', label: 'All Billing Status' },
+                                            { id: 'unbilled', label: 'Unbilled' },
+                                            { id: 'outstanding', label: 'Outstanding' },
+                                            { id: 'partial', label: 'Partial' },
+                                            { id: 'paid', label: 'Paid' },
+                                        ]}
+                                        onChange={setPupilBillingFilter}
+                                        placeholder="All Billing"
+                                        colorTheme="amber"
+                                    />
+                                    <FilterDropdown
+                                        value={pupilParentFilter}
+                                        options={[
+                                            { id: '', label: 'All Pupils' },
+                                            { id: 'linked', label: 'Parent Linked' },
+                                            { id: 'unlinked', label: 'No Parent' },
+                                        ]}
+                                        onChange={v => setPupilParentFilter(v as '' | 'linked' | 'unlinked')}
+                                        placeholder="Parent"
+                                        colorTheme="violet"
+                                    />
+                                    {(pupilBillingFilter || pupilParentFilter || pupilSearch) && (
+                                        <button
+                                            onClick={() => { setPupilSearch(''); setPupilBillingFilter(''); setPupilParentFilter(''); }}
+                                            className="text-xs text-slate-500 hover:text-white flex items-center gap-1"
+                                        >
+                                            <X size={12} /> Clear
+                                        </button>
+                                    )}
+                                    <span className="text-xs text-slate-500 ml-auto">{filtered.length} pupil{filtered.length !== 1 ? 's' : ''}</span>
+                                </div>
+
+                                {/* Table */}
+                                <div className="bg-white/5 rounded-2xl border border-white/5 overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left">
+                                            <thead>
+                                                <tr className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 bg-white/[0.02]">
+                                                    <th className="px-5 py-4">Pupil</th>
+                                                    <th className="px-5 py-4">Class</th>
+                                                    <th className="px-5 py-4">Billing Status</th>
+                                                    <th className="px-5 py-4 text-right">Fees</th>
+                                                    <th className="px-5 py-4 text-right">Total Amount</th>
+                                                    <th className="px-5 py-4">Parent Account</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="text-xs">
+                                                {filtered.map(pupil => (
+                                                    <tr key={pupil.id} className="border-b border-white/[0.02] hover:bg-white/[0.02] transition-all">
+                                                        <td className="px-5 py-3.5">
+                                                            <div className="flex items-center gap-3">
+                                                                {pupil.profile_photo_url ? (
+                                                                    <img src={pupil.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                                                ) : (
+                                                                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-400 font-bold text-xs">
+                                                                        {pupil.full_name.charAt(0)}
+                                                                    </div>
+                                                                )}
+                                                                <div>
+                                                                    <p className="text-white font-semibold">{pupil.full_name}</p>
+                                                                    {pupil.admission_number && (
+                                                                        <p className="text-slate-600 font-mono text-[10px]">{pupil.admission_number}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-slate-400">{pupil.class_name || '—'}</td>
+                                                        <td className="px-5 py-3.5">
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${billingBadge(pupil.billing_status)}`}>
+                                                                {pupil.billing_status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-right">
+                                                            {pupil.fee_count === 0 ? (
+                                                                <span className="text-slate-600">—</span>
+                                                            ) : (
+                                                                <span className="text-slate-300">
+                                                                    <span className="text-emerald-400">{pupil.fees_paid}</span>
+                                                                    <span className="text-slate-600">/{pupil.fee_count}</span>
+                                                                    <span className="text-slate-500 ml-1">paid</span>
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-right font-mono text-slate-300">
+                                                            {pupil.total_fee_amount > 0 ? formatCurrency(pupil.total_fee_amount) : <span className="text-slate-600">—</span>}
+                                                        </td>
+                                                        <td className="px-5 py-3.5">
+                                                            {pupil.parent_linked ? (
+                                                                <div className="flex items-center gap-1.5 text-emerald-400">
+                                                                    <UserCheck size={13} />
+                                                                    <span className="text-[10px] font-bold">{pupil.parent_name || 'Linked'}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1.5 text-violet-400">
+                                                                    <User size={13} />
+                                                                    <span className="text-[10px] font-bold">No parent</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {filtered.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={6} className="text-center py-16 text-slate-600">
+                                                            <Users size={32} className="mx-auto mb-2 opacity-30" />
+                                                            No pupils match the current filters.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* BILLING */}
                     {activeTab === 'billing' && (
