@@ -1069,7 +1069,7 @@ export default function Finance() {
                                         ]}
                                         onChange={v => setPupilParentFilter(v as '' | 'linked' | 'unlinked')}
                                         placeholder="Parent"
-                                        colorTheme="violet"
+                                        colorTheme="purple"
                                     />
                                     {(pupilBillingFilter || pupilParentFilter || pupilSearch) && (
                                         <button
