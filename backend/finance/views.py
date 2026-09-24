@@ -290,19 +290,151 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
             'message': f'Fee assigned to {created_count} student(s). {students.count() - created_count} already had this fee.'
         })
 
+    @action(detail=False, methods=['get'])
+    def student_directory(self, request):
+        """
+        Admin-only: Pupil directory with billing status per student.
+
+        Returns every student (active) with:
+          - fee_count / fees_outstanding / fees_paid / total_fee_amount
+          - billing_status: 'unbilled' | 'outstanding' | 'partial' | 'paid' | 'mixed'
+          - parent_linked: bool (False means no parent account linked)
+          - parent_name: str | null
+
+        Query params:
+          ?term=<id>   – filter fees by a specific term (defaults to current term)
+          ?class=<id>  – filter by school class
+          ?search=<q>  – name / admission number search
+          ?billing_status=unbilled|outstanding|partial|paid  – filter by billing status
+          ?parent_linked=true|false  – filter by parent linkage
+        """
+        if not can_view_finance(request.user):
+            return Response(
+                {'error': 'Only finance staff can view the student directory.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        from accounts.models import User as UserModel
+        from academics.models import Term
+
+        students = UserModel.objects.filter(
+            role='student', is_active=True
+        ).select_related('student_profile__current_class', 'student_profile__parent')
+
+        # Filters
+        class_id = request.query_params.get('class')
+        if class_id:
+            students = students.filter(student_profile__current_class_id=class_id)
+
+        search = request.query_params.get('search')
+        if search:
+            students = students.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(student_profile__admission_number__icontains=search)
+            )
+
+        # Resolve the term to scope fee lookups
+        term_id = request.query_params.get('term')
+        if term_id:
+            term_filter = {'term_id': term_id}
+        else:
+            current_term = Term.objects.filter(is_current=True).first()
+            term_filter = {'term': current_term} if current_term else {}
+
+        # Bulk-fetch all relevant StudentFee rows to avoid N+1
+        from django.db.models import Prefetch
+        fee_qs = StudentFee.objects.filter(**term_filter) if term_filter else StudentFee.objects.none()
+        fee_map: dict = {}  # student_id -> list[StudentFee]
+        for sf in fee_qs.select_related('fee_type'):
+            fee_map.setdefault(str(sf.student_id), []).append(sf)
+
+        billing_status_filter = request.query_params.get('billing_status', '').lower()
+        parent_linked_filter = request.query_params.get('parent_linked', '').lower()
+
+        directory = []
+        for student in students:
+            profile = getattr(student, 'student_profile', None)
+            parent = getattr(profile, 'parent', None)
+            fees = fee_map.get(str(student.id), [])
+
+            if not fees:
+                billing_status = 'unbilled'
+                total_amount = 0.0
+                outstanding = 0
+                paid = 0
+            else:
+                statuses = [f.status for f in fees]
+                total_amount = float(sum(f.fee_type.amount for f in fees))
+                outstanding = sum(1 for s in statuses if s in ('outstanding', 'partial'))
+                paid = sum(1 for s in statuses if s == 'paid')
+                if all(s == 'paid' for s in statuses):
+                    billing_status = 'paid'
+                elif all(s == 'outstanding' for s in statuses):
+                    billing_status = 'outstanding'
+                elif any(s == 'partial' for s in statuses):
+                    billing_status = 'partial'
+                else:
+                    billing_status = 'mixed'
+
+            parent_linked = parent is not None
+
+            # Apply filters
+            if billing_status_filter and billing_status != billing_status_filter:
+                continue
+            if parent_linked_filter == 'true' and not parent_linked:
+                continue
+            if parent_linked_filter == 'false' and parent_linked:
+                continue
+
+            photo_url = student.profile_photo.url if student.profile_photo else None
+            directory.append({
+                'id': str(student.id),
+                'full_name': student.full_name,
+                'admission_number': getattr(profile, 'admission_number', None),
+                'class_name': getattr(getattr(profile, 'current_class', None), 'name', None),
+                'profile_photo_url': photo_url,
+                'fee_count': len(fees),
+                'fees_outstanding': outstanding,
+                'fees_paid': paid,
+                'total_fee_amount': total_amount,
+                'billing_status': billing_status,
+                'parent_linked': parent_linked,
+                'parent_name': parent.full_name if parent else None,
+            })
+
+        return Response(directory)
+
     @action(detail=True, methods=['post'])
     def initialize_paystack(self, request, pk=None):
         """Initialize Paystack payment for a specific StudentFee."""
-        student_fee = self.get_object()
+        # Fetch directly (bypassing the scoped queryset) so that the authz check
+        # always runs and returns 403 — not 404 — for unauthorized callers.
+        try:
+            student_fee = StudentFee.objects.select_related(
+                'student__student_profile__parent', 'fee_type'
+            ).get(pk=pk)
+        except StudentFee.DoesNotExist:
+            return Response({'error': 'Fee not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Authorization check: Caller must be the student, their parent, or finance staff
+        # Authorization: explicit allow-list — only the fee's own student, their linked
+        # parent, or a finance-management role may initiate online payment.
         user = request.user
-        if user.role == 'student' and student_fee.student != user:
-            return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
-        if user.role == 'parent':
-            parent = getattr(getattr(student_fee.student, 'student_profile', None), 'parent', None)
-            if parent != user:
+        if can_manage_finance(user):
+            # Finance staff can initialize on behalf of any student — allowed.
+            pass
+        elif user.role == 'student':
+            if student_fee.student_id != user.id:
                 return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+        elif user.role == 'parent':
+            linked_parent = getattr(
+                getattr(student_fee.student, 'student_profile', None), 'parent', None
+            )
+            if linked_parent is None or linked_parent.id != user.id:
+                return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            # Teachers, proprietors, or any other role are not allowed.
+            return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
 
         if student_fee.status == 'paid':
             return Response({'error': 'Fee is already fully paid.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -512,12 +644,17 @@ class PaymentRecordViewSet(viewsets.ModelViewSet):
         if not can_manage_finance(request.user):
             return Response({'error': 'Only finance managers can confirm payments.'}, status=status.HTTP_403_FORBIDDEN)
 
-        payment = self.get_object()
-        if payment.is_confirmed:
-            return Response({'error': 'Payment is already confirmed.'}, status=status.HTTP_400_BAD_REQUEST)
-
         with transaction.atomic():
-            locked_payment = PaymentRecord.objects.select_for_update().get(id=payment.id)
+            # Acquire row-lock before the idempotency check to prevent concurrent
+            # confirmations from both passing the guard and double-crediting the fee.
+            locked_payment = PaymentRecord.objects.select_for_update().get(
+                id=self.get_object().id
+            )
+            if locked_payment.is_confirmed:
+                return Response({'error': 'Payment is already confirmed.'}, status=status.HTTP_400_BAD_REQUEST)
+            if locked_payment.is_rejected:
+                return Response({'error': 'Cannot confirm a payment that has already been rejected.'}, status=status.HTTP_400_BAD_REQUEST)
+
             student_fee = StudentFee.objects.select_for_update().get(id=locked_payment.student_fee_id)
 
             # Credit the fee balance now that admin has confirmed
@@ -576,26 +713,32 @@ class PaymentRecordViewSet(viewsets.ModelViewSet):
         if not can_manage_finance(request.user):
             return Response({'error': 'Only finance managers can reject payments.'}, status=status.HTTP_403_FORBIDDEN)
 
-        payment = self.get_object()
-        if payment.is_confirmed:
-            return Response({'error': 'Cannot reject an already confirmed payment.'}, status=status.HTTP_400_BAD_REQUEST)
-
         reason = request.data.get('reason', '').strip()
         if not reason:
             return Response({'error': 'A rejection reason is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            payment.notes = f"REJECTED by {request.user.full_name}: {reason}"
-            payment.is_confirmed = False  # Keep as unconfirmed / rejected
-            payment.save()
+            locked_payment = PaymentRecord.objects.select_for_update().get(
+                id=self.get_object().id
+            )
+            if locked_payment.is_confirmed:
+                return Response({'error': 'Cannot reject an already confirmed payment.'}, status=status.HTTP_400_BAD_REQUEST)
+            if locked_payment.is_rejected:
+                return Response({'error': 'Payment has already been rejected.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            locked_payment.is_rejected = True
+            locked_payment.rejected_by = request.user
+            locked_payment.rejected_at = timezone.now()
+            locked_payment.notes = f"REJECTED by {request.user.full_name}: {reason}"
+            locked_payment.save()
 
         # Notify student and parent
         try:
             from accounts.models import Notification
-            student = payment.student_fee.student
+            student = locked_payment.student_fee.student
             parent = getattr(getattr(student, 'student_profile', None), 'parent', None)
             msg = (
-                f"Your payment claim of ₦{payment.amount:,.2f} for {payment.student_fee.fee_type.name} "
+                f"Your payment claim of ₦{locked_payment.amount:,.2f} for {locked_payment.student_fee.fee_type.name} "
                 f"could not be confirmed. Reason: {reason}. Please contact the school finance office."
             )
             if parent:
@@ -610,12 +753,12 @@ class PaymentRecordViewSet(viewsets.ModelViewSet):
                 category='finance', audience='selected'
             )
         except Exception as exc:
-            logger.warning(f"Notification error after rejecting payment {payment.id}: {exc}")
+            logger.warning(f"Notification error after rejecting payment {locked_payment.id}: {exc}")
 
         return Response({
             'message': 'Payment rejected and student/parent notified.',
-            'payment_id': str(payment.id),
-            'notes': payment.notes,
+            'payment_id': str(locked_payment.id),
+            'notes': locked_payment.notes,
         })
 
 
