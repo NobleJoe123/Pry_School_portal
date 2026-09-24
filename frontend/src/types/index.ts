@@ -374,7 +374,30 @@ export interface PaymentRecord {
     confirmed_by?: string | null;
     confirmed_by_name?: string | null;
     confirmed_at?: string | null;
+    // Admin rejection fields
+    is_rejected: boolean;
+    rejected_by?: string | null;
+    rejected_by_name?: string | null;
+    rejected_at?: string | null;
+    // Convenience status
+    payment_status?: 'confirmed' | 'rejected' | 'pending';
     notes?: string | null;
+}
+
+/** Pupil billing overview row returned by /finance/student-fees/student_directory/ */
+export interface StudentDirectoryItem {
+    id: string;
+    full_name: string;
+    admission_number: string | null;
+    class_name: string | null;
+    profile_photo_url: string | null;
+    fee_count: number;
+    fees_outstanding: number;
+    fees_paid: number;
+    total_fee_amount: number;
+    billing_status: 'unbilled' | 'outstanding' | 'partial' | 'paid' | 'mixed';
+    parent_linked: boolean;
+    parent_name: string | null;
 }
 
 export interface Payroll {
