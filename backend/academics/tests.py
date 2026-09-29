@@ -205,3 +205,87 @@ class ReportCardTests(APITestCase):
         self.assertIsNotNone(notif)
         self.assertIn("next term begins on", notif.message.lower())
 
+
+class AcademicSessionTests(APITestCase):
+    def setUp(self):
+        from academics.models import ClassLevel, SchoolClass
+        from accounts.models import StudentProfile
+        from finance.models import FeeType
+
+        self.admin = User.objects.create_user(
+            email="admin_sess@test.com", username="adminsess", first_name="Admin", last_name="Sess", role="admin", password="password"
+        )
+        self.teacher = User.objects.create_user(
+            email="teacher_sess@test.com", username="teachersess", first_name="Teach", last_name="Sess", role="teacher", password="password"
+        )
+        self.parent = User.objects.create_user(
+            email="parent_sess@test.com", username="parentsess", first_name="Par", last_name="Sess", role="parent", password="password"
+        )
+        self.student = User.objects.create_user(
+            email="pupil_sess@test.com", username="pupilsess", first_name="Pupil", last_name="Sess", role="student", password="password"
+        )
+
+        self.year1 = AcademicYear.objects.create(name="2025/2026", start_date="2025-09-01", end_date="2026-07-20", is_current=True)
+        self.term1 = Term.objects.create(academic_year=self.year1, name="1st Term", start_date="2025-09-01", end_date="2025-12-15", is_current=True)
+
+        self.year2 = AcademicYear.objects.create(name="2026/2027", start_date="2026-09-01", end_date="2027-07-20", is_current=False)
+        self.term2_1 = Term.objects.create(academic_year=self.year2, name="1st Term", start_date="2026-09-01", end_date="2026-12-15", is_current=False)
+
+        self.level = ClassLevel.objects.create(name="Basic 1", numeric_level=1)
+        self.school_class = SchoolClass.objects.create(name="Basic 1A", level=self.level, academic_year=self.year1)
+        self.student_profile = StudentProfile.objects.create(user=self.student, admission_number="ADM-SESS-1", current_class=self.school_class, parent=self.parent)
+
+        self.fee_type = FeeType.objects.create(name="Tuition Fee", amount=35000.00, level=self.level)
+
+    def test_activate_session_sets_active_session_and_term(self):
+        from finance.models import StudentFee
+
+        self.client.force_authenticate(user=self.admin)
+        url = reverse('academicyear-set-current', kwargs={'pk': self.year2.id})
+        res = self.client.post(url, {'resumption_date': '2026-09-15'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        self.year1.refresh_from_db()
+        self.year2.refresh_from_db()
+        self.term1.refresh_from_db()
+        self.term2_1.refresh_from_db()
+
+        self.assertFalse(self.year1.is_current)
+        self.assertTrue(self.year2.is_current)
+        self.assertFalse(self.term1.is_current)
+        self.assertTrue(self.term2_1.is_current)
+        self.assertEqual(str(self.term2_1.resumption_date), '2026-09-15')
+
+        # Check fee auto-generation
+        sf = StudentFee.objects.filter(student=self.student, term=self.term2_1).first()
+        self.assertIsNotNone(sf)
+        self.assertEqual(sf.fee_type, self.fee_type)
+
+    def test_lesson_material_filtered_by_term(self):
+        from academics.models import Subject, LessonMaterial
+        subj = Subject.objects.create(name="Science", code="SCI-SESS", level=self.level)
+
+        mat1 = LessonMaterial.objects.create(
+            teacher=self.teacher, school_class=self.school_class, subject=subj,
+            term=self.term1, week="Week 1", topic="Plants", objectives="Learn plants", status="approved"
+        )
+        mat2 = LessonMaterial.objects.create(
+            teacher=self.teacher, school_class=self.school_class, subject=subj,
+            term=self.term2_1, week="Week 1", topic="Animals", objectives="Learn animals", status="approved"
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        url = reverse('lessonmaterial-list')
+
+        res_term1 = self.client.get(f"{url}?term={self.term1.id}")
+        self.assertEqual(res_term1.status_code, status.HTTP_200_OK)
+        results1 = res_term1.data.get('results', res_term1.data)
+        self.assertEqual(len(results1), 1)
+        self.assertEqual(results1[0]['id'], str(mat1.id))
+
+        res_term2 = self.client.get(f"{url}?term={self.term2_1.id}")
+        self.assertEqual(res_term2.status_code, status.HTTP_200_OK)
+        results2 = res_term2.data.get('results', res_term2.data)
+        self.assertEqual(len(results2), 1)
+        self.assertEqual(results2[0]['id'], str(mat2.id))
+

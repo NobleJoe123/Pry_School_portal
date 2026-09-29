@@ -155,6 +155,8 @@ class LessonMaterialSerializer(serializers.ModelSerializer):
     teacher_name      = serializers.ReadOnlyField(source='teacher.full_name')
     class_name        = serializers.ReadOnlyField(source='school_class.name')
     subject_name      = serializers.ReadOnlyField(source='subject.name')
+    term_name         = serializers.ReadOnlyField(source='term.name')
+    academic_year_name= serializers.ReadOnlyField(source='term.academic_year.name')
     file_url          = serializers.SerializerMethodField()
     file_size         = serializers.SerializerMethodField()
 
@@ -164,6 +166,7 @@ class LessonMaterialSerializer(serializers.ModelSerializer):
             'id', 'teacher', 'teacher_name',
             'school_class', 'class_name',
             'subject', 'subject_name',
+            'term', 'term_name', 'academic_year_name',
             'week', 'topic', 'objectives', 'activities', 'evaluation',
             'file', 'file_url', 'file_size',
             'status', 'created_at', 'updated_at',

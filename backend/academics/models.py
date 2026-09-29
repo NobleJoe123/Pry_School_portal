@@ -153,6 +153,7 @@ class StudentScore(models.Model):
 
     class Meta:
         unique_together = ('student', 'assessment')
+        ordering = ['assessment__term__start_date', 'student__last_name', 'student__first_name']
 
     def __str__(self):
         return f"{self.student.full_name} - {self.assessment.name}: {self.score_obtained}"
@@ -327,6 +328,14 @@ class LessonMaterial(models.Model):
         Subject,
         on_delete=models.CASCADE,
         related_name='lesson_materials',
+    )
+    term = models.ForeignKey(
+        Term,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lesson_materials',
+        help_text="Academic term for this lesson material"
     )
 
     week        = models.CharField(max_length=30)   # e.g. "Week 1"
