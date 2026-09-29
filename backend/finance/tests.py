@@ -797,3 +797,62 @@ class StudentDirectoryTests(FinanceTestBase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         for entry in resp.data:
             self.assertFalse(entry["parent_linked"])
+
+
+class BillStudentTests(APITestCase):
+    def setUp(self):
+        from academics.models import AcademicYear, Term, ClassLevel, SchoolClass
+        from accounts.models import StudentProfile
+
+        self.year = AcademicYear.objects.create(name="2025/2026", start_date="2025-09-01", end_date="2026-07-20", is_current=True)
+        self.term = Term.objects.create(academic_year=self.year, name="1st Term", start_date="2025-09-01", end_date="2025-12-15", is_current=True)
+        self.level = ClassLevel.objects.create(name="Grade 1", numeric_level=1)
+        self.school_class = SchoolClass.objects.create(name="Grade 1A", level=self.level, academic_year=self.year)
+
+        self.admin = User.objects.create_user(email="admin_bill@test.com", username="adminbill", role="admin", password="password")
+        self.parent = User.objects.create_user(email="parent_bill@test.com", username="parentbill", role="parent", password="password")
+        self.student = User.objects.create_user(email="student_bill@test.com", username="studentbill", role="student", password="password")
+        self.profile = StudentProfile.objects.create(user=self.student, admission_number="ADM-BILL-01", current_class=self.school_class, parent=self.parent)
+
+        self.fee_type = FeeType.objects.create(name="Development Levy", amount=15000.00, level=self.level)
+        self.url = reverse('studentfee-bill-student')
+
+    def test_bill_student_direct(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post(self.url, {
+            'student': self.student.id,
+            'fee_type': self.fee_type.id,
+            'term': self.term.id
+        })
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(StudentFee.objects.filter(student=self.student, fee_type=self.fee_type, term=self.term).exists())
+
+    def test_bill_student_via_parent(self):
+        self.client.force_authenticate(user=self.admin)
+        res = self.client.post(self.url, {
+            'parent': self.parent.id,
+            'fee_type': self.fee_type.id,
+            'term': self.term.id
+        })
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(StudentFee.objects.filter(student=self.student, fee_type=self.fee_type, term=self.term).exists())
+
+    def test_link_student_auto_bills_for_active_term(self):
+        # Create new student without parent
+        new_student = User.objects.create_user(email="unlinked@test.com", username="unlinked", role="student", password="password")
+        from accounts.models import StudentProfile
+        sp = StudentProfile.objects.create(user=new_student, admission_number="ADM-AUTO-01", current_class=self.school_class, parent=None)
+
+        self.client.force_authenticate(user=self.admin)
+        link_url = reverse('accounts:parent-link-students')
+        res = self.client.post(link_url, {
+            'parent_id': str(self.parent.id),
+            'admission_numbers': ["ADM-AUTO-01"]
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        sp.refresh_from_db()
+        self.assertEqual(sp.parent, self.parent)
+
+        # Student should now be auto-billed for the active term's fee_type
+        self.assertTrue(StudentFee.objects.filter(student=new_student, fee_type=self.fee_type, term=self.term).exists())
+

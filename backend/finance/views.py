@@ -99,6 +99,10 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
         if term_id:
             queryset = queryset.filter(term_id=term_id)
 
+        academic_year_id = self.request.query_params.get('academic_year')
+        if academic_year_id:
+            queryset = queryset.filter(term__academic_year_id=academic_year_id)
+
         fee_status = self.request.query_params.get('status')
         if fee_status:
             queryset = queryset.filter(status=fee_status)
@@ -290,6 +294,101 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
             'message': f'Fee assigned to {created_count} student(s). {students.count() - created_count} already had this fee.'
         })
 
+    @action(detail=False, methods=['post'], url_path='bill-student')
+    def bill_student(self, request):
+        """
+        Directly bill a specific student/ward or all wards of a parent.
+        Finance Managers & Admins only.
+        """
+        if not can_manage_finance(request.user):
+            return Response({'error': 'Unauthorized. Only finance managers can bill students.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from accounts.models import User, Notification
+        from academics.models import Term
+
+        fee_type_id = request.data.get('fee_type')
+        term_id = request.data.get('term')
+        student_id = request.data.get('student')
+        parent_id = request.data.get('parent')
+
+        if not fee_type_id:
+            return Response({'error': 'Fee type is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            fee_type = FeeType.objects.get(pk=fee_type_id)
+        except FeeType.DoesNotExist:
+            return Response({'error': 'Fee type not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not term_id:
+            current_term = Term.objects.filter(is_current=True).first()
+            if not current_term:
+                return Response({'error': 'No active term found.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            try:
+                current_term = Term.objects.get(pk=term_id)
+            except Term.DoesNotExist:
+                return Response({'error': 'Term not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        target_students = []
+        if student_id:
+            target_students = list(User.objects.filter(pk=student_id, role='student'))
+        elif parent_id:
+            target_students = list(User.objects.filter(student_profile__parent_id=parent_id, role='student'))
+
+        if not target_students:
+            return Response({'error': 'No student found to bill.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        billed_count = 0
+        already_billed_count = 0
+        notifications = []
+        with transaction.atomic():
+            for s in target_students:
+                sf, created = StudentFee.objects.get_or_create(
+                    student=s,
+                    fee_type=fee_type,
+                    term=current_term,
+                    defaults={'status': 'outstanding', 'amount_paid': Decimal('0.00')}
+                )
+                if created:
+                    billed_count += 1
+                    parent = getattr(getattr(s, 'student_profile', None), 'parent', None)
+                    if parent:
+                        notifications.append(
+                            Notification(
+                                sender=request.user,
+                                recipient=parent,
+                                title=f"Tuition Invoice: {s.first_name}",
+                                message=f"A fee invoice of ₦{fee_type.amount:,.2f} ({fee_type.name} - {current_term.name}) has been issued for {s.full_name}.",
+                                category='finance',
+                                audience='selected'
+                            )
+                        )
+                    notifications.append(
+                        Notification(
+                            sender=request.user,
+                            recipient=s,
+                            title=f"New Fee: {fee_type.name}",
+                            message=f"A new fee of ₦{fee_type.amount:,.2f} for {fee_type.name} has been assigned for {current_term.name}.",
+                            category='finance',
+                            audience='selected'
+                        )
+                    )
+                else:
+                    already_billed_count += 1
+
+            if notifications:
+                Notification.objects.bulk_create(notifications)
+
+        msg = f"Successfully billed {billed_count} pupil(s)."
+        if already_billed_count > 0:
+            msg += f" ({already_billed_count} already had this fee assigned)."
+
+        return Response({
+            'message': msg,
+            'billed_count': billed_count,
+            'already_billed_count': already_billed_count
+        }, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=['get'])
     def student_directory(self, request):
         """
@@ -336,8 +435,11 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
 
         # Resolve the term to scope fee lookups
         term_id = request.query_params.get('term')
+        academic_year_id = request.query_params.get('academic_year')
         if term_id:
             term_filter = {'term_id': term_id}
+        elif academic_year_id:
+            term_filter = {'term__academic_year_id': academic_year_id}
         else:
             current_term = Term.objects.filter(is_current=True).first()
             term_filter = {'term': current_term} if current_term else {}
@@ -586,6 +688,10 @@ class PaymentRecordViewSet(viewsets.ModelViewSet):
         term_id = self.request.query_params.get('term')
         if term_id:
             queryset = queryset.filter(student_fee__term_id=term_id)
+
+        academic_year_id = self.request.query_params.get('academic_year')
+        if academic_year_id:
+            queryset = queryset.filter(student_fee__term__academic_year_id=academic_year_id)
 
         payment_method = self.request.query_params.get('payment_method')
         if payment_method:
