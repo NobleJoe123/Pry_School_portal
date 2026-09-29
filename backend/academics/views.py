@@ -1,6 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, BasePermission, SAFE_METHODS
 from rest_framework.decorators import action
 from django.utils import timezone
 from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent, LessonMaterial
@@ -10,6 +10,21 @@ from .serializers import (
     AssessmentTypeSerializer, AssessmentSerializer, StudentScoreSerializer,
     ReportCardSerializer, SchoolEventSerializer, LessonMaterialSerializer
 )
+
+class IsAdminOrReadOnlyAllowAny(BasePermission):
+    """
+    Allows read-only access (GET, HEAD, OPTIONS) to any user (even unauthenticated).
+    Modifications require an authenticated admin user.
+    """
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return True
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            (getattr(request.user, 'role', None) == 'admin' or request.user.is_staff)
+        )
+
 
 def resolve_term_id(term_id_param):
     """
@@ -22,15 +37,140 @@ def resolve_term_id(term_id_param):
     return term_id_param
 
 
+def bill_enrolled_students_for_term(term, actor=None):
+    """Auto-generate school fees for all active enrolled students for the given term."""
+    fees_generated_count = 0
+    try:
+        from accounts.models import User, Notification
+        from finance.models import FeeType, StudentFee
+
+        active_students = User.objects.filter(
+            role='student',
+            is_active=True,
+            student_profile__current_class__isnull=False
+        ).select_related('student_profile__current_class__level', 'student_profile__parent')
+
+        parent_notifications = []
+
+        for student in active_students:
+            level = student.student_profile.current_class.level
+            fee_types = FeeType.objects.filter(level=level)
+
+            for ft in fee_types:
+                sf, created = StudentFee.objects.get_or_create(
+                    student=student,
+                    fee_type=ft,
+                    term=term,
+                    defaults={'status': 'outstanding', 'amount_paid': 0}
+                )
+                if created:
+                    fees_generated_count += 1
+                    parent = getattr(getattr(student, 'student_profile', None), 'parent', None)
+                    if parent:
+                        parent_notifications.append(
+                            Notification(
+                                sender=actor,
+                                recipient=parent,
+                                title=f"New School Fees: {term.name}",
+                                message=f"School fees for {term.name} ({ft.name} - ₦{ft.amount:,.2f}) have been published for {student.full_name}.",
+                                category='finance',
+                                audience='selected'
+                            )
+                        )
+
+        if parent_notifications:
+            Notification.objects.bulk_create(parent_notifications)
+    except Exception as e:
+        print(f"Error generating term student fees: {e}")
+
+    return fees_generated_count
+
+
 class AcademicYearViewSet(viewsets.ModelViewSet):
     queryset = AcademicYear.objects.all()
     serializer_class = AcademicYearSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnlyAllowAny]
+
+    @action(detail=True, methods=['post'], url_path='set-current')
+    def set_current(self, request, pk=None):
+        """
+        Manually activates this AcademicYear as the current academic session.
+        Deactivates all other sessions.
+        Sets its 1st Term (or earliest term) as the active term (and deactivates other terms).
+        Auto-bills all active enrolled students for the active term.
+        Broadcasts notifications to teachers and parents.
+        """
+        year = self.get_object()
+        AcademicYear.objects.exclude(id=year.id).update(is_current=False)
+        year.is_current = True
+        year.save()
+
+        # Find or create 1st Term
+        first_term = Term.objects.filter(academic_year=year).order_by('start_date').first()
+        if not first_term:
+            first_term = Term.objects.create(
+                academic_year=year,
+                name='1st Term',
+                start_date=year.start_date,
+                end_date=year.end_date,
+                is_current=True
+            )
+        else:
+            Term.objects.exclude(id=first_term.id).update(is_current=False)
+            first_term.is_current = True
+            resumption_date_str = request.data.get('resumption_date') or request.data.get('start_date')
+            if resumption_date_str:
+                try:
+                    from datetime import datetime
+                    if isinstance(resumption_date_str, str):
+                        first_term.resumption_date = datetime.strptime(resumption_date_str, '%Y-%m-%d').date()
+                    else:
+                        first_term.resumption_date = resumption_date_str
+                except Exception:
+                    pass
+            first_term.save()
+
+        # Auto-bill enrolled students for first_term
+        fees_generated_count = bill_enrolled_students_for_term(first_term, request.user if request.user.is_authenticated else None)
+
+        # Notify parents and teachers
+        notifications_count = 0
+        resumption_val = first_term.get_resumption_date()
+        formatted_resumption = resumption_val.strftime('%A, %B %d, %Y') if resumption_val else "TBA"
+
+        try:
+            from accounts.models import Notification, User
+            recipients = User.objects.filter(role__in=['teacher', 'parent'], is_active=True)
+            notif_list = [
+                Notification(
+                    sender=request.user if request.user.is_authenticated else None,
+                    recipient=user,
+                    title=f"Academic Session Activated: {year.name}",
+                    message=f"Notice: The academic session {year.name} is now active. {first_term.name} has commenced with school resumption scheduled for {formatted_resumption}.",
+                    category='academics',
+                    audience='all'
+                )
+                for user in recipients
+            ]
+            if notif_list:
+                Notification.objects.bulk_create(notif_list)
+                notifications_count = len(notif_list)
+        except Exception as e:
+            print(f"Error creating session notifications: {e}")
+
+        return Response({
+            'message': f"Academic Session {year.name} and {first_term.name} are now active. Resumption set for {formatted_resumption}.",
+            'academic_year': self.get_serializer(year).data,
+            'term': TermSerializer(first_term).data,
+            'notifications_sent': notifications_count,
+            'fees_generated': fees_generated_count
+        }, status=status.HTTP_200_OK)
+
 
 class TermViewSet(viewsets.ModelViewSet):
     queryset = Term.objects.all()
     serializer_class = TermSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnlyAllowAny]
 
     @action(detail=True, methods=['post'], url_path='set-current')
     def set_current(self, request, pk=None):
@@ -82,49 +222,7 @@ class TermViewSet(viewsets.ModelViewSet):
             print(f"Error creating term notifications: {e}")
 
         # 2. Auto-Generate / Refresh School Fees for the Active Term
-        fees_generated_count = 0
-        try:
-            from accounts.models import User
-            from finance.models import FeeType, StudentFee
-            
-            active_students = User.objects.filter(
-                role='student',
-                is_active=True,
-                student_profile__current_class__isnull=False
-            ).select_related('student_profile__current_class__level', 'student_profile__parent')
-
-            parent_notifications = []
-
-            for student in active_students:
-                level = student.student_profile.current_class.level
-                fee_types = FeeType.objects.filter(level=level)
-
-                for ft in fee_types:
-                    sf, created = StudentFee.objects.get_or_create(
-                        student=student,
-                        fee_type=ft,
-                        term=term,
-                        defaults={'status': 'outstanding', 'amount_paid': 0}
-                    )
-                    if created:
-                        fees_generated_count += 1
-                        parent = student.student_profile.parent
-                        if parent:
-                            parent_notifications.append(
-                                Notification(
-                                    sender=request.user if request.user.is_authenticated else None,
-                                    recipient=parent,
-                                    title=f"New School Fees: {term.name}",
-                                    message=f"School fees for {term.name} ({ft.name} - ₦{ft.amount:,.2f}) have been published for {student.full_name}.",
-                                    category='finance',
-                                    audience='selected'
-                                )
-                            )
-
-            if parent_notifications:
-                Notification.objects.bulk_create(parent_notifications)
-        except Exception as e:
-            print(f"Error generating term student fees: {e}")
+        fees_generated_count = bill_enrolled_students_for_term(term, request.user if request.user.is_authenticated else None)
 
         serializer = self.get_serializer(term)
         return Response({
@@ -289,7 +387,6 @@ class StudentScoreViewSet(viewsets.ModelViewSet):
                 return Response({'error': 'You do not have permission to enter scores for this class.'}, status=status.HTTP_403_FORBIDDEN)
 
         subject_id = data.get('subject')
-        term_id = data.get('term')
         assessment_type_id = data.get('assessment_type')
         date_administered = data.get('date', timezone.now().date())
         records = data.get('records', [])
@@ -471,7 +568,6 @@ class ReportCardViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Only admins can perform this action.'}, status=status.HTTP_403_FORBIDDEN)
 
         data = request.data
-        term_id = data.get('term')
         records = data.get('records', [])  # list of {student_id, admin_remarks, is_published}
 
         term_id = resolve_term_id(data.get('term'))
@@ -507,7 +603,7 @@ class LessonMaterialViewSet(viewsets.ModelViewSet):
        admins can view all and change status."""
 
     queryset = LessonMaterial.objects.select_related(
-        'teacher', 'school_class', 'subject'
+        'teacher', 'school_class', 'subject', 'term', 'term__academic_year'
     ).all()
     serializer_class = LessonMaterialSerializer
     permission_classes = [IsAuthenticated]
@@ -533,6 +629,18 @@ class LessonMaterialViewSet(viewsets.ModelViewSet):
         if subject:
             qs = qs.filter(subject_id=subject)
 
+        term_id = self.request.query_params.get('term')
+        if term_id:
+            qs = qs.filter(term_id=term_id)
+
+        academic_year_id = self.request.query_params.get('academic_year')
+        if academic_year_id:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(term__academic_year_id=academic_year_id) |
+                Q(school_class__academic_year_id=academic_year_id)
+            )
+
         return qs
 
     def get_parser_classes(self):
@@ -541,7 +649,10 @@ class LessonMaterialViewSet(viewsets.ModelViewSet):
         return [MultiPartParser, FormParser, JSONParser]
 
     def perform_create(self, serializer):
-        serializer.save(teacher=self.request.user)
+        term = serializer.validated_data.get('term')
+        if not term:
+            term = Term.objects.filter(is_current=True).first()
+        serializer.save(teacher=self.request.user, term=term)
 
     def perform_update(self, serializer):
         # Teachers can edit their own materials until admin approval.
