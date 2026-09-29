@@ -709,6 +709,15 @@ class ParentViewSet(viewsets.ModelViewSet):
 
     def _do_link_students(self, request, pk=None):
         admission_numbers = request.data.get('admission_numbers', [])
+        if isinstance(admission_numbers, str):
+            import json
+            try:
+                admission_numbers = json.loads(admission_numbers)
+            except Exception:
+                admission_numbers = [a.strip() for a in admission_numbers.split(',') if a.strip()]
+        if not isinstance(admission_numbers, (list, tuple)):
+            admission_numbers = [admission_numbers]
+
         if not admission_numbers:
             return Response({'error': 'No admission numbers provided'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -726,19 +735,23 @@ class ParentViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Only parents or admins can link students'}, status=status.HTTP_403_FORBIDDEN)
             
         linked_count = 0
+        billed_fees_count = 0
         not_found = []
+        from finance.services import bill_student_for_active_term
         for adm in admission_numbers:
             try:
                 student_profile = StudentProfile.objects.get(admission_number__iexact=adm)
                 student_profile.parent = target_parent
                 student_profile.save()
                 linked_count += 1
+                billed_fees_count += bill_student_for_active_term(student_profile.user, actor=request.user)
             except StudentProfile.DoesNotExist:
                 not_found.append(adm)
                 
         return Response({
-            'message': f'Successfully linked {linked_count} student(s).',
-            'not_found': not_found
+            'message': f'Successfully linked {linked_count} student(s) ({billed_fees_count} fee invoices generated).',
+            'not_found': not_found,
+            'billed_fees_count': billed_fees_count
         })
 
     @action(detail=True, methods=['post'])
