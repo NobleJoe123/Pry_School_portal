@@ -6,6 +6,7 @@ import {
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { Term } from '../../types';
+import { getList } from '../../utils/helpers';
 
 type Tab = 'profile' | 'password' | 'notifications' | 'appearance' | 'academic';
 
@@ -84,13 +85,7 @@ export default function Settings() {
         setRefreshingTerms(true);
         try {
             const res = await api.get<any>(endpoints.academics.terms);
-            const getList = (val: any) => {
-                if (!val) return [];
-                if (Array.isArray(val)) return val;
-                if (val.results && Array.isArray(val.results)) return val.results;
-                return [];
-            };
-            setTerms(getList(res));
+            setTerms(getList<Term>(res));
         } catch (err: any) {
             console.error(err);
         } finally {

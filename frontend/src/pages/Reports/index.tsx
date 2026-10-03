@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
     Users, BookOpen, Award, FileText, CheckCircle,
-    RefreshCw, Save, Search, Eye, X, Printer, Download, MapPin, Phone
+    RefreshCw, Save, Search, Eye, X, Printer, Download, MapPin, Phone, History
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
+import { useSession } from '../../context/SessionContext';
+import SessionSelector from '../../components/ui/SessionSelector';
+import { getList, calculateGrade, getGradeRemark } from '../../utils/helpers';
 import logo from '../../assets/anyilogo.png';
 import type { SchoolClass, Term, User, StudentScore } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
@@ -68,16 +71,12 @@ interface ReportCardData {
     psychomotor?: Record<string, number>;
 }
 
-const getList = <T,>(val: any): T[] => {
-    if (!val) return [];
-    if (Array.isArray(val)) return val;
-    if (val.results && Array.isArray(val.results)) return val.results;
-    return [];
-};
+
 
 export default function Reports() {
     const { user } = useAuth();
     const { confirm, showAlert } = useDialog();
+    const { selectedYear, selectedTerm, setSelectedTerm, isHistorical, termsForSelectedYear } = useSession();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -86,6 +85,13 @@ export default function Reports() {
     const [terms, setTerms] = useState<Term[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [selectedTermId, setSelectedTermId] = useState<string>('');
+
+    // Sync selectedTerm from SessionContext
+    useEffect(() => {
+        if (selectedTerm?.id) {
+            setSelectedTermId(selectedTerm.id);
+        }
+    }, [selectedTerm?.id]);
 
     // Data List
     const [students, setStudents] = useState<User[]>([]);
@@ -130,7 +136,7 @@ export default function Reports() {
 
             if (classList.length > 0) setSelectedClassId(classList[0].id);
 
-            const currentTerm = termList.find((t: Term) => t.is_current) || termList[0];
+            const currentTerm = selectedTerm || termList.find((t: Term) => t.is_current) || termList[0];
             if (currentTerm) setSelectedTermId(currentTerm.id);
 
             // Derive next term start from Term list (sorted ascending)
@@ -288,13 +294,8 @@ export default function Reports() {
 
             grouped[subjectId].totalScore = grouped[subjectId].caScore + grouped[subjectId].examScore;
 
-            // Calculate Grade
             const total = grouped[subjectId].totalScore;
-            if (total >= 75) grouped[subjectId].grade = 'A';
-            else if (total >= 65) grouped[subjectId].grade = 'B';
-            else if (total >= 55) grouped[subjectId].grade = 'C';
-            else if (total >= 45) grouped[subjectId].grade = 'D';
-            else grouped[subjectId].grade = 'F';
+            grouped[subjectId].grade = calculateGrade(total);
         });
 
 
@@ -455,14 +456,7 @@ export default function Reports() {
 
 
 
-    // Grade Remark — thresholds aligned with the grading scale (A≥75, B≥55, C≥45, D≥30, F<30)
-    const getGradeRemark = (score: number) => {
-        if (score >= 75) return "Excellent";
-        if (score >= 55) return "Good";
-        if (score >= 45) return "Fair";
-        if (score >= 30) return "Pass";
-        return "Poor";
-    };
+    // Grade Remark — aligned with unified grading scale (A≥75, B≥55, C≥45, D≥30, F<30)
 
     // Derive next class name for promotion status (only meaningful when a student is selected)
     const nextClass = (() => {
@@ -504,23 +498,32 @@ export default function Reports() {
                 <div>
                     <h1 className="text-2xl font-black text-white font-serif">Report Cards Generator</h1>
                     <p className="text-slate-500 text-sm">Generate, preview, print, and save termly report cards for pupils.</p>
+                    {isHistorical && (
+                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-semibold">
+                            <History size={13} />
+                            Viewing historical reports — {selectedYear?.name} / {selectedTerm?.name}
+                        </div>
+                    )}
                 </div>
-                <div className="flex items-center gap-2">
-                    {user?.role === 'admin' && students.length > 0 && (
-                        <button onClick={handleBulkPublish} disabled={saving}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-black rounded-xl transition-all shadow-md">
-                            <CheckCircle size={13} /> Bulk Publish Class
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <SessionSelector />
+                    <div className="flex items-center gap-2">
+                        {user?.role === 'admin' && students.length > 0 && (
+                            <button onClick={handleBulkPublish} disabled={saving}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-black rounded-xl transition-all shadow-md">
+                                <CheckCircle size={13} /> Bulk Publish Class
+                            </button>
+                        )}
+                        <button onClick={() => loadReportData(true)} disabled={refreshing}
+                            className="p-2.5 text-slate-400 hover:text-white bg-white/5 border border-white/10 rounded-xl transition-all">
+                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
                         </button>
-                    )}
-                    <button onClick={() => loadReportData(true)} disabled={refreshing}
-                        className="p-2.5 text-slate-400 hover:text-white bg-white/5 border border-white/10 rounded-xl transition-all">
-                        <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                    </button>
-                    {success && (
-                        <span className="text-emerald-400 text-xs font-bold flex items-center gap-1.5 mr-2 animate-bounce">
-                            <CheckCircle size={14} /> {success}
-                        </span>
-                    )}
+                        {success && (
+                            <span className="text-emerald-400 text-xs font-bold flex items-center gap-1.5 mr-2 animate-bounce">
+                                <CheckCircle size={14} /> {success}
+                            </span>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -548,8 +551,12 @@ export default function Reports() {
                         </label>
                         <FilterDropdown
                             value={selectedTermId}
-                            options={terms.map(t => ({ id: t.id, label: `${t.name} (${t.academic_year_name})` }))}
-                            onChange={setSelectedTermId}
+                            options={(termsForSelectedYear.length > 0 ? termsForSelectedYear : terms).map(t => ({ id: t.id, label: `${t.name}${t.is_current ? ' (Active)' : ''}` }))}
+                            onChange={(id) => {
+                                setSelectedTermId(id);
+                                const tm = (termsForSelectedYear.length > 0 ? termsForSelectedYear : terms).find(t => t.id === id);
+                                if (tm) setSelectedTerm(tm);
+                            }}
                             placeholder="Select Term"
                             colorTheme={user?.role === 'teacher' ? 'emerald' : 'amber'}
                         />

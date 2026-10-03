@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import {
     Users, BookOpen, Award, Save, RotateCcw,
-    CheckCircle, BarChart2, Star, TrendingUp, HelpCircle, Layers, Calendar
+    CheckCircle, BarChart2, Star, TrendingUp, HelpCircle, Layers, Calendar, History
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
+import { useSession } from '../../context/SessionContext';
+import SessionSelector from '../../components/ui/SessionSelector';
+import { getList, calculateGrade, getGradeColor } from '../../utils/helpers';
 import type { SchoolClass, User, Subject, AssessmentType, Term } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
@@ -16,28 +19,23 @@ interface StudentScoreDetail {
     examRemarks: string;
 }
 
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
-};
+
 
 export default function Scores() {
     const { user } = useAuth();
     const { showAlert } = useDialog();
+    const {
+        selectedYear, selectedTerm, setSelectedYear, setSelectedTerm,
+        academicYears, termsForSelectedYear, isHistorical
+    } = useSession();
     const [loading, setLoading] = useState(true);
 
     // Filters Meta
-    const [sessions, setSessions] = useState<{ id: string; name: string; is_current: boolean }[]>([]);
-    const [terms, setTerms] = useState<Term[]>([]);
     const [classes, setClasses] = useState<SchoolClass[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const [assessmentTypes, setAssessmentTypes] = useState<AssessmentType[]>([]);
 
     // Selected Filters
-    const [selectedSession, setSelectedSession] = useState<string>('');
-    const [selectedTerm, setSelectedTerm] = useState<string>('');
     const [selectedClass, setSelectedClass] = useState<string>('');
     const [selectedSubject, setSelectedSubject] = useState<string>('');
 
@@ -55,14 +53,10 @@ export default function Scores() {
     useEffect(() => {
         setLoading(true);
         Promise.all([
-            api.get<any>(endpoints.academics.years),
-            api.get<any>(endpoints.academics.terms),
             api.get<any>(endpoints.academics.classes),
             api.get<any>(endpoints.academics.subjects),
             api.get<any>(endpoints.academics.assessmentTypes),
-        ]).then(([yearsRes, termsRes, classesRes, subjectsRes, typesRes]) => {
-            const sessionsList = getList<any>(yearsRes);
-            const termList = getList<Term>(termsRes);
+        ]).then(([classesRes, subjectsRes, typesRes]) => {
             let classList = getList<SchoolClass>(classesRes);
             const subjectList = getList<Subject>(subjectsRes);
             const typeList = getList<AssessmentType>(typesRes);
@@ -74,18 +68,9 @@ export default function Scores() {
                 );
             }
 
-            setSessions(sessionsList);
-            setTerms(termList);
             setClasses(classList);
             setSubjects(subjectList);
             setAssessmentTypes(typeList);
-
-            // Set default selections
-            const activeSession = sessionsList.find(y => y.is_current) || sessionsList[0];
-            if (activeSession) setSelectedSession(activeSession.id);
-
-            const activeTerm = termList.find(t => t.is_current) || termList[0];
-            if (activeTerm) setSelectedTerm(activeTerm.id);
 
             if (classList.length > 0) setSelectedClass(classList[0].id);
             if (subjectList.length > 0) setSelectedSubject(subjectList[0].id);
@@ -103,7 +88,7 @@ export default function Scores() {
 
     // Load students and scores whenever filter changes
     useEffect(() => {
-        if (!selectedClass || !selectedSubject || !selectedTerm || !caType || !examType) return;
+        if (!selectedClass || !selectedSubject || !selectedTerm?.id || !caType || !examType) return;
         setLoading(true);
 
         api.get<any>(`${endpoints.students.list}?school_class=${selectedClass}`)
@@ -114,13 +99,13 @@ export default function Scores() {
                 try {
                     // Fetch CA scores
                     const caScoresRes = await api.get<any>(
-                        `${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&term=${selectedTerm}&assessment_type=${caType.id}`
+                        `${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&term=${selectedTerm.id}&assessment_type=${caType.id}`
                     );
                     const caScores = getList<any>(caScoresRes);
 
                     // Fetch Exam scores
                     const examScoresRes = await api.get<any>(
-                        `${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&term=${selectedTerm}&assessment_type=${examType.id}`
+                        `${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&term=${selectedTerm.id}&assessment_type=${examType.id}`
                     );
                     const examScores = getList<any>(examScoresRes);
 
@@ -153,7 +138,7 @@ export default function Scores() {
                 console.error("Failed to load students", err);
                 setLoading(false);
             });
-    }, [selectedClass, selectedSubject, selectedTerm, selectedSession, assessmentTypes]);
+    }, [selectedClass, selectedSubject, selectedTerm?.id, selectedYear?.id, assessmentTypes]);
 
     // Handle Input Changes
     const handleScoreValueChange = (studentId: string, type: 'ca' | 'exam', value: string) => {
@@ -177,23 +162,7 @@ export default function Scores() {
     };
 
     // Calculations & Metrics
-    const calculateGrade = (total: number): string => {
-        if (total >= 75) return 'A';
-        if (total >= 55) return 'B';
-        if (total >= 45) return 'C';
-        if (total >= 30) return 'D';
-        return 'F';
-    };
 
-    const getGradeColor = (grade: string) => {
-        switch (grade) {
-            case 'A': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-            case 'B': return 'text-sky-400 bg-sky-500/10 border-sky-500/20';
-            case 'C': return 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20';
-            case 'D': return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-            default: return 'text-rose-400 bg-rose-500/10 border-rose-500/20';
-        }
-    };
 
     const getStats = () => {
         let totalSum = 0;
@@ -253,7 +222,7 @@ export default function Scores() {
                 school_class: selectedClass,
                 subject: selectedSubject,
                 assessment_type: caType.id,
-                term: selectedTerm,
+                term: selectedTerm?.id,
                 date: new Date().toISOString().split('T')[0],
                 records: caRecords
             });
@@ -263,7 +232,7 @@ export default function Scores() {
                 school_class: selectedClass,
                 subject: selectedSubject,
                 assessment_type: examType.id,
-                term: selectedTerm,
+                term: selectedTerm?.id,
                 date: new Date().toISOString().split('T')[0],
                 records: examRecords
             });
@@ -285,27 +254,44 @@ export default function Scores() {
     return (
         <div className="space-y-6 max-w-screen-xl">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-black text-white font-serif">Results & Score Management</h1>
-                <p className="text-slate-500 text-sm">Record pupil assessments, view performance summary, and manage class sheets.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-black text-white font-serif">Results & Score Management</h1>
+                    <p className="text-slate-500 text-sm">Record pupil assessments, view performance summary, and manage class sheets.</p>
+                    {isHistorical && (
+                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-semibold">
+                            <History size={13} />
+                            Viewing historical scores — {selectedYear?.name} / {selectedTerm?.name}
+                        </div>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <SessionSelector />
+                </div>
             </div>
 
             {/* Selection Filters */}
             <div className="p-4 bg-white/5 border border-white/5 rounded-3xl flex flex-wrap items-center gap-3">
                 <FilterDropdown
                     icon={<Calendar size={14} />}
-                    value={selectedSession}
-                    options={sessions.map(s => ({ id: s.id, label: s.name }))}
-                    onChange={setSelectedSession}
+                    value={selectedYear?.id || ''}
+                    options={academicYears.map(s => ({ id: s.id, label: s.name + (s.is_current ? ' (Active)' : '') }))}
+                    onChange={(id) => {
+                        const yr = academicYears.find(y => y.id === id);
+                        if (yr) setSelectedYear(yr);
+                    }}
                     placeholder="Session"
                     colorTheme="emerald"
                 />
 
                 <FilterDropdown
                     icon={<Layers size={14} />}
-                    value={selectedTerm}
-                    options={terms.map(t => ({ id: t.id, label: t.name }))}
-                    onChange={setSelectedTerm}
+                    value={selectedTerm?.id || ''}
+                    options={termsForSelectedYear.map(t => ({ id: t.id, label: t.name + (t.is_current ? ' (Active)' : '') }))}
+                    onChange={(id) => {
+                        const tm = termsForSelectedYear.find(t => t.id === id);
+                        if (tm) setSelectedTerm(tm);
+                    }}
                     placeholder="Term"
                     colorTheme="emerald"
                 />
