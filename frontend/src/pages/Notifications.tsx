@@ -7,13 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../context/DialogContext';
 import type { Notification, User } from '../types';
 import FilterDropdown from '../components/ui/FilterDropdown';
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
-};
+import { getList } from '../utils/helpers';
 
 function NotificationComposer({ onSent }: { onSent: () => void }) {
     const [audience, setAudience] = useState('all_teachers');
