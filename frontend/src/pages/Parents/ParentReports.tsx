@@ -6,28 +6,14 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
 import logo from '../../assets/anyilogo.png';
-
-const getList = <T,>(val: any): T[] => {
-    if (!val) return [];
-    if (Array.isArray(val)) return val;
-    if (val.results && Array.isArray(val.results)) return val.results;
-    return [];
-};
+import { getList, calculateGrade, getGradeRemark } from '../../utils/helpers';
 
 function gradeInfo(avg: number) {
     if (avg >= 75) return { grade: 'A', color: '#15803d', bg: '#dcfce7', border: '#16a34a' };
-    if (avg >= 65) return { grade: 'B', color: '#1d4ed8', bg: '#dbeafe', border: '#2563eb' };
-    if (avg >= 55) return { grade: 'C', color: '#7c3aed', bg: '#ede9fe', border: '#7c3aed' };
-    if (avg >= 45) return { grade: 'D', color: '#b45309', bg: '#fef3c7', border: '#d97706' };
+    if (avg >= 55) return { grade: 'B', color: '#1d4ed8', bg: '#dbeafe', border: '#2563eb' };
+    if (avg >= 45) return { grade: 'C', color: '#7c3aed', bg: '#ede9fe', border: '#7c3aed' };
+    if (avg >= 30) return { grade: 'D', color: '#b45309', bg: '#fef3c7', border: '#d97706' };
     return { grade: 'F', color: '#dc2626', bg: '#fee2e2', border: '#dc2626' };
-}
-
-function getGradeRemark(score: number) {
-    if (score >= 75) return 'Excellent';
-    if (score >= 65) return 'Good';
-    if (score >= 55) return 'Fair';
-    if (score >= 45) return 'Pass';
-    return 'Poor';
 }
 
 interface ReportCardEntry {
@@ -85,7 +71,7 @@ function computeSubjects(scores: ScoreEntry[]): SubjectSummary[] {
         }
         grouped[sid].totalScore = grouped[sid].caScore + grouped[sid].examScore;
         const t = grouped[sid].totalScore;
-        grouped[sid].grade = t >= 75 ? 'A' : t >= 65 ? 'B' : t >= 55 ? 'C' : t >= 45 ? 'D' : 'F';
+        grouped[sid].grade = calculateGrade(t);
     });
     return Object.values(grouped);
 }
@@ -248,10 +234,10 @@ function ReportCardA4({
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 12px', fontSize: '7.5pt', fontWeight: 700 }}>
                         {[
                             ['A', '75–100', '#15803d'], 
-                            ['B', '65–74', '#1d4ed8'], 
-                            ['C', '55–64', '#7c3aed'], 
-                            ['D', '45–54', '#b45309'], 
-                            ['F', 'Below 45', '#dc2626']
+                            ['B', '55–74', '#1d4ed8'], 
+                            ['C', '45–54', '#7c3aed'], 
+                            ['D', '30–44', '#b45309'], 
+                            ['F', 'Below 30', '#dc2626']
                         ].map(([g, r, c]) => (
                             <span key={g} style={{ color: c }}>{g}: {r}</span>
                         ))}

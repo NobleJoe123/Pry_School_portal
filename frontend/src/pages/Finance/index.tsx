@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Wallet, Receipt, CreditCard, TrendingUp, Users,
     Plus, Search, Download, CheckCircle, Clock,
@@ -7,10 +7,14 @@ import {
     Eye, Edit2, UserCheck, User,
     Calendar, Printer,
     TrendingDown, Award,
-    CircleDollarSign, FileBarChart2, BookOpen, CheckSquare, Square, ThumbsUp, ThumbsDown
+    CircleDollarSign, FileBarChart2, BookOpen, CheckSquare, Square, ThumbsUp, ThumbsDown,
+    History
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useDialog } from '../../context/DialogContext';
+import { useSession } from '../../context/SessionContext';
+import SessionSelector from '../../components/ui/SessionSelector';
+import { getList } from '../../utils/helpers';
 import type {
     FeeType, StudentFee, PaymentRecord, Payroll, PayrollDetail,
     PayrollSummary, PayrollStaffDirectoryItem, Term,
@@ -22,12 +26,7 @@ import FilterDropdown from '../../components/ui/FilterDropdown';
 type Tab = 'overview' | 'fees' | 'billing' | 'payments' | 'payroll' | 'pupil-directory';
 type PayrollSubTab = 'dashboard' | 'directory' | 'records' | 'reports' | 'audit';
 
-const getList = (res: any): any[] => {
-    if (!res) return [];
-    if (Array.isArray(res)) return res;
-    if (res.results && Array.isArray(res.results)) return res.results;
-    return [];
-};
+
 
 const formatCurrency = (amt: number | string | undefined | null) =>
     new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(Number(amt ?? 0));
@@ -338,6 +337,230 @@ function AddFeeModal({ onClose, onSuccess, levels }: AddFeeModalProps) {
                     </div>
                     <div><label className="block text-xs font-semibold text-slate-400 mb-2">Description (optional)</label><textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Brief description..." rows={2} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50 resize-none" /></div>
                     <button type="submit" disabled={submitting} className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl transition-all flex items-center justify-center gap-2">{submitting ? <><Spinner />Saving...</> : <><Plus size={16} />Create Fee Type</>}</button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── Edit Billing Row Modal ────────────────────────────────────────────────────
+interface EditBillingModalProps { fee: StudentFee; onClose: () => void; onSuccess: () => void; terms: Term[]; levels: { id: string; name: string }[]; feeTypes: FeeType[]; }
+function EditBillingModal({ fee, onClose, onSuccess, terms, feeTypes }: EditBillingModalProps) {
+    const [form, setForm] = useState({
+        fee_type: fee.fee_type,
+        term: fee.term,
+        status: fee.status,
+        amount_paid: String(fee.amount_paid),
+    });
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            await api.patch<any>(endpoints.finance.studentFeeDetail(fee.id), {
+                fee_type: form.fee_type,
+                term: form.term,
+                status: form.status,
+                amount_paid: Number(form.amount_paid),
+            });
+            onSuccess(); onClose();
+        } catch (err: any) { setError(err.message || 'Failed to update billing record.'); }
+        finally { setSubmitting(false); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Edit Billing Record</h2>
+                        <p className="text-xs text-slate-500 mt-0.5">{fee.student_name} — {fee.class_name || ''}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X size={18} /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {error && <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm"><AlertCircle size={14} />{error}</div>}
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-2">Fee Type</label>
+                        <select value={form.fee_type} onChange={e => setForm(p => ({ ...p, fee_type: e.target.value }))} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50">
+                            {feeTypes.map(ft => <option key={ft.id} value={ft.id} className="bg-slate-900">{ft.name} — {formatCurrency(ft.amount)}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-2">Term</label>
+                        <select value={form.term} onChange={e => setForm(p => ({ ...p, term: e.target.value }))} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50">
+                            {terms.map(t => <option key={t.id} value={t.id} className="bg-slate-900">{t.name}{t.is_current ? ' (Active)' : ''}</option>)}
+                        </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-400 mb-2">Amount Paid (₦)</label>
+                            <input type="number" min="0" step="0.01" value={form.amount_paid} onChange={e => setForm(p => ({ ...p, amount_paid: e.target.value }))} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-400 mb-2">Status</label>
+                            <select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value as any }))} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50">
+                                <option value="outstanding" className="bg-slate-900">Outstanding</option>
+                                <option value="partial" className="bg-slate-900">Partial</option>
+                                <option value="paid" className="bg-slate-900">Paid</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all">Cancel</button>
+                        <button type="submit" disabled={submitting} className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl transition-all flex items-center justify-center gap-2">
+                            {submitting ? <><Spinner />Saving...</> : <><CheckCircle size={15} />Save Changes</>}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── Edit Fee Type Modal ───────────────────────────────────────────────────────
+interface EditFeeTypeModalProps { feeType: FeeType; onClose: () => void; onSuccess: () => void; levels: { id: string; name: string }[]; }
+function EditFeeTypeModal({ feeType, onClose, onSuccess, levels }: EditFeeTypeModalProps) {
+    const [form, setForm] = useState({ name: feeType.name, amount: String(feeType.amount), level: feeType.level, description: feeType.description || '' });
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!form.name || !form.amount || !form.level) { setError('All required fields must be filled.'); return; }
+        setSubmitting(true);
+        try {
+            await api.patch<any>(endpoints.finance.feeTypeDetail(feeType.id), { name: form.name, amount: Number(form.amount), level: form.level, description: form.description || null });
+            onSuccess(); onClose();
+        } catch (err: any) { setError(err.message || 'Failed to update fee type.'); }
+        finally { setSubmitting(false); }
+    };
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between"><h2 className="text-lg font-bold text-white">Edit Fee Type</h2><button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X size={18} /></button></div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {error && <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{error}</div>}
+                    <div><label className="block text-xs font-semibold text-slate-400 mb-2">Fee Name <span className="text-red-400">*</span></label><input type="text" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Tuition Fee" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50" /></div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div><label className="block text-xs font-semibold text-slate-400 mb-2">Amount (₦) <span className="text-red-400">*</span></label><input type="number" min="0" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50" /></div>
+                        <div><label className="block text-xs font-semibold text-slate-400 mb-2">Class Level <span className="text-red-400">*</span></label><select value={form.level} onChange={e => setForm(p => ({ ...p, level: e.target.value }))} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50">{levels.map(l => <option key={l.id} value={l.id} className="bg-slate-900">{l.name}</option>)}</select></div>
+                    </div>
+                    <div><label className="block text-xs font-semibold text-slate-400 mb-2">Description</label><textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="Optional description..." className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50 resize-none" /></div>
+                    <div className="flex gap-3">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all">Cancel</button>
+                        <button type="submit" disabled={submitting} className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl transition-all flex items-center justify-center gap-2">{submitting ? <><Spinner />Saving...</> : <><CheckCircle size={15} />Save Changes</>}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ── Bill Parent's Wards Modal ─────────────────────────────────────────────────
+interface BillParentModalProps { onClose: () => void; onSuccess: () => void; terms: Term[]; feeTypes: FeeType[]; }
+function BillParentModal({ onClose, onSuccess, terms, feeTypes }: BillParentModalProps) {
+    const { showAlert } = useDialog();
+    const [parents, setParents] = useState<{ id: string; full_name: string; email: string }[]>([]);
+    const [parentSearch, setParentSearch] = useState('');
+    const [selectedParent, setSelectedParent] = useState<string>('');
+    const [selectedFeeType, setSelectedFeeType] = useState(feeTypes[0]?.id || '');
+    const [selectedTerm, setSelectedTerm] = useState(terms.find(t => t.is_current)?.id || terms[0]?.id || '');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [loadingParents, setLoadingParents] = useState(false);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const searchParents = useCallback(async (q: string) => {
+        if (!q.trim()) { setParents([]); return; }
+        setLoadingParents(true);
+        try {
+            const res: any = await api.get(`/accounts/parents/?search=${encodeURIComponent(q)}&page_size=10`);
+            const list = Array.isArray(res) ? res : (res.results || []);
+            setParents(list.map((p: any) => ({ id: p.id, full_name: p.full_name || `${p.first_name} ${p.last_name}`, email: p.email })));
+        } catch { setParents([]); }
+        finally { setLoadingParents(false); }
+    }, []);
+
+    const handleParentSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const q = e.target.value;
+        setParentSearch(q);
+        setSelectedParent('');
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => searchParents(q), 400);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedParent) { setError('Please select a parent.'); return; }
+        if (!selectedFeeType) { setError('Please select a fee type.'); return; }
+        setSubmitting(true); setError('');
+        try {
+            const res: any = await api.post(endpoints.finance.studentFeeBill, {
+                parent: selectedParent,
+                fee_type: selectedFeeType,
+                term: selectedTerm || undefined,
+            });
+            await showAlert({ title: 'Billing Complete', message: res.message || 'Wards billed successfully.', variant: 'success' });
+            onSuccess(); onClose();
+        } catch (err: any) { setError(err.message || 'Billing failed.'); }
+        finally { setSubmitting(false); }
+    };
+
+    const currentTerm = terms.find(t => t.is_current);
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                    <div><h2 className="text-lg font-bold text-white">Bill Parent's Wards</h2><p className="text-xs text-slate-500 mt-0.5">Assign a fee to all wards of a parent</p></div>
+                    <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X size={18} /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {error && <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm"><AlertCircle size={14} />{error}</div>}
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-2">Search Parent <span className="text-red-400">*</span></label>
+                        <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input type="text" value={parentSearch} onChange={handleParentSearch} placeholder="Name, email..." className="w-full pl-9 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50" />
+                        </div>
+                        {loadingParents && <p className="text-xs text-slate-500 mt-1 animate-pulse">Searching...</p>}
+                        {parents.length > 0 && (
+                            <div className="mt-2 border border-white/10 rounded-xl overflow-hidden">
+                                {parents.map(p => (
+                                    <button key={p.id} type="button" onClick={() => { setSelectedParent(p.id); setParentSearch(p.full_name); setParents([]); }}
+                                        className={`w-full text-left px-4 py-3 text-sm transition-all border-b border-white/5 last:border-0 ${
+                                            selectedParent === p.id ? 'bg-emerald-500/20 text-white' : 'bg-white/[0.02] text-slate-300 hover:bg-white/5'
+                                        }`}>
+                                        <span className="font-semibold">{p.full_name}</span>
+                                        <span className="text-slate-500 text-xs ml-2">{p.email}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {selectedParent && parents.length === 0 && parentSearch && (
+                            <p className="text-xs text-emerald-400 mt-1">✓ Selected: {parentSearch}</p>
+                        )}
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-2">Fee Type <span className="text-red-400">*</span></label>
+                        <select value={selectedFeeType} onChange={e => setSelectedFeeType(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50">
+                            {feeTypes.map(ft => <option key={ft.id} value={ft.id} className="bg-slate-900">{ft.name} — {formatCurrency(ft.amount)}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-2">Term</label>
+                        <select value={selectedTerm} onChange={e => setSelectedTerm(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500/50">
+                            {terms.map(t => <option key={t.id} value={t.id} className="bg-slate-900">{t.name}{t.is_current ? ' (Active)' : ''}</option>)}
+                        </select>
+                        {currentTerm && <p className="text-[10px] text-slate-500 mt-1">Defaults to active term: {currentTerm.name}</p>}
+                    </div>
+                    <div className="flex gap-3">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all">Cancel</button>
+                        <button type="submit" disabled={submitting || !selectedParent} className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl transition-all flex items-center justify-center gap-2">
+                            {submitting ? <><Spinner />Billing...</> : <><DollarSign size={15} />Bill Wards</>}
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -681,6 +904,7 @@ function PayslipDrawer({ payrollId, onClose }: PayslipDrawerProps) {
 // ── Main Finance Component ────────────────────────────────────────────────────
 export default function Finance() {
     const { showAlert } = useDialog();
+    const { selectedYear, selectedTerm, isHistorical, allTerms } = useSession();
     const [activeTab, setActiveTab] = useState<Tab>('overview');
     const [payrollSubTab, setPayrollSubTab] = useState<PayrollSubTab>('dashboard');
     const [loading, setLoading] = useState(true);
@@ -693,7 +917,6 @@ export default function Finance() {
     const [payrollSummary, setPayrollSummary] = useState<PayrollSummary>(emptyPayrollSummary);
     const [staffDirectory, setStaffDirectory] = useState<PayrollStaffDirectoryItem[]>([]);
     const [studentDirectory, setStudentDirectory] = useState<StudentDirectoryItem[]>([]);
-    const [terms, setTerms] = useState<Term[]>([]);
     const [levels, setLevels] = useState<{ id: string; name: string }[]>([]);
 
     // Payroll period filter
@@ -708,6 +931,9 @@ export default function Finance() {
 
     // Modals
     const [paymentFee, setPaymentFee] = useState<StudentFee | null>(null);
+    const [editBillingFee, setEditBillingFee] = useState<StudentFee | null>(null);
+    const [editFeeType, setEditFeeType] = useState<FeeType | null>(null);
+    const [showBillParent, setShowBillParent] = useState(false);
     const [confirmingPayment, setConfirmingPayment] = useState<PaymentRecord | null>(null);
     const [rejectingPayment, setRejectingPayment] = useState<PaymentRecord | null>(null);
     const [showAddFee, setShowAddFee] = useState(false);
@@ -740,17 +966,21 @@ export default function Finance() {
     const loadData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true); else setRefreshing(true);
         try {
-            const [summary, feeTypesRes, studentFeesRes, paymentsRes, payrollRes, payrollSummaryRes, staffDirectoryRes, termsRes, levelsRes, studentDirectoryRes] = await Promise.all([
-                api.get<any>(`${endpoints.finance.studentFees}summary/`),
+            // Build session-scoped query params
+            const termParam = selectedTerm ? `&term=${selectedTerm.id}` : '';
+            const yearParam = selectedYear ? `&academic_year=${selectedYear.id}` : '';
+            const scopeParam = termParam || yearParam;
+
+            const [summary, feeTypesRes, studentFeesRes, paymentsRes, payrollRes, payrollSummaryRes, staffDirectoryRes, levelsRes, studentDirectoryRes] = await Promise.all([
+                api.get<any>(`${endpoints.finance.studentFees}summary/${termParam}`),
                 api.get<any>(endpoints.finance.feeTypes),
-                api.get<any>(endpoints.finance.studentFees),
-                api.get<any>(endpoints.finance.payments),
+                api.get<any>(`${endpoints.finance.studentFees}?${scopeParam}`),
+                api.get<any>(`${endpoints.finance.payments}?${scopeParam}`),
                 api.get<any>(`${endpoints.finance.payroll}?month=${payrollMonth}&year=${payrollYear}`),
                 api.get<any>(`${endpoints.finance.payrollSummary}?month=${payrollMonth}&year=${payrollYear}`),
                 api.get<any>(endpoints.finance.payrollStaffDirectory),
-                api.get<any>(endpoints.academics.terms),
                 api.get<any>(endpoints.academics.levels),
-                api.get<any>(endpoints.finance.studentDirectory).catch(() => []),
+                api.get<any>(`${endpoints.finance.studentDirectory}?${scopeParam}`).catch(() => []),
             ]);
             setStats(summary);
             setFeeTypes(getList(feeTypesRes));
@@ -760,11 +990,10 @@ export default function Finance() {
             setPayrollSummary(payrollSummaryRes || emptyPayrollSummary);
             setStaffDirectory(getList(staffDirectoryRes));
             setStudentDirectory(getList(studentDirectoryRes));
-            setTerms(getList(termsRes));
             setLevels(getList(levelsRes));
         } catch (err) { console.error('Failed to fetch finance data', err); }
         finally { setLoading(false); setRefreshing(false); }
-    }, [payrollMonth, payrollYear]);
+    }, [payrollMonth, payrollYear, selectedTerm, selectedYear]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -852,6 +1081,9 @@ export default function Finance() {
         <div className="space-y-6 max-w-screen-xl">
             {/* Modals & Drawers */}
             {paymentFee && <PaymentModal fee={paymentFee} onClose={() => setPaymentFee(null)} onSuccess={() => loadData(true)} />}
+            {editBillingFee && <EditBillingModal fee={editBillingFee} onClose={() => setEditBillingFee(null)} onSuccess={() => loadData(true)} terms={allTerms} feeTypes={feeTypes} levels={levels} />}
+            {editFeeType && <EditFeeTypeModal feeType={editFeeType} onClose={() => setEditFeeType(null)} onSuccess={() => loadData(true)} levels={levels} />}
+            {showBillParent && <BillParentModal onClose={() => setShowBillParent(false)} onSuccess={() => loadData(true)} terms={allTerms} feeTypes={feeTypes} />}
             {confirmingPayment && <ConfirmPaymentModal payment={confirmingPayment} onClose={() => setConfirmingPayment(null)} onSuccess={() => loadData(true)} />}
             {rejectingPayment && <RejectPaymentModal payment={rejectingPayment} onClose={() => setRejectingPayment(null)} onSuccess={() => loadData(true)} />}
             {showAddFee && <AddFeeModal onClose={() => setShowAddFee(false)} onSuccess={() => loadData(true)} levels={levels} />}
@@ -863,20 +1095,30 @@ export default function Finance() {
             {payslipId && <PayslipDrawer payrollId={payslipId} onClose={() => setPayslipId(null)} />}
 
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-black text-white font-serif">Finance Management</h1>
                     <p className="text-slate-500 text-sm">Monitor revenue, billing, and staff payroll</p>
+                    {isHistorical && (
+                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-semibold">
+                            <History size={13} />
+                            Viewing historical session — data is read from a past period
+                        </div>
+                    )}
                 </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => loadData(true)} disabled={refreshing} className="p-2.5 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all disabled:opacity-50">
-                        <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-medium hover:bg-white/10 transition-all" onClick={() => window.print()}>
-                        <Download size={16} /><span>Export</span>
-                    </button>
-                    {activeTab === 'fees' && <button onClick={() => setShowAddFee(true)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/20"><Plus size={16} /><span>Add Fee Type</span></button>}
-                    {activeTab === 'payroll' && <button onClick={() => setShowGenPayroll(true)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/20"><Plus size={16} /><span>Generate Payroll</span></button>}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <SessionSelector />
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => loadData(true)} disabled={refreshing} className="p-2.5 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all disabled:opacity-50">
+                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                        </button>
+                        <button className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-medium hover:bg-white/10 transition-all" onClick={() => window.print()}>
+                            <Download size={16} /><span>Export</span>
+                        </button>
+                        {activeTab === 'fees' && <button onClick={() => setShowAddFee(true)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/20"><Plus size={16} /><span>Add Fee Type</span></button>}
+                        {activeTab === 'billing' && <button onClick={() => setShowBillParent(true)} className="flex items-center gap-2 px-4 py-2.5 bg-violet-500 hover:bg-violet-400 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-violet-500/20"><Users size={16} /><span>Bill Parent's Wards</span></button>}
+                        {activeTab === 'payroll' && <button onClick={() => setShowGenPayroll(true)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/20"><Plus size={16} /><span>Generate Payroll</span></button>}
+                    </div>
                 </div>
             </div>
 
@@ -1178,7 +1420,7 @@ export default function Finance() {
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
-                                    <thead><tr className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 bg-white/[0.02]"><th className="px-6 py-4">Pupil</th><th className="px-6 py-4">Class</th><th className="px-6 py-4">Fee Type</th><th className="px-6 py-4">Term</th><th className="px-6 py-4">Total</th><th className="px-6 py-4">Paid</th><th className="px-6 py-4">Balance</th><th className="px-6 py-4">Status</th><th className="px-6 py-4">Action</th></tr></thead>
+                                    <thead><tr className="text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 bg-white/[0.02]"><th className="px-6 py-4">Pupil</th><th className="px-6 py-4">Class</th><th className="px-6 py-4">Fee Type</th><th className="px-6 py-4">Term</th><th className="px-6 py-4">Total</th><th className="px-6 py-4">Paid</th><th className="px-6 py-4">Balance</th><th className="px-6 py-4">Status</th><th className="px-6 py-4">Actions</th></tr></thead>
                                     <tbody className="text-xs">
                                         {filteredFees.map(fee => (
                                             <tr key={fee.id} className="border-b border-white/[0.02] hover:bg-white/[0.02] transition-all">
@@ -1190,7 +1432,12 @@ export default function Finance() {
                                                 <td className="px-6 py-4 text-emerald-400 font-mono">{formatCurrency(fee.amount_paid)}</td>
                                                 <td className="px-6 py-4 text-red-400 font-mono">{formatCurrency(fee.balance)}</td>
                                                 <td className="px-6 py-4"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${fee.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : fee.status === 'partial' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>{fee.status}</span></td>
-                                                <td className="px-6 py-4">{fee.status !== 'paid' && (<button onClick={() => setPaymentFee(fee)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 rounded-lg text-[10px] font-bold transition-all"><DollarSign size={11} />Pay</button>)}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-1.5">
+                                                        {fee.status !== 'paid' && (<button onClick={() => setPaymentFee(fee)} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/20 rounded-lg text-[10px] font-bold transition-all"><DollarSign size={11} />Pay</button>)}
+                                                        <button onClick={() => setEditBillingFee(fee)} className="flex items-center gap-1 px-2.5 py-1.5 bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 border border-sky-500/20 rounded-lg text-[10px] font-bold transition-all" title="Edit billing record"><Edit2 size={11} />Edit</button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         ))}
                                         {filteredFees.length === 0 && <tr><td colSpan={9} className="text-center py-16 text-slate-600"><FileText size={32} className="mx-auto mb-2 opacity-30" />No billing records found.</td></tr>}
@@ -1425,8 +1672,20 @@ export default function Finance() {
                     {activeTab === 'fees' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {feeTypes.map(ft => (
-                                <div key={ft.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl hover:border-white/20 transition-all">
-                                    <div className="flex items-start justify-between mb-3"><div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400"><Receipt size={18} /></div><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded">{ft.level_name || 'All Levels'}</span></div>
+                                <div key={ft.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl hover:border-white/20 transition-all group relative">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400"><Receipt size={18} /></div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded">{ft.level_name || 'All Levels'}</span>
+                                            <button
+                                                onClick={() => setEditFeeType(ft)}
+                                                className="p-1.5 bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-slate-950 border border-sky-500/20 rounded-lg transition-all"
+                                                title="Edit fee type"
+                                            >
+                                                <Edit2 size={12} />
+                                            </button>
+                                        </div>
+                                    </div>
                                     <p className="font-bold text-white text-base">{ft.name}</p>
                                     <p className="text-slate-500 text-xs mt-1 mb-3">{ft.description || 'No description'}</p>
                                     <p className="text-2xl font-black text-emerald-400">{formatCurrency(ft.amount)}</p>

@@ -9,15 +9,9 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
 import EnrollmentAdmissionModal from '../../components/EnrollmentAdmissionModal';
+import { getList } from '../../utils/helpers';
 
 type ProfileTab = 'overview' | 'attendance' | 'academics' | 'fees' | 'documents';
-
-const getList = <T,>(val: any): T[] => {
-    if (!val) return [];
-    if (Array.isArray(val)) return val;
-    if (val.results && Array.isArray(val.results)) return val.results;
-    return [];
-};
 
 function PupilAvatar({ user, size = 'w-14 h-14', textSize = 'text-base' }: { user: any; size?: string; textSize?: string }) {
     const [failed, setFailed] = useState(false);
