@@ -4,6 +4,7 @@ import { Bell, Search, Menu, MailOpen, Check, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api, endpoints } from '../utils/api';
 import type { Notification } from '../types';
+import { getList } from '../utils/helpers';
 
 interface NavbarProps {
     onMenuClick: () => void;
@@ -26,13 +27,7 @@ export default function Navbar({ onMenuClick, title = 'Dashboard', showMenuIcon 
         if (!user) return;
         try {
             const res = await api.get<any>(`${endpoints.auth.notifications}?page_size=5`);
-            const getList = (val: any) => {
-                if (!val) return [];
-                if (Array.isArray(val)) return val;
-                if (val.results && Array.isArray(val.results)) return val.results;
-                return [];
-            };
-            setNotifications(getList(res));
+            setNotifications(getList<Notification>(res));
         } catch (err) {
             console.error("Failed to load navbar notifications", err);
         }

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { DialogProvider } from './context/DialogContext';
+import { SessionProvider } from './context/SessionContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 
@@ -66,11 +67,12 @@ export default function App() {
     <BrowserRouter>
       <DialogProvider>
         <AuthProvider>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <SessionProvider>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/enrol" element={<Enrollment />} />
           <Route path="/register" element={<Enrollment />} />
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -135,6 +137,7 @@ export default function App() {
 
         </Routes>
         </Suspense>
+          </SessionProvider>
         </AuthProvider>
       </DialogProvider>
     </BrowserRouter>

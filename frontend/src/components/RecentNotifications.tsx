@@ -3,13 +3,7 @@ import { Bell, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api, endpoints } from '../utils/api';
 import type { Notification } from '../types';
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
-};
+import { getList } from '../utils/helpers';
 
 export default function RecentNotifications() {
     const [items, setItems] = useState<Notification[]>([]);
