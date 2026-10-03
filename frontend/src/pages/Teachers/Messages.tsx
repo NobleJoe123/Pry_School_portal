@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
 import { api, endpoints } from '../../utils/api';
 import FilterDropdown from '../../components/ui/FilterDropdown';
+import { getList } from '../../utils/helpers';
 
 interface Announcement {
     id: string;
@@ -42,13 +43,6 @@ interface SentMessage {
     message: string;
     created_at: string;
 }
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
-};
 
 export default function TeacherMessages() {
     const { user } = useAuth();

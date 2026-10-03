@@ -8,6 +8,7 @@ import {
 import { api, endpoints } from '../../utils/api';
 import type { Term } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
+import { getList, calculateGrade, getGradeColor } from '../../utils/helpers';
 
 interface ScoreData {
     id: string;
@@ -36,16 +37,9 @@ export default function StudentGrades() {
             api.get<any>(endpoints.academics.scores),
             api.get<any>(endpoints.academics.reportCards)
         ]).then(([termsRes, scoresRes, reportsRes]) => {
-            const getList = (val: any) => {
-                if (!val) return [];
-                if (Array.isArray(val)) return val;
-                if (val.results && Array.isArray(val.results)) return val.results;
-                return [];
-            };
-            
-            const termList = getList(termsRes);
-            const scoreList = getList(scoresRes);
-            const reportList = getList(reportsRes);
+            const termList = getList<any>(termsRes);
+            const scoreList = getList<any>(scoresRes);
+            const reportList = getList<any>(reportsRes);
             
             setTerms(termList);
             setScores(scoreList);
@@ -167,13 +161,9 @@ export default function StudentGrades() {
                                 </thead>
                                 <tbody>
                                     {groupedScores.map((row, idx) => {
-                                        const percentage = (row.totalScore / row.totalMax) * 100;
-                                        let grade = 'F';
-                                        let color = 'red';
-                                        if (percentage >= 70) { grade = 'A'; color = 'emerald'; }
-                                        else if (percentage >= 60) { grade = 'B'; color = 'sky'; }
-                                        else if (percentage >= 50) { grade = 'C'; color = 'amber'; }
-                                        else if (percentage >= 40) { grade = 'D'; color = 'orange'; }
+                                        const percentage = row.totalMax > 0 ? (row.totalScore / row.totalMax) * 100 : 0;
+                                        const grade = calculateGrade(percentage);
+                                        const gradeCls = getGradeColor(grade);
 
                                         return (
                                             <tr key={idx} className="border-b border-white/[0.02] hover:bg-white/[0.01] transition-all">
@@ -202,7 +192,7 @@ export default function StudentGrades() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-6">
-                                                    <div className={`w-10 h-10 rounded-xl bg-${color}-500/20 flex items-center justify-center text-${color}-400 font-black text-lg border border-${color}-500/30 shadow-lg shadow-${color}-500/10`}>
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg border shadow-lg ${gradeCls}`}>
                                                         {grade}
                                                     </div>
                                                 </td>

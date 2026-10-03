@@ -7,6 +7,7 @@ import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { SchoolClass, User, StudentScore } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
+import { getList } from '../../utils/helpers';
 
 interface AttendanceRecord {
     date: string;
@@ -19,13 +20,6 @@ interface BehaviorNote {
     created_at: string;
     category: 'positive' | 'warning' | 'critical';
 }
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
-};
 
 export default function TeacherClass() {
     const { user } = useAuth();
