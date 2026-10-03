@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
 import type { StudentAttendance, SchoolClass, User } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
+import { getList } from '../../utils/helpers';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
@@ -19,13 +20,6 @@ const STATUS_COLORS: Record<AttendanceStatus, string> = {
     absent: 'bg-red-500/15 text-red-400 border-red-500/20',
     late: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
     excused: 'bg-sky-500/15 text-sky-400 border-sky-500/20',
-};
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
 };
 
 // ── Automated Notification Settings & Broadcast Panel ─────────────────────────

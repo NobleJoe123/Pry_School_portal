@@ -8,6 +8,7 @@ import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { SchoolClass, User } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
+import { getList } from '../../utils/helpers';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
@@ -23,13 +24,6 @@ const STATUS_ACTIVE: Record<AttendanceStatus, string> = {
     absent: 'bg-red-500 text-white border-red-400',
     late: 'bg-amber-500 text-white border-amber-400',
     excused: 'bg-sky-500 text-white border-sky-400',
-};
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
 };
 
 type StudentRecord = {

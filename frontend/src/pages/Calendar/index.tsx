@@ -5,11 +5,14 @@ import {
     PartyPopper, Users, Trophy, GraduationCap,
     ChevronLeft, ChevronRight, MapPin, User,
     Filter, Info, Trash2, Edit3, Eye, ShieldAlert,
-    CalendarDays
+    CalendarDays, History
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
+import { useSession } from '../../context/SessionContext';
+import SessionSelector from '../../components/ui/SessionSelector';
+import { getList } from '../../utils/helpers';
 import type { Term } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
 
@@ -121,6 +124,11 @@ export default function CalendarPage() {
     const isParent = user?.role === 'parent';
     const colorTheme = isAdmin ? 'amber' : (user?.role === 'teacher' ? 'emerald' : 'sky');
 
+    const {
+        selectedYear, selectedTerm: sessionSelectedTerm, setSelectedYear, setSelectedTerm,
+        academicYears: globalYears, termsForSelectedYear, isHistorical
+    } = useSession();
+
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     
@@ -134,6 +142,16 @@ export default function CalendarPage() {
     const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
     const [currentView, setCurrentView] = useState<'month' | 'week' | 'agenda'>('month');
+
+    // Keep in sync with SessionContext
+    useEffect(() => {
+        if (sessionSelectedTerm?.id) {
+            setSelectedTermId(sessionSelectedTerm.id);
+        }
+        if (selectedYear?.name) {
+            setSelectedYearName(selectedYear.name);
+        }
+    }, [sessionSelectedTerm?.id, selectedYear?.name]);
     
     // Active date selection for week view
     const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(() => {
@@ -176,12 +194,7 @@ export default function CalendarPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    const getList = (val: any) => {
-        if (!val) return [];
-        if (Array.isArray(val)) return val;
-        if (val.results && Array.isArray(val.results)) return val.results;
-        return [];
-    };
+
 
     // Load initial metadata (Terms & Academic Years)
     useEffect(() => {
@@ -190,18 +203,18 @@ export default function CalendarPage() {
             api.get<any>(endpoints.academics.terms),
             api.get<any>(endpoints.academics.years)
         ]).then(([termsRes, yearsRes]) => {
-            const termList = getList(termsRes) as Term[];
-            const yearList = getList(yearsRes);
+            const termList = getList<Term>(termsRes);
+            const yearList = getList<any>(yearsRes);
             
             setTerms(termList);
             setAcademicYears(yearList);
             
-            const currentYearObj = yearList.find((y: any) => y.is_current) || yearList[0];
+            const currentYearObj = selectedYear || yearList.find((y: any) => y.is_current) || yearList[0];
             if (currentYearObj) {
                 setSelectedYearName(currentYearObj.name);
             }
             
-            const currentTermObj = termList.find((t: Term) => t.is_current) || termList[0];
+            const currentTermObj = sessionSelectedTerm || termList.find((t: Term) => t.is_current) || termList[0];
             if (currentTermObj) {
                 setSelectedTermId(currentTermObj.id);
             }
@@ -523,19 +536,28 @@ export default function CalendarPage() {
                         <CalendarIcon className="text-sky-400" size={24} /> Academic Calendar
                     </h1>
                     <p className="text-slate-500 text-sm mt-0.5">Primary School Scheduling Operations & Event Hub</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => loadEvents(true)} disabled={refreshing}
-                        className="p-2.5 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all disabled:opacity-50"
-                        title="Refresh Events">
-                        <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-                    </button>
-                    {isAdmin && (
-                        <button onClick={() => openAddModal()}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-sky-500/20 hover:scale-[1.02] active:scale-[0.98]">
-                            <Plus size={14} /> Schedule Event
-                        </button>
+                    {isHistorical && (
+                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-semibold">
+                            <History size={13} />
+                            Viewing historical calendar — {selectedYear?.name} / {selectedTerm?.name}
+                        </div>
                     )}
+                </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <SessionSelector />
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => loadEvents(true)} disabled={refreshing}
+                            className="p-2.5 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all disabled:opacity-50"
+                            title="Refresh Events">
+                            <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+                        </button>
+                        {isAdmin && (
+                            <button onClick={() => openAddModal()}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-sky-500/20 hover:scale-[1.02] active:scale-[0.98]">
+                                <Plus size={14} /> Schedule Event
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -549,11 +571,16 @@ export default function CalendarPage() {
                             <span className="text-[10px] uppercase font-bold text-slate-500">Session</span>
                             <FilterDropdown
                                 value={selectedYearName}
-                                options={academicYears.map(y => ({ id: y.name, label: y.name }))}
+                                options={(globalYears.length > 0 ? globalYears : academicYears).map(y => ({ id: y.name, label: y.name + (y.is_current ? ' (Active)' : '') }))}
                                 onChange={(val) => {
                                     setSelectedYearName(val);
+                                    const yrObj = (globalYears.length > 0 ? globalYears : academicYears).find(y => y.name === val);
+                                    if (yrObj) setSelectedYear(yrObj);
                                     const matched = terms.find(t => t.academic_year_name === val);
-                                    if (matched) setSelectedTermId(matched.id);
+                                    if (matched) {
+                                        setSelectedTermId(matched.id);
+                                        setSelectedTerm(matched);
+                                    }
                                 }}
                                 placeholder="Session"
                                 colorTheme={colorTheme}
@@ -566,11 +593,15 @@ export default function CalendarPage() {
                         <span className="text-[10px] uppercase font-bold text-slate-500">Term</span>
                         <FilterDropdown
                             value={selectedTermId}
-                            options={terms.filter(t => isParent || t.academic_year_name === selectedYearName).map(t => ({
+                            options={(termsForSelectedYear.length > 0 ? termsForSelectedYear : terms.filter(t => isParent || t.academic_year_name === selectedYearName)).map(t => ({
                                 id: t.id,
                                 label: `${t.name}${t.is_current ? ' (Current)' : ''}`
                             }))}
-                            onChange={setSelectedTermId}
+                            onChange={(id) => {
+                                setSelectedTermId(id);
+                                const tm = (termsForSelectedYear.length > 0 ? termsForSelectedYear : terms).find(t => t.id === id);
+                                if (tm) setSelectedTerm(tm);
+                            }}
                             placeholder="Term"
                             colorTheme={colorTheme}
                         />
