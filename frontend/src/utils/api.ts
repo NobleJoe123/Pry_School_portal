@@ -13,39 +13,40 @@ export const AccessToken = {
 };
 
 
-//Token Refresh
-
-let _isRefreshing = false;
-
-let _refreshQueue:
-    ((token: string | null) => void)[] = [];
-
-const drainQueue = (token: string | null) => {
-    _refreshQueue.forEach((resolve) => resolve(token));
-    _refreshQueue = [];
-};
+// Token Refresh Singleton Promise
+let _refreshPromise: Promise<string | null> | null = null;
 
 export const refreshAccessToken = async (): Promise<string | null> => {
-    try {
-        const res = await fetch(`${API_BASE}/auth/token/refresh/`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-        });
+    if (_refreshPromise) {
+        return _refreshPromise;
+    }
 
-        if (!res.ok) {
+    _refreshPromise = (async () => {
+        try {
+            const res = await fetch(`${API_BASE}/auth/token/refresh/`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (!res.ok) {
+                AccessToken.clear();
+                return null;
+            }
+
+            const data = await res.json();
+            const newToken: string = data.access_token;
+            AccessToken.set(newToken);
+            return newToken;
+        } catch {
             AccessToken.clear();
             return null;
+        } finally {
+            _refreshPromise = null;
         }
+    })();
 
-        const data = await res.json();
-        const newToken: string = data.access_token;
-        AccessToken.set(newToken);
-        return newToken;
-    } catch {
-        AccessToken.clear();
-        return null;
-    }
+    return _refreshPromise;
 };
 
 // fetch Wrapper
@@ -57,7 +58,6 @@ interface FetchOptions extends RequestInit {
 export async function apiFetch<T>(
     endpoint: string,
     options: FetchOptions = {}
-
 ): Promise<T> {
     const { skipAuth = false, ...rest } = options;
 
@@ -82,28 +82,15 @@ export async function apiFetch<T>(
 
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
 
-    let res = await fetch(url, { ...rest, headers, credentials: 'include', });
+    let res = await fetch(url, { ...rest, headers, credentials: 'include' });
 
-    //Auto refresh on 401
-
+    // Auto refresh on 401
     if (res.status === 401 && !skipAuth) {
-        if (!_isRefreshing) {
-            _isRefreshing = true;
-            try {
-                const newToken = await refreshAccessToken();
-                drainQueue(newToken);
-            } finally {
-                _isRefreshing = false;
-            }
-
-        } else {
-            await new Promise<string | null>((resolve) => _refreshQueue.push(resolve));
-        }
-
-        const refreshed = AccessToken.get();
-        if (refreshed)
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
             headers['Authorization'] = `Bearer ${refreshed}`;
-        res = await fetch(url, { ...rest, headers, credentials: 'include', });
+            res = await fetch(url, { ...rest, headers, credentials: 'include' });
+        }
     }
 
     if (!res.ok) {
@@ -207,6 +194,7 @@ export const endpoints = {
 
     academics: {
         years: '/academics/years/',
+        setYearCurrent: (id: string) => `/academics/years/${id}/set-current/`,
         terms: '/academics/terms/',
         setTermCurrent: (id: string) => `/academics/terms/${id}/set-current/`,
         levels: '/academics/levels/',
@@ -224,10 +212,12 @@ export const endpoints = {
 
     finance: {
         feeTypes: '/finance/fee-types/',
+        feeTypeDetail: (id: string) => `/finance/fee-types/${id}/`,
         studentFees: '/finance/student-fees/',
         studentFeeDetail: (id: string) => `/finance/student-fees/${id}/`,
         studentFeesSummary: '/finance/student-fees/summary/',
         studentFeesBulkAssign: '/finance/student-fees/bulk_assign/',
+        studentFeeBill: '/finance/student-fees/bill-student/',
         studentFeeRecord: (id: string) => `/finance/student-fees/${id}/record_payment/`,
         studentDirectory: '/finance/student-fees/student_directory/',
         payments: '/finance/payments/',

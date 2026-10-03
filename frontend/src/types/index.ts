@@ -321,6 +321,30 @@ export interface StudentScore {
     remarks: string | null;
 }
 
+export interface LessonMaterial {
+    id: string;
+    teacher: string;
+    teacher_name?: string;
+    school_class: string;
+    class_name?: string;
+    subject: string;
+    subject_name?: string;
+    term?: string;
+    term_name?: string;
+    academic_year_name?: string;
+    week: string;
+    topic: string;
+    objectives: string;
+    activities?: string | null;
+    evaluation?: string | null;
+    file?: string | null;
+    file_url?: string | null;
+    file_size?: string | null;
+    status: 'draft' | 'submitted' | 'approved' | 'rejected';
+    created_at: string;
+    updated_at: string;
+}
+
 // Finance Types
 export interface FeeType {
     id: string;

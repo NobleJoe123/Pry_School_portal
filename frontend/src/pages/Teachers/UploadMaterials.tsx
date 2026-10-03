@@ -2,13 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import {
     UploadCloud, BookOpen, Layers,
     FileText, CheckCircle, Clock, XCircle, FileDown, Plus, Trash2, Edit3, X, HelpCircle,
-    RefreshCw, AlertCircle
+    RefreshCw, AlertCircle, History
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useDialog } from '../../context/DialogContext';
+import { useSession } from '../../context/SessionContext';
+import SessionSelector from '../../components/ui/SessionSelector';
 import { api, endpoints } from '../../utils/api';
 import type { SchoolClass, Subject } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
+import { getList } from '../../utils/helpers';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,13 +35,6 @@ interface Material {
     created_at: string;
     updated_at: string;
 }
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
-};
 
 const statusStyle = (s: Material['status']) => {
     switch (s) {
@@ -75,6 +71,7 @@ export default function UploadMaterials() {
     const [editingItem, setEditingItem] = useState<Material | null>(null);
 
     // Form fields
+    const { selectedYear, selectedTerm, isHistorical } = useSession();
     const [classId, setClassId]         = useState('');
     const [subjectId, setSubjectId]     = useState('');
     const [week, setWeek]               = useState('Week 1');
@@ -88,7 +85,11 @@ export default function UploadMaterials() {
     // ── Load data ──────────────────────────────────────────────────────────────
     const fetchMaterials = async () => {
         try {
-            const res = await api.get<any>(endpoints.academics.materials);
+            const params = new URLSearchParams();
+            if (selectedTerm?.id) params.set('term', selectedTerm.id);
+            else if (selectedYear?.id) params.set('academic_year', selectedYear.id);
+            const url = params.toString() ? `${endpoints.academics.materials}?${params.toString()}` : endpoints.academics.materials;
+            const res = await api.get<any>(url);
             setMaterials(getList<Material>(res));
         } catch (err: any) {
             console.error('Failed to load materials', err);
@@ -97,10 +98,15 @@ export default function UploadMaterials() {
 
     useEffect(() => {
         setPageLoading(true);
+        const params = new URLSearchParams();
+        if (selectedTerm?.id) params.set('term', selectedTerm.id);
+        else if (selectedYear?.id) params.set('academic_year', selectedYear.id);
+        const matUrl = params.toString() ? `${endpoints.academics.materials}?${params.toString()}` : endpoints.academics.materials;
+
         Promise.allSettled([
             api.get<any>(endpoints.academics.classes),
             api.get<any>(endpoints.academics.subjects),
-            api.get<any>(endpoints.academics.materials),
+            api.get<any>(matUrl),
         ]).then(([classesRes, subjectsRes, matsRes]) => {
             if (classesRes.status === 'fulfilled') {
                 let list = getList<SchoolClass>(classesRes.value);
@@ -120,7 +126,7 @@ export default function UploadMaterials() {
                 setMaterials(getList<Material>(matsRes.value));
             }
         }).finally(() => setPageLoading(false));
-    }, [user]);
+    }, [user, selectedYear?.id, selectedTerm?.id]);
 
     // ── Form helpers ───────────────────────────────────────────────────────────
     const resetForm = () => {
@@ -165,6 +171,9 @@ export default function UploadMaterials() {
                 fd.append('evaluation', evaluation);
                 fd.append('status', statusType);
                 fd.append('file', selectedFile);
+                if (selectedTerm?.id) {
+                    fd.append('term', selectedTerm.id);
+                }
 
                 if (editingItem) {
                     await api.patchFormData<any>(endpoints.academics.materialDetail(editingItem.id), fd);
@@ -172,7 +181,7 @@ export default function UploadMaterials() {
                     await api.postFormData<any>(endpoints.academics.materials, fd);
                 }
             } else {
-                const payload = {
+                const payload: Record<string, any> = {
                     school_class: classId,
                     subject: subjectId,
                     week,
@@ -182,6 +191,9 @@ export default function UploadMaterials() {
                     evaluation,
                     status: statusType,
                 };
+                if (selectedTerm?.id) {
+                    payload.term = selectedTerm.id;
+                }
                 if (editingItem) {
                     await api.patch<any>(endpoints.academics.materialDetail(editingItem.id), payload);
                 } else {
@@ -235,23 +247,32 @@ export default function UploadMaterials() {
                 <div>
                     <h1 className="text-2xl font-black text-white font-serif">Upload Lesson Notes & Materials</h1>
                     <p className="text-slate-500 text-sm">Submit your curriculum objectives and download teaching materials</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={fetchMaterials}
-                        className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
-                        title="Refresh"
-                    >
-                        <RefreshCw size={15} />
-                    </button>
-                    {!showForm && (
-                        <button
-                            onClick={() => setShowForm(true)}
-                            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 font-black text-sm text-slate-950 shadow-xl shadow-amber-500/20 active:scale-95 transition-all"
-                        >
-                            <Plus size={16} /> Create Lesson Note
-                        </button>
+                    {isHistorical && (
+                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-semibold">
+                            <History size={13} />
+                            Viewing historical session — notes from past term/session
+                        </div>
                     )}
+                </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <SessionSelector />
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={fetchMaterials}
+                            className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+                            title="Refresh"
+                        >
+                            <RefreshCw size={15} />
+                        </button>
+                        {!showForm && (
+                            <button
+                                onClick={() => setShowForm(true)}
+                                className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 font-black text-sm text-slate-950 shadow-xl shadow-amber-500/20 active:scale-95 transition-all"
+                            >
+                                <Plus size={16} /> Create Lesson Note
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
