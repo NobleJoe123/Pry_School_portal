@@ -9,13 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
 import ParentProfileCompletionModal from '../../components/ParentProfileCompletionModal';
 import EnrollmentAdmissionModal from '../../components/EnrollmentAdmissionModal';
-
-const getList = <T,>(val: any): T[] => {
-    if (!val) return [];
-    if (Array.isArray(val)) return val;
-    if (val.results && Array.isArray(val.results)) return val.results;
-    return [];
-};
+import { getList } from '../../utils/helpers';
 
 function ChildAvatar({ child, size = 'w-10 h-10' }: { child: any; size?: string }) {
     const [failed, setFailed] = useState(false);

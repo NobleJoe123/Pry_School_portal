@@ -7,13 +7,7 @@ import {
 } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
-};
+import { getList, calculateGrade } from '../../utils/helpers';
 
 function StatCard({ label, value, icon, color, sub, loading }: {
     label: string; value: string | number; icon: React.ReactNode;
@@ -104,11 +98,15 @@ export default function StudentDashboard() {
 
     const getGrade = (pct: number | null) => {
         if (pct === null) return { letter: '—', color: 'text-slate-400' };
-        if (pct >= 70) return { letter: 'A', color: 'text-emerald-400' };
-        if (pct >= 60) return { letter: 'B', color: 'text-sky-400' };
-        if (pct >= 50) return { letter: 'C', color: 'text-amber-400' };
-        if (pct >= 40) return { letter: 'D', color: 'text-orange-400' };
-        return { letter: 'F', color: 'text-red-400' };
+        const letter = calculateGrade(pct);
+        const colorMap: Record<string, string> = {
+            'A': 'text-emerald-400',
+            'B': 'text-sky-400',
+            'C': 'text-indigo-400',
+            'D': 'text-amber-400',
+            'F': 'text-rose-400'
+        };
+        return { letter, color: colorMap[letter] || 'text-rose-400' };
     };
 
     const grade = getGrade(avgPercent ? parseFloat(avgPercent) : null);

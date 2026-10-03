@@ -8,13 +8,7 @@ import {
 import { api, endpoints } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import type { SchoolClass, User } from '../../types';
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
-};
+import { getList } from '../../utils/helpers';
 
 function StatCard({ label, value, icon, iconBg, iconColor, sub, loading }: {
     label: string; value: string | number; icon: React.ReactNode;
