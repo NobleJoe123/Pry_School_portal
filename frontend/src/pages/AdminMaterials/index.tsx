@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
     BookOpen, CheckCircle, Clock, Eye, FileDown, FileText,
-    HelpCircle, Layers, RefreshCw, RotateCcw, Search, Shield,
+    HelpCircle, History, Layers, RefreshCw, RotateCcw, Search, Shield,
     Trash2, User, XCircle
 } from 'lucide-react';
 import FilterDropdown from '../../components/ui/FilterDropdown';
+import SessionSelector from '../../components/ui/SessionSelector';
+import { useSession } from '../../context/SessionContext';
 import { api, endpoints } from '../../utils/api';
 import { useDialog } from '../../context/DialogContext';
 import type { ClassLevel, SchoolClass } from '../../types';
@@ -146,6 +148,7 @@ function PreviewModal({ item, onClose, onApprove, onReject }: {
 
 export default function AdminMaterials() {
     const { confirm } = useDialog();
+    const { selectedYear, selectedTerm, isHistorical } = useSession();
     const [materials, setMaterials] = useState<Material[]>([]);
     const [levels, setLevels] = useState<ClassLevel[]>([]);
     const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -159,8 +162,18 @@ export default function AdminMaterials() {
     const loadData = async () => {
         setLoading(true);
         try {
+            const params = new URLSearchParams();
+            if (selectedTerm?.id) {
+                params.set('term', selectedTerm.id);
+            } else if (selectedYear?.id) {
+                params.set('academic_year', selectedYear.id);
+            }
+            const matUrl = params.toString()
+                ? `${endpoints.academics.materials}?${params.toString()}`
+                : endpoints.academics.materials;
+
             const [materialsRes, levelsRes, classesRes] = await Promise.all([
-                api.get<any>(endpoints.academics.materials),
+                api.get<any>(matUrl),
                 api.get<any>(endpoints.academics.levels),
                 api.get<any>(endpoints.academics.classes),
             ]);
@@ -174,7 +187,7 @@ export default function AdminMaterials() {
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [selectedYear?.id, selectedTerm?.id]);
 
     const classLevelMap = useMemo(() => {
         const map: Record<string, string> = {};
@@ -231,14 +244,23 @@ export default function AdminMaterials() {
                 <div>
                     <h1 className="text-2xl font-black text-white font-serif">Materials Review</h1>
                     <p className="text-slate-500 text-sm">Review and approve lesson notes submitted by teachers.</p>
+                    {isHistorical && (
+                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-semibold">
+                            <History size={13} />
+                            Viewing historical session — materials from past term/session
+                        </div>
+                    )}
                 </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={loadData} className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all" title="Refresh">
-                        <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-                    </button>
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                        <Shield size={14} className="text-amber-400" />
-                        <span className="text-amber-400 text-xs font-bold">Admin Review Portal</span>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <SessionSelector />
+                    <div className="flex items-center gap-2">
+                        <button onClick={loadData} className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all" title="Refresh">
+                            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+                        </button>
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                            <Shield size={14} className="text-amber-400" />
+                            <span className="text-amber-400 text-xs font-bold">Admin Review Portal</span>
+                        </div>
                     </div>
                 </div>
             </div>

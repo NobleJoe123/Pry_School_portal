@@ -2,16 +2,10 @@ import { useEffect, useState } from 'react';
 import { Plus, GraduationCap, Calendar, Layers, BookOpen, User as UserIcon, X, CheckCircle, Bell, DollarSign, Clock, Trash2, Filter, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { api, endpoints } from '../../utils/api';
 import { useDialog } from '../../context/DialogContext';
+import { getList } from '../../utils/helpers';
 import type { AcademicYear, Term, ClassLevel, SchoolClass, Subject } from '../../types';
 
 type Tab = 'years' | 'terms' | 'levels' | 'classes' | 'subjects';
-
-const getList = <T,>(res: any): T[] => {
-    if (!res) return [];
-    if (Array.isArray(res)) return res;
-    if (Array.isArray(res.results)) return res.results;
-    return [];
-};
 
 export default function Academics() {
     const { showAlert } = useDialog();
@@ -23,6 +17,7 @@ export default function Academics() {
     const [activatingTerm, setActivatingTerm] = useState<Term | null>(null);
     const [resumptionDate, setResumptionDate] = useState('');
     const [activating, setActivating] = useState(false);
+    const [activatingYearId, setActivatingYearId] = useState<string | null>(null);
     const [activationSuccess, setActivationSuccess] = useState<{ message: string; notifs: number; fees: number } | null>(null);
 
     // Subject Deletion & Filtering State
@@ -131,6 +126,27 @@ export default function Academics() {
             });
         } finally {
             setActivating(false);
+        }
+    };
+
+    const handleActivateYear = async (year: AcademicYear) => {
+        setActivatingYearId(year.id);
+        try {
+            const res: any = await api.post(endpoints.academics.setYearCurrent(year.id), {});
+            await showAlert({
+                title: 'Session Activated',
+                message: res.message || `${year.name} is now the active academic session.`,
+                variant: 'info'
+            });
+            await loadData();
+        } catch (err: any) {
+            await showAlert({
+                title: 'Activation Failed',
+                message: err.message || 'Failed to activate academic session.',
+                variant: 'danger'
+            });
+        } finally {
+            setActivatingYearId(null);
         }
     };
 
@@ -388,7 +404,52 @@ export default function Academics() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-6">
-                    {activeTab === 'years' && <SimpleTable headers={['Year Name', 'Start Date', 'End Date', 'Status']} rows={data.years.map(y => [y.name, y.start_date, y.end_date, y.is_current ? 'Current' : 'Past'])} />}
+                    {activeTab === 'years' && (
+                        <div className="bg-white/5 rounded-2xl border border-white/5 overflow-hidden">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-white/5 bg-white/[0.02]">
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Academic Year</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Start Date</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">End Date</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Status</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.years.map((y) => (
+                                        <tr key={y.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-all">
+                                            <td className="px-6 py-4 text-sm font-bold text-white">{y.name}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-300 font-mono">{y.start_date || '—'}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-300 font-mono">{y.end_date || '—'}</td>
+                                            <td className="px-6 py-4 text-sm">
+                                                {y.is_current ? (
+                                                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 w-max">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Active Session
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-white/5 text-slate-500 border border-white/5 w-max block">
+                                                        Inactive
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-right">
+                                                {!y.is_current && (
+                                                    <button
+                                                        onClick={() => handleActivateYear(y)}
+                                                        disabled={activatingYearId === y.id}
+                                                        className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                                    >
+                                                        {activatingYearId === y.id ? 'Activating...' : 'Activate Session'}
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                     
                     {activeTab === 'terms' && (
                         <div className="bg-white/5 rounded-2xl border border-white/5 overflow-hidden">

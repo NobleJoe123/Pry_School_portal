@@ -8,15 +8,7 @@ import { api, endpoints } from '../../utils/api';
 import { useDialog } from '../../context/DialogContext';
 import type { Notification, User as UserType } from '../../types';
 import FilterDropdown from '../../components/ui/FilterDropdown';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const getList = <T,>(value: any): T[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value.results)) return value.results;
-    return [];
-};
+import { getList } from '../../utils/helpers';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
