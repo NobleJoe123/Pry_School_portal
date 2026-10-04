@@ -9,7 +9,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { api, endpoints } from '../../utils/api';
 import EnrollmentAdmissionModal from '../../components/EnrollmentAdmissionModal';
-import { getList } from '../../utils/helpers';
+import { getList, calculateGrade, getGradeColor } from '../../utils/helpers';
 
 type ProfileTab = 'overview' | 'attendance' | 'academics' | 'fees' | 'documents';
 
@@ -151,7 +151,7 @@ function AttendanceTab({ childId }: { childId: string }) {
     const [records, setRecords] = useState<any[]>([]);
 
     useEffect(() => {
-        api.get<any>(`${endpoints.attendance.students}?student=${childId}`)
+        api.get<any>(`${endpoints.attendance.students}?student=${childId}&page_size=1000`)
             .then(res => setRecords(getList<any>(res)))
             .catch(() => { })
             .finally(() => setLoading(false));
@@ -219,8 +219,8 @@ function AcademicsTab({ childId }: { childId: string }) {
 
     useEffect(() => {
         Promise.allSettled([
-            api.get<any>(`${endpoints.academics.scores}?student=${childId}`),
-            api.get<any>(endpoints.academics.terms),
+            api.get<any>(`${endpoints.academics.scores}?student=${childId}&page_size=1000`),
+            api.get<any>(`${endpoints.academics.terms}?page_size=100`),
         ]).then(([scoresRes, termsRes]) => {
             if (scoresRes.status === 'fulfilled') setScores(getList<any>(scoresRes.value));
             if (termsRes.status === 'fulfilled') {
@@ -247,11 +247,9 @@ function AcademicsTab({ childId }: { childId: string }) {
     const avg = totalMax > 0 ? ((totalObtained / totalMax) * 100).toFixed(1) : '0.0';
 
     const getGrade = (pct: number) => {
-        if (pct >= 70) return { g: 'A', cls: 'text-emerald-400' };
-        if (pct >= 60) return { g: 'B', cls: 'text-sky-400' };
-        if (pct >= 50) return { g: 'C', cls: 'text-amber-400' };
-        if (pct >= 40) return { g: 'D', cls: 'text-orange-400' };
-        return { g: 'F', cls: 'text-red-400' };
+        const g = calculateGrade(pct);
+        const cls = getGradeColor(g);
+        return { g, cls };
     };
 
     return (
@@ -322,8 +320,8 @@ function FeesTab({ childId, childName }: { childId: string; childName: string })
 
     useEffect(() => {
         Promise.allSettled([
-            api.get<any>(endpoints.finance.studentFees),
-            api.get<any>(endpoints.finance.payments),
+            api.get<any>(`${endpoints.finance.studentFees}?page_size=1000`),
+            api.get<any>(`${endpoints.finance.payments}?page_size=1000`),
         ]).then(([feesRes, paymentsRes]) => {
             if (feesRes.status === 'fulfilled') {
                 setFees(getList<any>(feesRes.value).filter((f: any) => f.student === childId || f.student_name?.toLowerCase().includes(childName.toLowerCase())));
@@ -421,7 +419,7 @@ function DocumentsTab({ child }: { child: any }) {
     useEffect(() => {
         const childId = child.user?.id;
         if (!childId) { setLoadingReports(false); return; }
-        api.get<any>(`${endpoints.academics.reportCards}?student=${childId}`)
+        api.get<any>(`${endpoints.academics.reportCards}?student=${childId}&page_size=1000`)
             .then(res => {
                 const list: ReportCardDoc[] = Array.isArray(res) ? res : (res?.results || []);
                 setReports(list.filter((r: ReportCardDoc) => r.is_published));

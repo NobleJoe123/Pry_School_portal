@@ -29,7 +29,7 @@ export default function StudentAttendancePage() {
     const [filter, setFilter] = useState<'all' | 'present' | 'absent' | 'late' | 'excused'>('all');
 
     useEffect(() => {
-        api.get<any>(endpoints.attendance.students)
+        api.get<any>(`${endpoints.attendance.students}?page_size=1000`)
             .then(data => {
                 const list: AttendanceRecord[] = Array.isArray(data)
                     ? data

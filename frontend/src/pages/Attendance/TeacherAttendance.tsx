@@ -92,7 +92,7 @@ export default function TeacherAttendance() {
 
         try {
             const [studentsRes, attRes, submissionRes] = await Promise.all([
-                api.get<any>(`${endpoints.students.list}?school_class=${classId}`),
+                api.get<any>(`${endpoints.students.list}?school_class=${classId}&page_size=1000`),
                 api.get<any>(`${endpoints.attendance.students}?school_class=${classId}&date=${todayISO}`).catch(() => []),
                 api.get<any>(`${endpoints.attendance.students}submission_status/?school_class=${classId}&date=${todayISO}`).catch(() => ({ submitted: false, is_locked: false })),
             ]);
