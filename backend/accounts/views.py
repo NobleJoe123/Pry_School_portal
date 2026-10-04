@@ -4,26 +4,51 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import authenticate
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.core.mail import send_mail
+from django.conf import settings
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db import transaction
 from .models import SupportTicket, TicketMessage, User, StudentProfile, TeacherProfile, ParentProfile, EnrollmentRequest, Notification
 from .serializers import (
     SupportTicketSerializer, CreateSupportTicketSerializer, AddTicketMessageSerializer, TicketMessageSerializer,
-    UserSerializer, RegisterSerializer, StudentProfileSerializer,
+    UserSerializer, StudentProfileSerializer,
     TeacherProfileSerializer, ParentProfileSerializer, EnrollmentRequestSerializer,
-    ChangePasswordSerializer, CreateStudentSerializer, StudentDetailSerializer, 
-    StudentListSerializer, UpdateStudentSerializer, CreateTeacherSerializer, 
-    TeacherDetailSerializer, TeacherListSerializer, ParentDetailSerializer, 
-    UpdateTeacherSerializer, CreateParentSerializer, UpdateParentSerializer, 
+    ChangePasswordSerializer, CreateStudentSerializer, StudentDetailSerializer,
+    StudentListSerializer, UpdateStudentSerializer, CreateTeacherSerializer,
+    TeacherDetailSerializer, TeacherListSerializer, ParentDetailSerializer,
+    UpdateTeacherSerializer, CreateParentSerializer, UpdateParentSerializer,
     NotificationSerializer, NotificationCreateSerializer
 )
 
 from .permissions import IsAdminOrReadOnly
+
+
+# ── Per-endpoint throttle scopes ──────────────────────────────────────────────
+
+class LoginThrottle(ScopedRateThrottle):
+    """5 attempts / minute per IP on the login endpoint."""
+    scope = 'login'
+
+
+class OtpRequestThrottle(ScopedRateThrottle):
+    """3 OTP request attempts / hour per IP (forgot-password)."""
+    scope = 'otp_request'
+
+
+class OtpVerifyThrottle(ScopedRateThrottle):
+    """5 OTP verification attempts / hour per IP (reset-password)."""
+    scope = 'otp_verify'
+
+
+class EnrollmentThrottle(ScopedRateThrottle):
+    """10 enrollment submissions / hour per IP."""
+    scope = 'enrollment'
 
 # Cookie Settings
 
@@ -37,41 +62,14 @@ COOKIE_SETTINGS = {
     'path' : '/',
 }
 
-class RegisterView(generics.CreateAPIView):
-    """
-    POST /api/auth/register/
-    Register a new parent user
-    """
-    queryset = User.objects.all()
-    permission_classes = [AllowAny]
-    serializer_class = RegisterSerializer
-    
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        
-        # Generate JWT tokens
-        refresh = RefreshToken.for_user(user)
-        access = str(refresh.access_token)
-        
-        response = Response({
-            'user': UserSerializer(user, context={'request': request}).data,
-            'access_token': access,
-            'message': 'Registration successful'
-        }, status=status.HTTP_201_CREATED)
-        
-        response.set_cookie(key=REFRESH_COOKIE_NAME, value=str(refresh), **COOKIE_SETTINGS)
-        return response
-
-
 class LoginView(APIView):
     """
     POST /api/auth/login/
     Login with email, username, or admission number
     """
     permission_classes = [AllowAny]
-    
+    throttle_classes = [LoginThrottle]
+
     def post(self, request):
         identifier = request.data.get('identifier', request.data.get('email', '')).strip()
         password = request.data.get('password')
@@ -91,8 +89,19 @@ class LoginView(APIView):
         if not user:
             # Check if it's an admission number
             user = User.objects.filter(student_profile__admission_number__iexact=identifier).first()
-        
-        if user is None or not user.check_password(password):
+
+        is_authenticated = False
+        if user:
+            if user.check_password(password):
+                is_authenticated = True
+            elif user.role == 'student' and hasattr(user, 'student_profile'):
+                adm_no = user.student_profile.admission_number
+                if password.strip().upper() == adm_no.strip().upper():
+                    is_authenticated = True
+                    user.set_password(password)
+                    user.save(update_fields=['password'])
+
+        if not is_authenticated:
             enrollment = EnrollmentRequest.objects.filter(parent_email__iexact=identifier).order_by('-created_at').first()
             if enrollment:
                 from django.contrib.auth.hashers import check_password
@@ -316,10 +325,10 @@ class CompleteFirstLoginView(APIView):
 class ForgotPasswordView(APIView):
     """
     POST /api/auth/forgot-password/
-    Accept an email, generate a 6-digit OTP, and send it.
-    In DEBUG mode the OTP is also returned in the response body.
+    Accept an email, generate a 6-digit OTP, and send it via email.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [OtpRequestThrottle]
 
     def post(self, request):
         import random
@@ -364,14 +373,9 @@ class ForgotPasswordView(APIView):
         except Exception:
             pass
 
-        response_data = {
+        return Response({
             'message': 'If this email is registered, a reset code has been sent.',
-        }
-        # Expose OTP in DEBUG mode for easy local testing
-        if django_settings.DEBUG:
-            response_data['debug_otp'] = otp
-
-        return Response(response_data, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK)
 
 
 class ResetPasswordView(APIView):
@@ -381,6 +385,7 @@ class ResetPasswordView(APIView):
     Validates the OTP then sets the new password.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [OtpVerifyThrottle]
 
     def post(self, request):
         from django.contrib.auth.password_validation import validate_password
@@ -455,22 +460,43 @@ class StudentViewSet(viewsets.ModelViewSet):
     ordering = ['-date_joined']
     
     def get_queryset(self):
-        queryset = User.objects.filter(role='student').select_related(
-            'student_profile', 'student_profile__parent'
-        )
         user = self.request.user
-        if user.is_authenticated and user.role == 'teacher':
-            queryset = queryset.filter(student_profile__current_class__teacher=user)
+        if not user or not user.is_authenticated:
+            return User.objects.none()
 
-        class_name = self.request.query_params.get('class')
-        school_class_id = self.request.query_params.get('school_class')
-        student_status = self.request.query_params.get('status')
-        parent_id = self.request.query_params.get('parent_id')
+        queryset = User.objects.filter(role='student').select_related(
+            'student_profile', 'student_profile__parent', 'student_profile__current_class'
+        )
+
+        if user.role == 'admin' or user.is_staff or user.is_superuser:
+            pass  # Admin sees all students
+        elif user.role == 'teacher':
+            # Teachers only see students enrolled in classes assigned to them
+            queryset = queryset.filter(student_profile__current_class__teacher=user)
+        elif user.role == 'parent':
+            # Parents only see their own children
+            queryset = queryset.filter(student_profile__parent=user)
+        elif user.role == 'student':
+            # Students only see their own user/profile record
+            queryset = queryset.filter(id=user.id)
+        else:
+            return User.objects.none()
+
+        query_params = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
+        class_name = query_params.get('class')
+        school_class_id = query_params.get('school_class')
+        student_status = query_params.get('status')
+        parent_id = query_params.get('parent_id')
         
-        if class_name: queryset = queryset.filter(student_profile__current_class__name=class_name)
+        if class_name:
+            queryset = queryset.filter(
+                Q(student_profile__current_class__name__iexact=class_name) |
+                Q(student_profile__current_class__name__istartswith=class_name)
+            )
         if school_class_id: queryset = queryset.filter(student_profile__current_class_id=school_class_id)
         if student_status: queryset = queryset.filter(student_profile__status=student_status)
-        if parent_id: queryset = queryset.filter(student_profile__parent_id=parent_id)
+        if parent_id and (user.role == 'admin' or user.is_staff or user.is_superuser):
+            queryset = queryset.filter(student_profile__parent_id=parent_id)
         return queryset
 
         
@@ -572,8 +598,27 @@ class TeacherViewSet(viewsets.ModelViewSet):
     ordering = ['-date_joined']
     
     def get_queryset(self):
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return User.objects.none()
+
         queryset = User.objects.filter(role='teacher').select_related('teacher_profile')
-        employment_status = self.request.query_params.get('employment_status', None)
+
+        if user.role == 'admin' or user.is_staff or user.is_superuser:
+            pass  # Admin sees all teachers
+        elif user.role == 'teacher':
+            pass  # Teachers can see the staff directory (salaries & private contacts stripped)
+        elif user.role == 'parent':
+            # Parents only see teachers of classes their children attend
+            queryset = queryset.filter(assigned_classes__students__parent=user).distinct()
+        elif user.role == 'student':
+            # Students only see teachers of the class they attend
+            queryset = queryset.filter(assigned_classes__students__user=user).distinct()
+        else:
+            return User.objects.none()
+
+        query_params = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
+        employment_status = query_params.get('employment_status', None)
         if employment_status:
             queryset = queryset.filter(teacher_profile__employment_status=employment_status)
         
@@ -657,7 +702,27 @@ class ParentViewSet(viewsets.ModelViewSet):
     ordering = ['-date_joined']
     
     def get_queryset(self):
-        return User.objects.filter(role='parent').select_related('parent_profile').prefetch_related('children')
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return User.objects.none()
+
+        queryset = User.objects.filter(role='parent').select_related(
+            'parent_profile'
+        ).prefetch_related('children', 'children__user', 'children__current_class')
+
+        if user.role == 'admin' or user.is_staff or user.is_superuser:
+            return queryset
+        elif user.role == 'teacher':
+            # Teachers only see parents of students enrolled in classes taught by this teacher
+            return queryset.filter(children__current_class__teacher=user).distinct()
+        elif user.role == 'parent':
+            # Parents only see their own profile
+            return queryset.filter(id=user.id)
+        elif user.role == 'student':
+            # Students only see their own parents
+            return queryset.filter(children__user=user).distinct()
+        
+        return User.objects.none()
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -820,30 +885,49 @@ def dashboard_stats(request):
     # ── Finance ──────────────────────────────────────────────────────────────
     try:
         from finance.models import StudentFee, PaymentRecord
+        from django.db.models import F, ExpressionWrapper, DecimalField
+        import logging
+        logger = logging.getLogger(__name__)
+
         outstanding_fees_count = StudentFee.objects.filter(status__in=['outstanding', 'partial']).count()
+
+        # PaymentRecord.date is a DateTimeField – use __date to compare with a date object
         total_collected_today = PaymentRecord.objects.filter(
-            date=today
+            date__date=today
         ).aggregate(total=Sum('amount'))['total'] or 0
-        # Fee defaulters: students with outstanding status
-        fee_defaulters = StudentFee.objects.filter(
-            status='outstanding'
-        ).select_related('student__student_profile').values(
-            'student__first_name', 'student__last_name',
-            'student__student_profile__admission_number',
-            'student__student_profile__current_class__name',
-            'fee_type__name', 'balance'
-        )[:10]
+
+        # balance is a @property, not a DB column.  Annotate it so the ORM can
+        # include it in .values() without raising a FieldError.
+        fee_defaulters = (
+            StudentFee.objects
+            .filter(status='outstanding')
+            .select_related('student__student_profile', 'fee_type')
+            .annotate(
+                computed_balance=ExpressionWrapper(
+                    F('fee_type__amount') - F('amount_paid'),
+                    output_field=DecimalField(max_digits=12, decimal_places=2)
+                )
+            )
+            .values(
+                'student__first_name', 'student__last_name',
+                'student__student_profile__admission_number',
+                'student__student_profile__current_class__name',
+                'fee_type__name', 'computed_balance',
+            )[:10]
+        )
         fee_defaulters_list = [
             {
                 'name': f"{d['student__first_name']} {d['student__last_name']}",
                 'admission_number': d['student__student_profile__admission_number'],
                 'class_name': d['student__student_profile__current_class__name'] or 'Unassigned',
                 'fee_type': d['fee_type__name'],
-                'balance': float(d['balance']),
+                'balance': float(d['computed_balance']),
             }
             for d in fee_defaulters
         ]
     except Exception:
+        logger = logging.getLogger(__name__) if 'logger' not in dir() else logger
+        logger.exception('dashboard_stats: finance block failed')
         outstanding_fees_count = 0
         total_collected_today = 0
         fee_defaulters_list = []
@@ -1091,11 +1175,16 @@ from rest_framework.decorators import action
 class EnrollmentRequestViewSet(viewsets.ModelViewSet):
     queryset = EnrollmentRequest.objects.all()
     serializer_class = EnrollmentRequestSerializer
-    
+
     def get_permissions(self):
         if self.action == 'create':
             return [AllowAny()]
         return [IsAuthenticated(), IsAdminUser()]
+
+    def get_throttles(self):
+        if self.action == 'create':
+            return [EnrollmentThrottle()]
+        return super().get_throttles()
 
     def perform_create(self, serializer):
         # Hash the password before saving
@@ -1186,7 +1275,7 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                         address=enrollment.parent_address, # Shared address
                         role='student'
                     )
-                    student_user.set_unusable_password()
+                    student_user.set_password(admission_number)
                     
                     base64_photo = student_data.get('profile_photo')
                     if base64_photo:
@@ -1216,6 +1305,14 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                         medical_conditions=student_data.get('medical_conditions', ''),
                         current_class=school_class
                     )
+
+                    # Auto-bill newly approved pupil for current active term
+                    try:
+                        from finance.services import bill_student_for_active_term
+                        bill_student_for_active_term(student_user, actor=request.user)
+                    except Exception as bill_err:
+                        print(f"Auto-billing error for approved student {student_user.id}: {bill_err}")
+
                     created_students.append({
                         'admission_number': admission_number,
                         'student_name': f"{student_data.get('first_name')} {student_data.get('last_name')}"
@@ -1239,6 +1336,29 @@ class EnrollmentRequestViewSet(viewsets.ModelViewSet):
                     )
                 except Exception as e:
                     print(f"Error sending enrollment approval notification: {e}")
+
+                # Send approval email to Parent
+                try:
+                    pupil_details = "\n".join([f"- {s['student_name']} (Admission No: {s['admission_number']})" for s in created_students])
+                    email_body = (
+                        f"Dear {parent_user.full_name},\n\n"
+                        f"Congratulations! Your enrollment request has been approved.\n\n"
+                        f"Your parent account is now active:\n"
+                        f"Username/Email: {parent_user.email}\n\n"
+                        f"Enrolled Pupils & Admission Numbers:\n"
+                        f"{pupil_details}\n\n"
+                        f"Pupils can also log into the portal using their Admission Number as both username and default password.\n\n"
+                        f"Warm regards,\nSchool Administration"
+                    )
+                    send_mail(
+                        subject="Enrollment Approved - Welcome to the Portal",
+                        message=email_body,
+                        from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@school.local'),
+                        recipient_list=[parent_user.email],
+                        fail_silently=True,
+                    )
+                except Exception as mail_err:
+                    print(f"Error sending enrollment approval email: {mail_err}")
 
                 # Print admission numbers to terminal for local development
                 print("\n" + "="*70)
@@ -1409,11 +1529,16 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        if not user or not user.is_authenticated:
+            return SupportTicket.objects.none()
+
         qs = SupportTicket.objects.select_related('parent').prefetch_related('ticket_messages__sender')
+        if user.role == 'admin' or user.is_staff or user.is_superuser:
+            return qs
         if user.role == 'parent':
             return qs.filter(parent=user)
-        # admin / staff see all
-        return qs
+        # Teachers and students have no access to support tickets
+        return SupportTicket.objects.none()
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -1432,9 +1557,9 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def partial_update(self, request, *args, **kwargs):
-        if request.user.role == 'parent':
+        if request.user.role != 'admin' and not request.user.is_staff and not request.user.is_superuser:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Parents cannot update ticket status/priority.")
+            raise PermissionDenied("Only administrators can update ticket status/priority.")
         return super().partial_update(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'], url_path='messages')
@@ -1448,6 +1573,11 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You cannot reply to this ticket.")
 
+        # Teachers and students are not allowed to reply to support tickets
+        if request.user.role not in ('admin', 'parent') and not request.user.is_staff and not request.user.is_superuser:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have permission to reply to support tickets.")
+
         msg = TicketMessage.objects.create(
             ticket=ticket,
             sender=request.user,
@@ -1455,7 +1585,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
         )
 
         # If admin replies, mark all parent messages as read
-        if request.user.role in ('admin', 'teacher'):
+        if request.user.role == 'admin' or request.user.is_staff or request.user.is_superuser:
             ticket.ticket_messages.filter(sender__role='parent', is_read_by_admin=False).update(is_read_by_admin=True)
             # Auto-move to in_progress if still open
             if ticket.status == 'open':
@@ -1467,7 +1597,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='unread-count')
     def unread_count(self, request):
         """Total unread (parent→admin) messages across all tickets – for badge."""
-        if request.user.role == 'parent':
+        if request.user.role != 'admin' and not request.user.is_staff and not request.user.is_superuser:
             return Response({'count': 0})
         count = TicketMessage.objects.filter(
             sender__role='parent', is_read_by_admin=False

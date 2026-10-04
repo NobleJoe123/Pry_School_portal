@@ -1,4 +1,5 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
+from django.conf import settings
 from accounts.models import User, StudentProfile, TeacherProfile, ParentProfile
 from academics.models import AcademicYear, ClassLevel, SchoolClass, Subject, AssessmentType, Term
 from django.utils import timezone
@@ -8,6 +9,11 @@ class Command(BaseCommand):
     help = 'Seed test users and reference data for the school portal'
 
     def handle(self, *args, **kwargs):
+        if not settings.DEBUG:
+            raise CommandError(
+                "Refusing to seed users: seed_users must NOT be run in production (DEBUG is False)."
+            )
+
         self.stdout.write('Seeding data...')
 
         # ── 1. Academic Year ────────────────────────────────────────────────
@@ -54,9 +60,8 @@ class Command(BaseCommand):
                 )
 
         # ── 5. Assessment Types ────────────────────────────────────────────────
-        ca1, _ = AssessmentType.objects.get_or_create(name='CA 1', defaults={'max_score': 20, 'weight': 20.00})
-        ca2, _ = AssessmentType.objects.get_or_create(name='CA 2', defaults={'max_score': 20, 'weight': 20.00})
-        exam, _ = AssessmentType.objects.get_or_create(name='Exam', defaults={'max_score': 60, 'weight': 60.00})
+        ca_type, _ = AssessmentType.objects.get_or_create(name='CA', defaults={'max_score': 40, 'weight': 40.00})
+        exam_type, _ = AssessmentType.objects.get_or_create(name='Exam', defaults={'max_score': 60, 'weight': 60.00})
 
         # ── 6. Admin ──────────────────────────────────────────────────────────
         admin_email = 'admin@school.com'

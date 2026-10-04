@@ -1,9 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework import status as drf_status
 
 
 from .views import (
-    RegisterView,
     LoginView,
     TokenRefreshCookieView,
     LogoutView,
@@ -32,6 +35,26 @@ from .views import (
 )
 
 
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def register_gone(request):
+    """
+    The open /auth/register/ endpoint has been removed.
+    New parent accounts are created only through the admin-approved
+    enrollment flow at /api/auth/enrollment/.
+    """
+    return Response(
+        {
+            'error': (
+                'Direct self-registration is disabled. '
+                'Please submit an enrollment request at /api/auth/enrollment/ '
+                'and wait for admin approval.'
+            )
+        },
+        status=drf_status.HTTP_410_GONE,
+    )
+
+
 router = DefaultRouter()
 router.register(r'students', StudentViewSet, basename='student')
 router.register(r'teachers', TeacherViewSet, basename='teacher')
@@ -45,8 +68,10 @@ app_name = 'accounts'
 urlpatterns = [
     path('health/', health_check, name='health'),
 
+    # Direct self-registration is disabled — 410 Gone
+    path('register/', register_gone, name='register_gone'),
+
     #Authentication Endpoints
-    path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('token/refresh/', TokenRefreshCookieView.as_view(), name='token_refresh'),
