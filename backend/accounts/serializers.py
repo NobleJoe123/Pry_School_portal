@@ -12,6 +12,8 @@ class UserSerializer(serializers.ModelSerializer):
     is_online = serializers.BooleanField(read_only=True)
     last_seen = serializers.DateTimeField(read_only=True)
     first_login_completed = serializers.BooleanField(read_only=True)
+    role = serializers.CharField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = User
@@ -21,7 +23,10 @@ class UserSerializer(serializers.ModelSerializer):
             'profile_photo_url', 'is_active', 'date_joined', 'children',
             'is_online', 'last_seen', 'first_login_completed'
         ]
-        read_only_fields = ['id', 'date_joined', 'is_online', 'last_seen', 'first_login_completed']
+        read_only_fields = [
+            'id', 'role', 'is_active', 'date_joined', 'is_online',
+            'last_seen', 'first_login_completed'
+        ]
     
     def get_profile_photo_url(self, obj):
         if obj.profile_photo:
@@ -31,38 +36,51 @@ class UserSerializer(serializers.ModelSerializer):
     def get_children(self, obj):
         if obj.role == 'parent' and hasattr(obj, 'children'):
             children = obj.children.all()
-            return [
-                {
-                    'user': {
-                        'id': child.user.id,
-                        'full_name': child.user.full_name,
-                        'email': child.user.email,
-                        'phone': child.user.phone,
-                        'date_of_birth': child.user.date_of_birth,
-                        'address': child.user.address,
-                        'profile_photo_url': self.get_profile_photo_url(child.user)
-                    },
-                    'profile': {
-                        'admission_number': child.admission_number,
-                        'current_class': {'name': child.current_class.name} if child.current_class else None,
-                        'gender': child.gender,
-                        'blood_group': child.blood_group,
-                        'state_of_origin': child.state_of_origin,
-                        'place_of_birth': child.place_of_birth,
-                        'emergency_contact_name': child.emergency_contact_name,
-                        'emergency_contact_phone': child.emergency_contact_phone,
-                        'emergency_contact_relationship': child.emergency_contact_relationship,
-                        'medical_conditions': child.medical_conditions,
-                        'status': child.status,
-                        'birth_certificate_url': (
-                            child.parent.parent_profile.id_document.url
-                            if child.parent and hasattr(child.parent, 'parent_profile')
-                            and child.parent.parent_profile.id_document
-                            else None
-                        )
-                    }
-                } for child in children
-            ]
+            request = self.context.get('request')
+            req_user = getattr(request, 'user', None) if request else None
+            is_admin = req_user and (req_user.role == 'admin' or req_user.is_staff or req_user.is_superuser)
+            is_parent_self = req_user and req_user.id == obj.id
+
+            result = []
+            for child in children:
+                is_class_teacher = (
+                    req_user and req_user.role == 'teacher' and
+                    child.current_class_id and
+                    getattr(child.current_class, 'teacher_id', None) == req_user.id
+                )
+                can_see_sensitive = is_admin or is_parent_self or is_class_teacher
+
+                child_user_data = {
+                    'id': child.user.id,
+                    'full_name': child.user.full_name,
+                    'email': child.user.email,
+                    'phone': child.user.phone if can_see_sensitive else None,
+                    'date_of_birth': child.user.date_of_birth if can_see_sensitive else None,
+                    'address': child.user.address if can_see_sensitive else None,
+                    'profile_photo_url': self.get_profile_photo_url(child.user)
+                }
+
+                child_profile_data = {
+                    'admission_number': child.admission_number,
+                    'current_class': {'name': child.current_class.name} if child.current_class else None,
+                    'gender': child.gender,
+                    'blood_group': child.blood_group if can_see_sensitive else None,
+                    'state_of_origin': child.state_of_origin if can_see_sensitive else None,
+                    'place_of_birth': child.place_of_birth if can_see_sensitive else None,
+                    'emergency_contact_name': child.emergency_contact_name if can_see_sensitive else None,
+                    'emergency_contact_phone': child.emergency_contact_phone if can_see_sensitive else None,
+                    'emergency_contact_relationship': child.emergency_contact_relationship if can_see_sensitive else None,
+                    'medical_conditions': child.medical_conditions if can_see_sensitive else None,
+                    'status': child.status,
+                    'birth_certificate_url': (
+                        child.parent.parent_profile.id_document.url
+                        if can_see_sensitive and child.parent and hasattr(child.parent, 'parent_profile')
+                        and child.parent.parent_profile.id_document
+                        else None
+                    )
+                }
+                result.append({'user': child_user_data, 'profile': child_profile_data})
+            return result
         return None
 
 
@@ -147,6 +165,29 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             representation['current_class'] = instance.current_class.name
         else:
             representation['current_class'] = None
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user and user.is_authenticated:
+            is_admin = user.role == 'admin' or user.is_staff or user.is_superuser
+            is_parent = instance.parent_id == user.id
+            is_student_self = instance.user_id == user.id
+            is_class_teacher = (
+                instance.current_class_id and 
+                getattr(instance.current_class, 'teacher_id', None) == user.id
+            )
+            if not (is_admin or is_parent or is_student_self or is_class_teacher):
+                representation.pop('medical_conditions', None)
+                representation.pop('emergency_contact_phone', None)
+                representation.pop('emergency_contact_name', None)
+                representation.pop('emergency_contact_relationship', None)
+                representation.pop('birth_certificate_url', None)
+        elif not user or not user.is_authenticated:
+            representation.pop('medical_conditions', None)
+            representation.pop('emergency_contact_phone', None)
+            representation.pop('emergency_contact_name', None)
+            representation.pop('emergency_contact_relationship', None)
+            representation.pop('birth_certificate_url', None)
         return representation
 
 
@@ -160,6 +201,19 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
     def get_assigned_class(self, obj):
         assigned_class = obj.user.assigned_classes.first()
         return assigned_class.name if assigned_class else None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        is_admin = user and (user.role == 'admin' or user.is_staff or user.is_superuser)
+        is_self = user and user.id == instance.user_id
+        if not (is_admin or is_self):
+            data.pop('monthly_salary', None)
+            data.pop('emergency_contact_name', None)
+            data.pop('emergency_contact_phone', None)
+            data.pop('emergency_contact_relationship', None)
+        return data
 
 
 class ParentProfileSerializer(serializers.ModelSerializer):
@@ -224,6 +278,20 @@ class StudentListSerializer(serializers.ModelSerializer):
         if obj.profile_photo:
             return obj.profile_photo.url
         return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user and user.is_authenticated:
+            is_admin = user.role == 'admin' or user.is_staff or user.is_superuser
+            is_self = user.id == instance.id
+            is_parent = hasattr(instance, 'student_profile') and instance.student_profile.parent_id == user.id
+            if not (is_admin or is_self or is_parent):
+                data.pop('phone', None)
+                data.pop('address', None)
+                data.pop('date_of_birth', None)
+        return data
         
 
 class CreateStudentSerializer(serializers.Serializer):
@@ -432,6 +500,19 @@ class TeacherListSerializer(serializers.ModelSerializer):
         if obj.profile_photo:
             return obj.profile_photo.url
         return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        is_admin = user and (user.role == 'admin' or user.is_staff or user.is_superuser)
+        is_self = user and user.id == instance.id
+        if not (is_admin or is_self):
+            data.pop('address', None)
+            data.pop('date_of_birth', None)
+            if user and user.role in ('student', 'parent'):
+                data.pop('phone', None)
+        return data
         
 class CreateTeacherSerializer(serializers.Serializer):
     """Serializer for creating a new teacher"""

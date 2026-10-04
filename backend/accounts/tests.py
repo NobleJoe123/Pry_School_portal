@@ -63,3 +63,35 @@ class NotificationTests(APITestCase):
         # Check that self.user's notifications are deleted, but other_user's remains
         self.assertEqual(Notification.objects.filter(recipient=self.user).count(), 0)
         self.assertEqual(Notification.objects.filter(recipient=self.other_user).count(), 1)
+
+
+class ForgotPasswordSecurityTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='studentuser',
+            email='student_security@school.com',
+            password='password123',
+            first_name='Sec',
+            last_name='Student',
+            role='student'
+        )
+
+    def test_otp_never_echoed_in_response(self):
+        url = reverse('accounts:forgot_password')
+        with self.settings(DEBUG=True):
+            response = self.client.post(url, {'email': 'student_security@school.com'}, format='json')
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertNotIn('debug_otp', response.data)
+            self.assertNotIn('otp', response.data)
+            self.assertNotIn('token', response.data)
+
+
+class SeedUsersSecurityTests(APITestCase):
+    def test_seed_users_aborts_in_production(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with self.settings(DEBUG=False):
+            with self.assertRaises(CommandError) as ctx:
+                call_command('seed_users')
+            self.assertIn("must NOT be run in production", str(ctx.exception))
