@@ -702,6 +702,11 @@ class PaymentRecordViewSet(viewsets.ModelViewSet):
         if confirmed_param is not None:
             queryset = queryset.filter(is_confirmed=(confirmed_param.lower() != 'false'))
 
+        # Filter by rejection status: ?is_rejected=true or ?is_rejected=false
+        is_rejected_param = self.request.query_params.get('is_rejected')
+        if is_rejected_param is not None:
+            queryset = queryset.filter(is_rejected=(is_rejected_param.lower() == 'true'))
+
         search = self.request.query_params.get('search')
         if search:
             queryset = queryset.filter(
@@ -805,7 +810,7 @@ class PaymentRecordViewSet(viewsets.ModelViewSet):
                 category='finance', audience='selected'
             )
         except Exception as exc:
-            logger.warning(f"Notification error after confirming payment {payment.id}: {exc}")
+            logger.warning(f"Notification error after confirming payment {locked_payment.id}: {exc}")
 
         return Response({
             'message': f'Payment of ₦{amount:,.2f} confirmed successfully.',

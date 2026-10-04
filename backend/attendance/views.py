@@ -29,6 +29,16 @@ class StudentAttendanceViewSet(viewsets.ModelViewSet):
         if school_class:
             queryset = queryset.filter(school_class_id=school_class)
 
+        student_param = self.request.query_params.get('student') or self.request.query_params.get('student_id')
+        if student_param:
+            import uuid
+            from django.db.models import Q
+            try:
+                val = uuid.UUID(str(student_param).strip())
+                queryset = queryset.filter(Q(student_id=val) | Q(student__student_profile__id=val))
+            except (ValueError, AttributeError):
+                queryset = queryset.filter(student_id=student_param)
+
         return queryset.order_by('-date', 'id')
 
     @action(detail=False, methods=['post'])
@@ -54,11 +64,12 @@ class StudentAttendanceViewSet(viewsets.ModelViewSet):
         date = data.get('date', timezone.now().date())
         attendance_records = data.get('records', [])  # [{student_id, status, remarks}]
 
-        # Check if this class/date is locked by a previous submission
+        # Check if this class/date is locked by a previous submission.
+        # Admins bypass this check so they can perform overrides.
         existing_submission = AttendanceSubmission.objects.filter(
             school_class_id=class_id, date=date, is_locked=True
         ).first()
-        if existing_submission:
+        if existing_submission and request.user.role != 'admin':
             return Response(
                 {'error': 'Attendance for this class and date has already been submitted and locked.'},
                 status=status.HTTP_400_BAD_REQUEST
