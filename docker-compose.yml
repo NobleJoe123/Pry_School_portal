@@ -20,21 +20,6 @@ services:
     networks:
       - app_network
 
-    
-  #Ngrok
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: primary_portal_ngrok
-    restart: unless-stopped
-    command: http nginx:80
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    ports:
-      - "4040:4040"
-    depends_on:
-      - nginx
-    networks:
-      - app_network
 
   nginx:
     image: nginx:alpine

@@ -46,22 +46,44 @@ echo "Collecting static files..."
 python manage.py collectstatic --noinput --clear
 echo "✓ Static files collected"
 
-# Create superuser
-echo "Creating superuser..."
+# Superuser initialization check
+echo "Checking superuser..."
 python manage.py shell <<EOF
+import os
+from django.conf import settings
 from accounts.models import User
 
-if not User.objects.filter(email='admin@school.com').exists():
-    User.objects.create_superuser(
-        email='admin@school.com',
-        username='admin',
-        first_name='Admin',
-        last_name='User',
-        password='admin123'
-    )
-    print('✓ Superuser created: admin@school.com / admin123')
+admin_email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
+admin_password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
+admin_username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
+
+if admin_email and admin_password:
+    if not User.objects.filter(email=admin_email).exists():
+        User.objects.create_superuser(
+            email=admin_email,
+            username=admin_username,
+            first_name='Admin',
+            last_name='User',
+            password=admin_password
+        )
+        print(f'✓ Superuser created from environment: {admin_email}')
+    else:
+        print(f'✓ Superuser already exists: {admin_email}')
+elif settings.DEBUG:
+    dev_email = 'admin@school.com'
+    if not User.objects.filter(email=dev_email).exists():
+        User.objects.create_superuser(
+            email=dev_email,
+            username='admin',
+            first_name='Admin',
+            last_name='User',
+            password='admin123'
+        )
+        print('✓ Dev superuser created: admin@school.com / admin123 (DEBUG=True)')
+    else:
+        print('✓ Dev superuser already exists: admin@school.com')
 else:
-    print('✓ Superuser already exists')
+    print('ℹ Production mode (DEBUG=False): skipping automatic default superuser creation.')
 EOF
 
 echo "=== Backend Ready! ==="
