@@ -4,7 +4,9 @@ from .views import (
     AcademicYearViewSet, TermViewSet,
     ClassLevelViewSet, SchoolClassViewSet, SubjectViewSet,
     AssessmentTypeViewSet, AssessmentViewSet, StudentScoreViewSet,
-    ReportCardViewSet, SchoolEventViewSet, LessonMaterialViewSet
+    ReportCardViewSet, SchoolEventViewSet, LessonMaterialViewSet,
+    BehaviorNoteViewSet,
+    grading_scale_view
 )
 
 router = DefaultRouter()
@@ -19,7 +21,10 @@ router.register(r'scores', StudentScoreViewSet)
 router.register(r'report-cards', ReportCardViewSet)
 router.register(r'events', SchoolEventViewSet)
 router.register(r'materials', LessonMaterialViewSet)
+router.register(r'behavior-notes', BehaviorNoteViewSet, basename='behavior-notes')
 
 urlpatterns = [
+    path('grading-scale/', grading_scale_view, name='grading_scale'),
     path('', include(router.urls)),
 ]
+

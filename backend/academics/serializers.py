@@ -1,6 +1,16 @@
 from rest_framework import serializers
-from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent, LessonMaterial
+from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent, LessonMaterial, BehaviorNote
 from accounts.serializers import UserSerializer
+
+
+class BehaviorNoteSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.ReadOnlyField(source='teacher.full_name')
+    student_name = serializers.ReadOnlyField(source='student.full_name')
+
+    class Meta:
+        model = BehaviorNote
+        fields = '__all__'
+        read_only_fields = ('id', 'teacher', 'created_at')
 
 class AcademicYearSerializer(serializers.ModelSerializer):
     class Meta:

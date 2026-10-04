@@ -1,14 +1,16 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, BasePermission, SAFE_METHODS
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from django.utils import timezone
-from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent, LessonMaterial
+from .models import AcademicYear, Term, ClassLevel, SchoolClass, Subject, AssessmentType, Assessment, StudentScore, ReportCard, SchoolEvent, LessonMaterial, BehaviorNote
 from .serializers import (
     AcademicYearSerializer, TermSerializer,
     ClassLevelSerializer, SchoolClassSerializer, SubjectSerializer,
     AssessmentTypeSerializer, AssessmentSerializer, StudentScoreSerializer,
-    ReportCardSerializer, SchoolEventSerializer, LessonMaterialSerializer
+    ReportCardSerializer, SchoolEventSerializer, LessonMaterialSerializer,
+    BehaviorNoteSerializer
 )
 
 class IsAdminOrReadOnlyAllowAny(BasePermission):
@@ -164,6 +166,147 @@ class AcademicYearViewSet(viewsets.ModelViewSet):
             'term': TermSerializer(first_term).data,
             'notifications_sent': notifications_count,
             'fees_generated': fees_generated_count
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='rollover')
+    def rollover(self, request, pk=None):
+        """
+        Academic year rollover & student promotion:
+        1. Ensures the target academic session has classes created matching existing levels/classes.
+        2. Promotes all active students:
+           - Primary 6 (level numeric_level >= 6 or '6' in name) pupils are marked as 'graduated' with current_class=None.
+           - Primary 1-5 pupils are promoted to the next class level in the new session.
+        3. Activates the target academic year and its 1st Term.
+        4. Invoices/auto-bills all active promoted pupils for the 1st Term.
+        5. Dispatches notifications to parents and teachers.
+        """
+        target_year = self.get_object()
+        from accounts.models import StudentProfile, User, Notification
+        import re
+
+        levels = list(ClassLevel.objects.all().order_by('numeric_level'))
+        level_map = {lvl.numeric_level: lvl for lvl in levels}
+        max_level_num = max([lvl.numeric_level for lvl in levels]) if levels else 6
+
+        # Make sure target_year has classes matching levels
+        existing_target_classes = {c.name: c for c in SchoolClass.objects.filter(academic_year=target_year)}
+        prior_classes = SchoolClass.objects.exclude(academic_year=target_year)
+        class_names_to_create = set()
+        for pc in prior_classes:
+            class_names_to_create.add((pc.name, pc.level))
+        for lvl in levels:
+            class_names_to_create.add((lvl.name, lvl))
+
+        for c_name, c_level in class_names_to_create:
+            if c_name not in existing_target_classes:
+                created_cls = SchoolClass.objects.create(
+                    name=c_name,
+                    level=c_level,
+                    academic_year=target_year
+                )
+                existing_target_classes[c_name] = created_cls
+
+        promoted_count = 0
+        graduated_count = 0
+
+        active_students = StudentProfile.objects.filter(status='active').select_related('current_class', 'current_class__level', 'user')
+
+        for sp in active_students:
+            curr_class = sp.current_class
+            if not curr_class or not curr_class.level:
+                continue
+
+            curr_numeric = curr_class.level.numeric_level
+            if curr_numeric >= max_level_num or '6' in curr_class.level.name:
+                sp.status = 'graduated'
+                sp.current_class = None
+                sp.save(update_fields=['status', 'current_class'])
+                graduated_count += 1
+            else:
+                next_numeric = curr_numeric + 1
+                next_level = level_map.get(next_numeric)
+                if not next_level:
+                    next_level = ClassLevel.objects.filter(numeric_level__gt=curr_numeric).order_by('numeric_level').first()
+
+                if next_level:
+                    curr_level_name = curr_class.level.name
+                    if curr_class.name.startswith(curr_level_name):
+                        suffix = curr_class.name[len(curr_level_name):]
+                        next_class_name = f"{next_level.name}{suffix}"
+                    else:
+                        next_class_name = re.sub(r'\d+', str(next_numeric), curr_class.name)
+                        if next_class_name == curr_class.name:
+                            next_class_name = next_level.name
+
+                    target_cls = SchoolClass.objects.filter(academic_year=target_year, name__iexact=next_class_name).first()
+                    if not target_cls:
+                        target_cls = SchoolClass.objects.filter(academic_year=target_year, level=next_level).first()
+                    if not target_cls:
+                        target_cls = SchoolClass.objects.create(
+                            name=next_class_name,
+                            level=next_level,
+                            academic_year=target_year
+                        )
+                    sp.current_class = target_cls
+                    sp.save(update_fields=['current_class'])
+                    promoted_count += 1
+
+        # Activate target academic year
+        AcademicYear.objects.exclude(id=target_year.id).update(is_current=False)
+        target_year.is_current = True
+        target_year.save()
+
+        # Activate 1st Term
+        first_term = Term.objects.filter(academic_year=target_year).order_by('start_date').first()
+        if not first_term:
+            first_term = Term.objects.create(
+                academic_year=target_year,
+                name='1st Term',
+                start_date=target_year.start_date,
+                end_date=target_year.end_date,
+                is_current=True
+            )
+        else:
+            Term.objects.exclude(id=first_term.id).update(is_current=False)
+            first_term.is_current = True
+            first_term.save()
+
+        # Invoicing / auto-bill all active students for 1st term
+        fees_generated_count = bill_enrolled_students_for_term(first_term, request.user if request.user.is_authenticated else None)
+
+        # Broadcast notification
+        notifications_count = 0
+        try:
+            recipients = User.objects.filter(role__in=['teacher', 'parent'], is_active=True)
+            notifs = [
+                Notification(
+                    sender=request.user if request.user.is_authenticated else None,
+                    recipient=u,
+                    title=f"New Academic Session: {target_year.name}",
+                    message=(
+                        f"Academic year rollover completed! Welcome to {target_year.name}. "
+                        f"{first_term.name} is now in session. {promoted_count} pupils promoted, "
+                        f"{graduated_count} Primary 6 pupils graduated."
+                    ),
+                    category='academics',
+                    audience='all'
+                )
+                for u in recipients
+            ]
+            if notifs:
+                Notification.objects.bulk_create(notifs)
+                notifications_count = len(notifs)
+        except Exception as e:
+            print(f"Error creating rollover notifications: {e}")
+
+        return Response({
+            'message': f"Rollover to {target_year.name} completed successfully. {promoted_count} pupils promoted, {graduated_count} graduated.",
+            'academic_year': self.get_serializer(target_year).data,
+            'term': TermSerializer(first_term).data,
+            'promoted_count': promoted_count,
+            'graduated_count': graduated_count,
+            'fees_generated': fees_generated_count,
+            'notifications_sent': notifications_count
         }, status=status.HTTP_200_OK)
 
 
@@ -713,3 +856,60 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(term_id=term_id)
                 
         return queryset
+
+
+# ── Unified Grading Scale ─────────────────────────────────────────────────────
+UNIFIED_GRADING_SCALE = [
+    {'grade': 'A', 'min_score': 75, 'max_score': 100, 'remark': 'Excellent', 'color': '#16a34a'},
+    {'grade': 'B', 'min_score': 65, 'max_score': 74, 'remark': 'Good', 'color': '#2563eb'},
+    {'grade': 'C', 'min_score': 55, 'max_score': 64, 'remark': 'Credit', 'color': '#7c3aed'},
+    {'grade': 'D', 'min_score': 45, 'max_score': 54, 'remark': 'Pass', 'color': '#d97706'},
+    {'grade': 'F', 'min_score': 0, 'max_score': 44, 'remark': 'Fail', 'color': '#dc2626'},
+]
+
+def calculate_grade_backend(score):
+    if score is None:
+        return {'grade': '—', 'remark': '—', 'color': '#64748b'}
+    try:
+        val = float(score)
+    except (ValueError, TypeError):
+        return {'grade': '—', 'remark': '—', 'color': '#64748b'}
+    for item in UNIFIED_GRADING_SCALE:
+        if val >= item['min_score']:
+            return item
+    return UNIFIED_GRADING_SCALE[-1]
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def grading_scale_view(request):
+    """Unified grading scale used across reports, scores, and dashboards."""
+    return Response({'scale': UNIFIED_GRADING_SCALE})
+
+
+# ── Behavior Notes ────────────────────────────────────────────────────────────
+class IsTeacherOrAdmin(BasePermission):
+    """Allow teachers (own notes) and admins (all notes)."""
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            getattr(request.user, 'role', None) in ('teacher', 'admin')
+        )
+
+
+class BehaviorNoteViewSet(viewsets.ModelViewSet):
+    serializer_class = BehaviorNoteSerializer
+    permission_classes = [IsTeacherOrAdmin]
+
+    def get_queryset(self):
+        qs = BehaviorNote.objects.select_related('student', 'teacher')
+        student_id = self.request.query_params.get('student')
+        if student_id:
+            qs = qs.filter(student_id=student_id)
+        # Non-admin teachers only see their own notes
+        if getattr(self.request.user, 'role', None) == 'teacher':
+            qs = qs.filter(teacher=self.request.user)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(teacher=self.request.user)
