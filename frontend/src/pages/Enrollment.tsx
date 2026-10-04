@@ -4,7 +4,6 @@ import { api } from '../utils/api';
 import { CheckCircle, Users, GraduationCap, Lock, Plus, Trash2, UserCircle, Camera } from 'lucide-react';
 
 const CLASS_OPTIONS = [
-  'Nursery 1', 'Nursery 2', 'KG 1', 'KG 2',
   'Primary 1', 'Primary 2', 'Primary 3',
   'Primary 4', 'Primary 5', 'Primary 6',
 ].map((c) => ({ value: c, label: c }));

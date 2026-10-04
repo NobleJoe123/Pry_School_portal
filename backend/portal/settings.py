@@ -9,11 +9,19 @@ from decouple import config, Csv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+from django.core.exceptions import ImproperlyConfigured
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key')
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=False, cast=bool)
+
+# Production security check
+if not DEBUG and ('django-insecure' in SECRET_KEY or len(SECRET_KEY) < 32):
+    raise ImproperlyConfigured(
+        "A secure, unpredictable SECRET_KEY of at least 32 characters must be set when DEBUG is False."
+    )
 
 # ALLOWED_HOSTS
 ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', cast=Csv(), default='localhost,127.0.0.1,backend,0.0.0.0')]
@@ -127,6 +135,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Upload limits (support base64 photos in enrollment requests and file uploads)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 26214400  # 25 MB (Django default is 2.5 MB)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 26214400  # 25 MB
+
 # REST Framework - CHANGED TO JWT
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -135,8 +147,21 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'portal.pagination.StandardResultsSetPagination',
     'PAGE_SIZE': 20,
+    # ── Rate limiting ─────────────────────────────────────────────────────────
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon':           '60/min',    # global anon safety net
+        'user':           '300/min',   # global authenticated safety net
+        'login':          '5/min',     # per-IP on the login endpoint
+        'otp_request':    '3/hour',    # per-IP: request a password-reset OTP
+        'otp_verify':     '5/hour',    # per-IP: submit OTP + new password
+        'enrollment':     '10/hour',   # per-IP: submit an enrollment request
+    },
 }
 
 # JWT Settings

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import type { User, LoginRequest, EnrollmentStatus } from '../types';
-import { api, endpoints, AccessToken, refreshAccessToken } from '../utils/api';
+import { api, endpoints, AccessToken, refreshAccessToken, setOnAuthFailure } from '../utils/api';
 
 
 // Context Types
@@ -37,9 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    // On mount: restore session from localstorage
+    // On mount: register unauth handler and restore session
 
     useEffect(() => {
+        setOnAuthFailure(() => {
+            setUser(null);
+            setIsLoading(false);
+        });
+
         const restoreSession = async () => {
             try {
                 const token = await refreshAccessToken();
