@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import type { Term } from '../../types';
 import { getList } from '../../utils/helpers';
 
-type Tab = 'profile' | 'password' | 'notifications' | 'appearance' | 'academic';
+type Tab = 'profile' | 'password' | 'appearance' | 'academic';
 
 export default function Settings() {
     const { user } = useAuth();
@@ -36,14 +36,7 @@ export default function Settings() {
     const [showOldPwd, setShowOldPwd] = useState(false);
     const [showNewPwd, setShowNewPwd] = useState(false);
 
-    // Notifications Preferences State
-    const [notifPreferences, setNotifPreferences] = useState({
-        emailAnnouncements: true,
-        emailMessageAlerts: true,
-        emailGradesReport: false,
-        pushMessageAlerts: true,
-        pushAttendanceUpdates: true
-    });
+
 
     // Appearance State
     const [appearance, setAppearance] = useState({
@@ -66,9 +59,7 @@ export default function Settings() {
 
     // Load stored settings from localStorage on mount
     useEffect(() => {
-        const storedNotif = localStorage.getItem('settings_notifications');
         const storedAppearance = localStorage.getItem('settings_appearance');
-        if (storedNotif) setNotifPreferences(JSON.parse(storedNotif));
         if (storedAppearance) setAppearance(JSON.parse(storedAppearance));
     }, []);
 
@@ -131,12 +122,7 @@ export default function Settings() {
         }
     };
 
-    const handleNotifSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        localStorage.setItem('settings_notifications', JSON.stringify(notifPreferences));
-        setSuccess('Notification preferences saved successfully!');
-        setTimeout(() => setSuccess(''), 3000);
-    };
+
 
     const handleAppearanceSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -149,8 +135,8 @@ export default function Settings() {
         setError('');
         setSuccess('');
         try {
-            await api.patch(`${endpoints.academics.terms}${termId}/`, { is_current: true });
-            setSuccess('Active term updated successfully!');
+            await api.post(endpoints.academics.setTermCurrent(termId), {});
+            setSuccess('Active term updated successfully! Fees auto-billed and notifications dispatched.');
             fetchTerms();
         } catch (err: any) {
             setError(err.message || 'Failed to set active term.');
@@ -170,7 +156,6 @@ export default function Settings() {
                 {[
                     { key: 'profile', label: 'Profile', icon: <User size={15} /> },
                     { key: 'password', label: 'Security', icon: <Lock size={15} /> },
-                    { key: 'notifications', label: 'Notifications', icon: <Bell size={15} /> },
                     { key: 'appearance', label: 'Appearance', icon: <AppearanceIcon size={15} /> },
                     ...(isAdmin ? [{ key: 'academic', label: 'Academic Term', icon: <Calendar size={15} /> }] : [])
                 ].map(t => (
@@ -323,72 +308,7 @@ export default function Settings() {
                 </form>
             )}
 
-            {/* Notification Preferences Tab */}
-            {activeTab === 'notifications' && (
-                <form onSubmit={handleNotifSubmit} className="bg-white/5 border border-white/5 rounded-3xl p-6 space-y-5">
-                    <div>
-                        <h3 className="text-white font-bold text-sm">Notification Preferences</h3>
-                        <p className="text-slate-500 text-[11px] mt-0.5">Control how and when you receive portal communications updates.</p>
-                    </div>
 
-                    <div className="space-y-4 border-t border-white/5 pt-4">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <h4 className="text-white text-xs font-bold">Email Announcements</h4>
-                                <p className="text-slate-500 text-[10px] mt-0.5">Receive copy of school announcements and calendar alerts directly to your inbox.</p>
-                            </div>
-                            <input 
-                                type="checkbox" checked={notifPreferences.emailAnnouncements} 
-                                onChange={e => setNotifPreferences({ ...notifPreferences, emailAnnouncements: e.target.checked })}
-                                className="w-4 h-4 rounded border-white/10 bg-slate-950 text-amber-500 focus:ring-amber-500"
-                            />
-                        </div>
-
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <h4 className="text-white text-xs font-bold">New Message Email Alerts</h4>
-                                <p className="text-slate-500 text-[10px] mt-0.5">Get notified instantly when a parent or staff sends you a chat message.</p>
-                            </div>
-                            <input 
-                                type="checkbox" checked={notifPreferences.emailMessageAlerts} 
-                                onChange={e => setNotifPreferences({ ...notifPreferences, emailMessageAlerts: e.target.checked })}
-                                className="w-4 h-4 rounded border-white/10 bg-slate-950 text-amber-500 focus:ring-amber-500"
-                            />
-                        </div>
-
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <h4 className="text-white text-xs font-bold">Academic Reports Summaries</h4>
-                                <p className="text-slate-500 text-[10px] mt-0.5">Receive automated summaries of class grade distributions and performance indices.</p>
-                            </div>
-                            <input 
-                                type="checkbox" checked={notifPreferences.emailGradesReport} 
-                                onChange={e => setNotifPreferences({ ...notifPreferences, emailGradesReport: e.target.checked })}
-                                className="w-4 h-4 rounded border-white/10 bg-slate-950 text-amber-500 focus:ring-amber-500"
-                            />
-                        </div>
-
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <h4 className="text-white text-xs font-bold">Mobile App In-App Message Badges</h4>
-                                <p className="text-slate-500 text-[10px] mt-0.5">Show message counts and badges inside the portal header and side navigation.</p>
-                            </div>
-                            <input 
-                                type="checkbox" checked={notifPreferences.pushMessageAlerts} 
-                                onChange={e => setNotifPreferences({ ...notifPreferences, pushMessageAlerts: e.target.checked })}
-                                className="w-4 h-4 rounded border-white/10 bg-slate-950 text-amber-500 focus:ring-amber-500"
-                            />
-                        </div>
-                    </div>
-
-                    <button
-                        type="submit"
-                        className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
-                    >
-                        <Save size={15} /> Save Notification Preferences
-                    </button>
-                </form>
-            )}
 
             {/* Appearance Settings Tab */}
             {activeTab === 'appearance' && (

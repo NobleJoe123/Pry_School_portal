@@ -86,12 +86,27 @@ export default function Scores() {
     const caType = assessmentTypes.find(t => t.name.toLowerCase().includes('ca') || t.name.toLowerCase().includes('continuous') || t.max_score === 40) || assessmentTypes[0];
     const examType = assessmentTypes.find(t => t.name.toLowerCase().includes('exam') || t.name.toLowerCase().includes('final') || t.max_score === 60) || assessmentTypes[1] || assessmentTypes[0];
 
+    // Filter subjects by the active class's academic level
+    const currentClassObj = classes.find(c => c.id === selectedClass);
+    const filteredSubjects = currentClassObj
+        ? subjects.filter(s => s.level === currentClassObj.level || (s as any).level_name === (currentClassObj as any).level_name)
+        : subjects;
+
+    useEffect(() => {
+        if (filteredSubjects.length > 0) {
+            const exists = filteredSubjects.some(s => s.id === selectedSubject);
+            if (!exists) {
+                setSelectedSubject(filteredSubjects[0].id);
+            }
+        }
+    }, [selectedClass, subjects]);
+
     // Load students and scores whenever filter changes
     useEffect(() => {
         if (!selectedClass || !selectedSubject || !selectedTerm?.id || !caType || !examType) return;
         setLoading(true);
 
-        api.get<any>(`${endpoints.students.list}?school_class=${selectedClass}`)
+        api.get<any>(`${endpoints.students.list}?school_class=${selectedClass}&page_size=1000`)
             .then(async studentsRes => {
                 const studentList = getList<User>(studentsRes);
                 setStudents(studentList);
@@ -99,13 +114,13 @@ export default function Scores() {
                 try {
                     // Fetch CA scores
                     const caScoresRes = await api.get<any>(
-                        `${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&term=${selectedTerm.id}&assessment_type=${caType.id}`
+                        `${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&term=${selectedTerm.id}&assessment_type=${caType.id}&page_size=1000`
                     );
                     const caScores = getList<any>(caScoresRes);
 
                     // Fetch Exam scores
                     const examScoresRes = await api.get<any>(
-                        `${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&term=${selectedTerm.id}&assessment_type=${examType.id}`
+                        `${endpoints.academics.scores}?school_class=${selectedClass}&subject=${selectedSubject}&term=${selectedTerm.id}&assessment_type=${examType.id}&page_size=1000`
                     );
                     const examScores = getList<any>(examScoresRes);
 
@@ -308,7 +323,7 @@ export default function Scores() {
                 <FilterDropdown
                     icon={<BookOpen size={14} />}
                     value={selectedSubject}
-                    options={subjects.map(s => ({ id: s.id, label: s.name }))}
+                    options={filteredSubjects.map(s => ({ id: s.id, label: s.name }))}
                     onChange={setSelectedSubject}
                     placeholder="Subject"
                     colorTheme="emerald"

@@ -182,10 +182,10 @@ export default function Reports() {
             const className = currentClass ? currentClass.name : '';
 
             const [studentsRes, scoresRes, reportsRes, attendanceRes] = await Promise.all([
-                api.get<any>(`${endpoints.students.list}?school_class=${selectedClassId}`),
-                api.get<any>(`${endpoints.academics.scores}?school_class=${selectedClassId}&term=${selectedTermId}`),
-                api.get<any>(`${endpoints.academics.reportCards}?term=${selectedTermId}&school_class=${selectedClassId}`),
-                api.get<any>(`${endpoints.attendance.students}?school_class=${selectedClassId}`).catch(() => ({ results: [] }))
+                api.get<any>(`${endpoints.students.list}?school_class=${selectedClassId}&page_size=1000`),
+                api.get<any>(`${endpoints.academics.scores}?school_class=${selectedClassId}&term=${selectedTermId}&page_size=1000`),
+                api.get<any>(`${endpoints.academics.reportCards}?term=${selectedTermId}&school_class=${selectedClassId}&page_size=1000`),
+                api.get<any>(`${endpoints.attendance.students}?school_class=${selectedClassId}&page_size=1000`).catch(() => ({ results: [] }))
             ]);
 
             const studentList = getList<User>(studentsRes);
