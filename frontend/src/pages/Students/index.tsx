@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { UserPlus, Search, RefreshCw, Pencil, UserX, ChevronLeft, ChevronRight, GraduationCap, CheckCircle, XCircle, X, Phone, Mail, MapPin, Calendar, Droplets, AlertTriangle, FileText, Download, Eye, Award, ShieldCheck, Loader2 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import StudentForm from './StudentForm';
@@ -276,6 +276,19 @@ export default function Students() {
     const [classCounts, setClassCounts] = useState<Record<string, number>>({});
     const [selectedClass, setSelectedClass] = useState<string>('Primary 1');
 
+    const displayClassesList = useMemo(() => {
+        if (classes && classes.length > 0) {
+            return classes.map(c => c.name);
+        }
+        return classesList;
+    }, [classes]);
+
+    useEffect(() => {
+        if (classes.length > 0 && !classes.some(c => c.name === selectedClass)) {
+            setSelectedClass(classes[0].name);
+        }
+    }, [classes, selectedClass]);
+
     const [search, setSearch] = useState('');
     const [statusFilter, setStatus] = useState('');
     const [page, setPage] = useState(1);
@@ -389,7 +402,7 @@ export default function Students() {
 
             {/* Class Cards Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-2">
-                {classesList.map((clsName) => {
+                {displayClassesList.map((clsName) => {
                     const { teacherName, count } = getClassDetails(clsName);
                     const isActive = selectedClass === clsName;
                     return (

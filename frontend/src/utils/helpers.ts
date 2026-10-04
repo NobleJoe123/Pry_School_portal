@@ -16,26 +16,31 @@ export function getList<T>(res: any): T[] {
 
 /**
  * Unified grade calculator used across all portal pages.
- * Thresholds: A ≥ 75 | B ≥ 55 | C ≥ 45 | D ≥ 30 | F < 30
+ * Scale:
+ *   A: 75–100 (Excellent)
+ *   B: 65–74  (Good)
+ *   C: 55–64  (Credit)
+ *   D: 45–54  (Pass)
+ *   F: < 45   (Fail)
  */
 export function calculateGrade(total: number): string {
     if (total >= 75) return 'A';
-    if (total >= 55) return 'B';
-    if (total >= 45) return 'C';
-    if (total >= 30) return 'D';
+    if (total >= 65) return 'B';
+    if (total >= 55) return 'C';
+    if (total >= 45) return 'D';
     return 'F';
 }
 
 /**
  * Returns a textual remark corresponding to a numeric score.
- * Aligned with the portal grading scale.
+ * Aligned with the unified portal grading scale.
  */
 export function getGradeRemark(score: number): string {
     if (score >= 75) return 'Excellent';
-    if (score >= 55) return 'Good';
-    if (score >= 45) return 'Fair';
-    if (score >= 30) return 'Pass';
-    return 'Poor';
+    if (score >= 65) return 'Good';
+    if (score >= 55) return 'Credit';
+    if (score >= 45) return 'Pass';
+    return 'Fail';
 }
 
 /**

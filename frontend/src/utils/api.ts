@@ -13,6 +13,34 @@ export const AccessToken = {
 };
 
 
+// Auth Failure Callback & Handler
+type AuthFailureCallback = () => void;
+let _onAuthFailure: AuthFailureCallback | null = null;
+
+export const setOnAuthFailure = (cb: AuthFailureCallback) => {
+    _onAuthFailure = cb;
+};
+
+export const handleAuthFailure = () => {
+    AccessToken.clear();
+    if (_onAuthFailure) {
+        try {
+            _onAuthFailure();
+        } catch (e) {
+            console.error('Error in onAuthFailure callback:', e);
+        }
+    }
+    if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        const publicPaths = ['/login', '/admin/login', '/enrol', '/register', '/forgot-password', '/'];
+        const isPublic = publicPaths.some(p => path === p || path.startsWith('/enrol') || path.startsWith('/register'));
+        if (!isPublic) {
+            const redirectUrl = path.startsWith('/admin') ? '/admin/login' : '/login';
+            window.location.href = redirectUrl;
+        }
+    }
+};
+
 // Token Refresh Singleton Promise
 let _refreshPromise: Promise<string | null> | null = null;
 
@@ -22,15 +50,19 @@ export const refreshAccessToken = async (): Promise<string | null> => {
     }
 
     _refreshPromise = (async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         try {
             const res = await fetch(`${API_BASE}/auth/token/refresh/`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
             });
 
             if (!res.ok) {
-                AccessToken.clear();
+                handleAuthFailure();
                 return null;
             }
 
@@ -39,9 +71,10 @@ export const refreshAccessToken = async (): Promise<string | null> => {
             AccessToken.set(newToken);
             return newToken;
         } catch {
-            AccessToken.clear();
+            handleAuthFailure();
             return null;
         } finally {
+            clearTimeout(timeoutId);
             _refreshPromise = null;
         }
     })();
@@ -90,6 +123,11 @@ export async function apiFetch<T>(
         if (refreshed) {
             headers['Authorization'] = `Bearer ${refreshed}`;
             res = await fetch(url, { ...rest, headers, credentials: 'include' });
+            if (res.status === 401) {
+                handleAuthFailure();
+            }
+        } else {
+            handleAuthFailure();
         }
     }
 
@@ -195,8 +233,10 @@ export const endpoints = {
     academics: {
         years: '/academics/years/',
         setYearCurrent: (id: string) => `/academics/years/${id}/set-current/`,
+        rolloverYear: (id: string) => `/academics/years/${id}/rollover/`,
         terms: '/academics/terms/',
         setTermCurrent: (id: string) => `/academics/terms/${id}/set-current/`,
+        transitionVacation: (id: string) => `/academics/terms/${id}/transition-vacation/`,
         levels: '/academics/levels/',
         classes: '/academics/classes/',
         subjects: '/academics/subjects/',
@@ -208,6 +248,8 @@ export const endpoints = {
         materials: '/academics/materials/',
         materialDetail: (id: string) => `/academics/materials/${id}/`,
         materialSetStatus: (id: string) => `/academics/materials/${id}/set-status/`,
+        behaviorNotes: '/academics/behavior-notes/',
+        behaviorNoteDetail: (id: string) => `/academics/behavior-notes/${id}/`,
     },
 
     finance: {

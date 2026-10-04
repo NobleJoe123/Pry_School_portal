@@ -97,80 +97,6 @@ export default function TeacherMessages() {
                 if (list.length > 0) setSelectedParentId(list[0].id);
             });
 
-        // Load parent messages and sent messages from localStorage
-        const storedParentMessages = localStorage.getItem('parent_messages');
-        const storedSentMessages = localStorage.getItem('sent_messages');
-
-        if (storedParentMessages) {
-            setParentMessages(JSON.parse(storedParentMessages));
-        } else {
-            const initialParentMessages: ParentMessage[] = [
-                {
-                    id: '1',
-                    parentName: 'Mr. Joseph Noble',
-                    parentEmail: 'noblejoe@email.com',
-                    pupilName: 'Joshua Noble',
-                    subject: 'Joshua\'s Homework Progress',
-                    lastMessage: 'Hello, please is Joshua keeping up with the new math topics?',
-                    unread: true,
-                    updated_at: new Date(Date.now() - 3600000 * 2).toLocaleString(),
-                    thread: [
-                        {
-                            sender: 'parent',
-                            message: 'Hello, please is Joshua keeping up with the new math topics?',
-                            timestamp: new Date(Date.now() - 3600000 * 2).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        }
-                    ]
-                },
-                {
-                    id: '2',
-                    parentName: 'Mrs. Janet Adams',
-                    parentEmail: 'janet@email.com',
-                    pupilName: 'Evelyn Adams',
-                    subject: 'Absence Notice',
-                    lastMessage: 'Thank you for updating me on this, Evelyn is fine now.',
-                    unread: false,
-                    updated_at: new Date(Date.now() - 86400000).toLocaleString(),
-                    thread: [
-                        {
-                            sender: 'parent',
-                            message: 'Evelyn won\'t make it to class today due to mild fever.',
-                            timestamp: new Date(Date.now() - 86400000 * 1.2).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        },
-                        {
-                            sender: 'teacher',
-                            message: 'Oh, sorry to hear that. Please keep her warm and updated. Hope she recovers quickly!',
-                            timestamp: new Date(Date.now() - 86400000 * 1.1).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        },
-                        {
-                            sender: 'parent',
-                            message: 'Thank you for updating me on this, Evelyn is fine now.',
-                            timestamp: new Date(Date.now() - 86400000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        }
-                    ]
-                }
-            ];
-            setParentMessages(initialParentMessages);
-            localStorage.setItem('parent_messages', JSON.stringify(initialParentMessages));
-        }
-
-        if (storedSentMessages) {
-            setSentMessages(JSON.parse(storedSentMessages));
-        } else {
-            const initialSentMessages: SentMessage[] = [
-                {
-                    id: '1',
-                    recipientName: 'Mr. Joseph Noble',
-                    recipientRole: 'Parent',
-                    subject: 'Joshua\'s Class Participation',
-                    message: 'Joshua participated excellently during our spelling bee session today.',
-                    created_at: new Date(Date.now() - 86400000 * 3).toLocaleString()
-                }
-            ];
-            setSentMessages(initialSentMessages);
-            localStorage.setItem('sent_messages', JSON.stringify(initialSentMessages));
-        }
-
         // Sync backend support tickets into messages inbox
         api.get<any>(endpoints.tickets.list)
             .then(res => {
@@ -210,7 +136,7 @@ export default function TeacherMessages() {
         }
     };
 
-    const handleSendMessage = (e: React.FormEvent) => {
+    const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         
         const parent = parentsList.find(p => p.id === selectedParentId);
@@ -225,9 +151,20 @@ export default function TeacherMessages() {
             created_at: new Date().toLocaleString()
         };
 
-        const updatedSent = [newSent, ...sentMessages];
-        setSentMessages(updatedSent);
-        localStorage.setItem('sent_messages', JSON.stringify(updatedSent));
+        setSentMessages(prev => [newSent, ...prev]);
+
+        // Dispatch real backend notification to the parent
+        try {
+            await api.post(endpoints.auth.notifications, {
+                audience: 'selected',
+                category: 'general',
+                title: composeSubject,
+                message: composeBody,
+                recipient_ids: [parent.id],
+            });
+        } catch (err) {
+            console.error("Failed to dispatch notification to parent", err);
+        }
 
         // Also add or start a chat thread
         const existingChatIdx = parentMessages.findIndex(c => c.parentEmail === parent.email);
@@ -264,7 +201,6 @@ export default function TeacherMessages() {
         }
 
         setParentMessages(updatedChats);
-        localStorage.setItem('parent_messages', JSON.stringify(updatedChats));
 
         // Reset
         setShowCompose(false);
@@ -272,14 +208,22 @@ export default function TeacherMessages() {
         setComposeBody('');
         showAlert({
             title: 'Message Sent',
-            message: 'Message sent successfully!',
+            message: 'Message sent to parent successfully!',
             variant: 'success'
         });
     };
 
-    const handleReply = (e: React.FormEvent) => {
+    const handleReply = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!activeChat || !replyBody.trim()) return;
+
+        try {
+            await api.post(endpoints.tickets.messages(activeChat.id), {
+                body: replyBody.trim()
+            });
+        } catch (err) {
+            console.error("Failed to post ticket message", err);
+        }
 
         const updatedChats = parentMessages.map(chat => {
             if (chat.id === activeChat.id) {
@@ -303,7 +247,6 @@ export default function TeacherMessages() {
         });
 
         setParentMessages(updatedChats);
-        localStorage.setItem('parent_messages', JSON.stringify(updatedChats));
         
         const freshActive = updatedChats.find(c => c.id === activeChat.id);
         if (freshActive) setActiveChat(freshActive);
@@ -313,10 +256,8 @@ export default function TeacherMessages() {
 
     const handleSelectChat = (chat: ParentMessage) => {
         setActiveChat(chat);
-        // Mark as read
         const updated = parentMessages.map(c => c.id === chat.id ? { ...c, unread: false } : c);
         setParentMessages(updated);
-        localStorage.setItem('parent_messages', JSON.stringify(updated));
     };
 
     return (

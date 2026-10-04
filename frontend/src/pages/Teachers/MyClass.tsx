@@ -37,8 +37,10 @@ export default function TeacherClass() {
     const [pupilScores, setPupilScores] = useState<StudentScore[]>([]);
     const [pupilAttendance, setPupilAttendance] = useState<AttendanceRecord[]>([]);
     const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
+    const [behaviorLoading, setBehaviorLoading] = useState(false);
     const [newBehaviorNote, setNewBehaviorNote] = useState('');
     const [behaviorCategory, setBehaviorCategory] = useState<'positive' | 'warning' | 'critical'>('positive');
+    const [behaviorSubmitting, setBehaviorSubmitting] = useState(false);
 
     // Fetch initial classes
     useEffect(() => {
@@ -87,47 +89,41 @@ export default function TeacherClass() {
             })
             .catch(err => console.error("Error loading attendance history", err));
 
-        // Load behavior notes from localStorage
-        const storedNotes = localStorage.getItem(`behavior_notes_${selectedPupil.id}`);
-        if (storedNotes) {
-            setBehaviorNotes(JSON.parse(storedNotes));
-        } else {
-            const initialNotes: BehaviorNote[] = [
-                {
-                    id: '1',
-                    note: 'Consistently helpful during clean-up and group classroom work.',
-                    created_at: new Date(Date.now() - 86400000 * 4).toLocaleDateString(),
-                    category: 'positive'
-                }
-            ];
-            setBehaviorNotes(initialNotes);
-            localStorage.setItem(`behavior_notes_${selectedPupil.id}`, JSON.stringify(initialNotes));
-        }
+        // Fetch persisted behavior notes from backend
+        setBehaviorLoading(true);
+        api.get<any>(`${endpoints.academics.behaviorNotes}?student=${selectedPupil.id}`)
+            .then(res => setBehaviorNotes(getList<BehaviorNote>(res)))
+            .catch(() => setBehaviorNotes([]))
+            .finally(() => setBehaviorLoading(false));
     }, [selectedPupil]);
 
-    // Add Behavior Note Action
-    const handleAddBehaviorNote = (e: React.FormEvent) => {
+    // Add Behavior Note — POST to backend
+    const handleAddBehaviorNote = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedPupil || !newBehaviorNote.trim()) return;
-
-        const newNote: BehaviorNote = {
-            id: Math.random().toString(36).substr(2, 9),
-            note: newBehaviorNote,
-            created_at: new Date().toLocaleDateString(),
-            category: behaviorCategory
-        };
-
-        const updated = [newNote, ...behaviorNotes];
-        setBehaviorNotes(updated);
-        localStorage.setItem(`behavior_notes_${selectedPupil.id}`, JSON.stringify(updated));
-        setNewBehaviorNote('');
+        if (!selectedPupil || !newBehaviorNote.trim() || behaviorSubmitting) return;
+        setBehaviorSubmitting(true);
+        try {
+            const created = await api.post<BehaviorNote>(endpoints.academics.behaviorNotes, {
+                student: selectedPupil.id,
+                note: newBehaviorNote.trim(),
+                category: behaviorCategory,
+            });
+            setBehaviorNotes(prev => [created, ...prev]);
+            setNewBehaviorNote('');
+        } catch (err) {
+            console.error('Error saving behavior note', err);
+        } finally {
+            setBehaviorSubmitting(false);
+        }
     };
 
-    const handleDeleteBehaviorNote = (id: string) => {
-        if (!selectedPupil) return;
-        const updated = behaviorNotes.filter(n => n.id !== id);
-        setBehaviorNotes(updated);
-        localStorage.setItem(`behavior_notes_${selectedPupil.id}`, JSON.stringify(updated));
+    const handleDeleteBehaviorNote = async (id: string) => {
+        try {
+            await api.delete(endpoints.academics.behaviorNoteDetail(id));
+            setBehaviorNotes(prev => prev.filter(n => n.id !== id));
+        } catch (err) {
+            console.error('Error deleting behavior note', err);
+        }
     };
 
     const filtered = students.filter(s =>
@@ -139,6 +135,7 @@ export default function TeacherClass() {
 
     const totalAtt = pupilAttendance.length;
     const presentAtt = pupilAttendance.filter(a => a.status === 'present').length;
+    const absentAtt = pupilAttendance.filter(a => a.status === 'absent').length;
     const attRate = totalAtt > 0 ? ((presentAtt / totalAtt) * 100).toFixed(1) : '100.0';
 
     return (
@@ -334,11 +331,11 @@ export default function TeacherClass() {
                                         <h4 className="text-xs font-bold text-white border-b border-white/5 pb-1">Attendance Summary</h4>
                                         <div className="grid grid-cols-3 gap-2">
                                             <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-center">
-                                                <p className="text-sm font-black">62</p>
+                                                <p className="text-sm font-black">{presentAtt}</p>
                                                 <p className="text-[9px] text-slate-400 mt-0.5">Present</p>
                                             </div>
                                             <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-center">
-                                                <p className="text-sm font-black">2</p>
+                                                <p className="text-sm font-black">{absentAtt}</p>
                                                 <p className="text-[9px] text-slate-400 mt-0.5">Absent</p>
                                             </div>
                                             <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-center">
@@ -420,15 +417,24 @@ export default function TeacherClass() {
                                                     onChange={v => setBehaviorCategory(v as any)}
                                                     placeholder="Category"
                                                 />
-                                                <button type="submit" className="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] font-black">
-                                                    Add Log
+                                                <button
+                                                    type="submit"
+                                                    disabled={behaviorSubmitting}
+                                                    className="px-3 py-1 rounded-md bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 text-[10px] font-black flex items-center gap-1"
+                                                >
+                                                    {behaviorSubmitting ? <AlignLeft size={10} className="animate-pulse" /> : null}
+                                                    {behaviorSubmitting ? 'Saving…' : 'Add Log'}
                                                 </button>
                                             </div>
                                         </form>
 
                                         {/* Notes list */}
                                         <div className="space-y-2 max-h-[250px] overflow-y-auto">
-                                            {behaviorNotes.map(n => (
+                                            {behaviorLoading ? (
+                                                [1, 2].map(i => <div key={i} className="h-10 bg-white/5 rounded-lg animate-pulse" />)
+                                            ) : behaviorNotes.length === 0 ? (
+                                                <p className="text-center py-4 text-slate-500">No behavior entries recorded.</p>
+                                            ) : behaviorNotes.map(n => (
                                                 <div key={n.id} className="p-2.5 bg-slate-900 rounded-lg border border-white/5 flex gap-2 relative justify-between">
                                                     <div className="flex gap-2">
                                                         <div className="mt-0.5 shrink-0">
@@ -438,7 +444,9 @@ export default function TeacherClass() {
                                                         </div>
                                                         <div>
                                                             <p className="text-white text-xs leading-normal">{n.note}</p>
-                                                            <span className="text-[8px] text-slate-500 font-mono mt-0.5 block">{n.created_at}</span>
+                                                            <span className="text-[8px] text-slate-500 font-mono mt-0.5 block">
+                                                                {new Date(n.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                     <button onClick={() => handleDeleteBehaviorNote(n.id)} className="text-slate-500 hover:text-red-400 transition-colors p-0.5 self-start">
@@ -446,10 +454,6 @@ export default function TeacherClass() {
                                                     </button>
                                                 </div>
                                             ))}
-
-                                            {behaviorNotes.length === 0 && (
-                                                <p className="text-center py-4 text-slate-500">No behavior entries recorded.</p>
-                                            )}
                                         </div>
                                     </div>
                                 )}
