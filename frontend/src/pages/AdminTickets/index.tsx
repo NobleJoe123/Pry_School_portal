@@ -401,7 +401,7 @@ export default function AdminTickets() {
     const fetchNotices = useCallback(async () => {
         setNoticesLoading(true);
         try {
-            const data = await api.get<any>(endpoints.auth.notifications);
+            const data = await api.get<any>(`${endpoints.auth.notifications}?scope=sent&page_size=1000`);
             setNotices(getList<Notification>(data));
             setNoticesError('');
         } catch (err: any) {

@@ -40,9 +40,9 @@ function NotificationPanel() {
     useEffect(() => {
         if (audience !== 'selected') return;
         Promise.all([
-            api.get<any>(endpoints.teachers.list),
-            api.get<any>(endpoints.parents.list),
-            api.get<any>(endpoints.students.list),
+            api.get<any>(`${endpoints.teachers.list}?page_size=1000`),
+            api.get<any>(`${endpoints.parents.list}?page_size=1000`),
+            api.get<any>(`${endpoints.students.list}?page_size=1000`),
         ]).then(([teachers, parents, students]) => {
             setPeople([...getList<User>(teachers), ...getList<User>(parents), ...getList<User>(students)]);
         });
@@ -187,7 +187,7 @@ function EmergencyOverridePanel({ classId, className, date, onClose, onSaved }: 
         setError('');
         // Load pupils of this class and the today's existing attendance
         Promise.all([
-            api.get<{ results: User[] }>(`${endpoints.students.list}?class=${className}&page_size=100`),
+            api.get<{ results: User[] }>(`${endpoints.students.list}?class=${className}&page_size=1000`),
             api.get<any>(`${endpoints.attendance.students}?date=${date}&school_class=${classId}`)
         ]).then(([studentsRes, attendanceRes]) => {
             const pupilList = studentsRes.results || [];

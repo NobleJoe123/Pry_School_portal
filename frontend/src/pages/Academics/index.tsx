@@ -8,7 +8,7 @@ import type { AcademicYear, Term, ClassLevel, SchoolClass, Subject } from '../..
 type Tab = 'years' | 'terms' | 'levels' | 'classes' | 'subjects';
 
 export default function Academics() {
-    const { showAlert } = useDialog();
+    const { showAlert, confirm } = useDialog();
     const [activeTab, setActiveTab] = useState<Tab>('classes');
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
@@ -18,6 +18,8 @@ export default function Academics() {
     const [resumptionDate, setResumptionDate] = useState('');
     const [activating, setActivating] = useState(false);
     const [activatingYearId, setActivatingYearId] = useState<string | null>(null);
+    const [rollingOverId, setRollingOverId] = useState<string | null>(null);
+    const [transitioningVacationId, setTransitioningVacationId] = useState<string | null>(null);
     const [activationSuccess, setActivationSuccess] = useState<{ message: string; notifs: number; fees: number } | null>(null);
 
     // Subject Deletion & Filtering State
@@ -147,6 +149,89 @@ export default function Academics() {
             });
         } finally {
             setActivatingYearId(null);
+        }
+    };
+
+    const handleRolloverYear = async (year: AcademicYear) => {
+        const ok = await confirm({
+            title: `Rollover to ${year.name}?`,
+            message: `This will execute the academic rollover: Primary 6 pupils will graduate, pupils in Primary 1–5 will be promoted to their next classes in ${year.name}, the 1st Term will be activated, and school fee invoices will be generated.`,
+            confirmText: 'Execute Rollover',
+            variant: 'warning'
+        });
+        if (!ok) return;
+        setRollingOverId(year.id);
+        try {
+            const res: any = await api.post(endpoints.academics.rolloverYear(year.id), {});
+            await showAlert({
+                title: 'Rollover Complete',
+                message: res.message || `Promoted ${res.promoted_count || 0} students and graduated ${res.graduated_count || 0} Primary 6 pupils.`,
+                variant: 'success'
+            });
+            await loadData();
+        } catch (err: any) {
+            await showAlert({
+                title: 'Rollover Failed',
+                message: err.message || 'Failed to complete session rollover.',
+                variant: 'danger'
+            });
+        } finally {
+            setRollingOverId(null);
+        }
+    };
+
+    const handleTransitionVacation = async (term: Term) => {
+        const ok = await confirm({
+            title: `Start Vacation for ${term.name}?`,
+            message: `Transition ${term.name} into vacation period? This will broadcast automated notifications to teachers and parents with resumption details.`,
+            confirmText: 'Start Vacation',
+            variant: 'info'
+        });
+        if (!ok) return;
+        setTransitioningVacationId(term.id);
+        try {
+            const res: any = await api.post(endpoints.academics.transitionVacation(term.id), {});
+            await showAlert({
+                title: 'Vacation Initiated',
+                message: res.message || 'Vacation notifications dispatched successfully!',
+                variant: 'success'
+            });
+            await loadData();
+        } catch (err: any) {
+            await showAlert({
+                title: 'Transition Failed',
+                message: err.message || 'Failed to transition into vacation.',
+                variant: 'danger'
+            });
+        } finally {
+            setTransitioningVacationId(null);
+        }
+    };
+
+    const handleDeleteGeneric = async (tab: Tab, id: string, name: string) => {
+        const ok = await confirm({
+            title: `Delete ${name}?`,
+            message: `Are you sure you want to delete this ${tab.slice(0, -1)}? This cannot be undone.`,
+            confirmText: 'Delete',
+            variant: 'danger'
+        });
+        if (!ok) return;
+        try {
+            const endpoint = {
+                years: endpoints.academics.years,
+                terms: endpoints.academics.terms,
+                levels: endpoints.academics.levels,
+                classes: endpoints.academics.classes,
+                subjects: endpoints.academics.subjects,
+            }[tab];
+            await api.delete(`${endpoint}${id}/`);
+            await loadData();
+        } catch (err: any) {
+            await showAlert({
+                title: 'Delete Failed',
+                message: err.message || `Failed to delete ${name}. It may have dependent records.`,
+                variant: 'danger'
+            });
         }
     };
 
@@ -434,15 +519,33 @@ export default function Academics() {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-right">
-                                                {!y.is_current && (
-                                                    <button
-                                                        onClick={() => handleActivateYear(y)}
-                                                        disabled={activatingYearId === y.id}
-                                                        className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                                                    >
-                                                        {activatingYearId === y.id ? 'Activating...' : 'Activate Session'}
-                                                    </button>
-                                                )}
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {!y.is_current && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleActivateYear(y)}
+                                                                disabled={activatingYearId === y.id}
+                                                                className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                                            >
+                                                                {activatingYearId === y.id ? 'Activating...' : 'Activate Session'}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleRolloverYear(y)}
+                                                                disabled={rollingOverId === y.id}
+                                                                className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                                            >
+                                                                {rollingOverId === y.id ? 'Promoting...' : 'Rollover & Promote'}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteGeneric('years', y.id, y.name)}
+                                                                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                                                title="Delete Academic Year"
+                                                            >
+                                                                <Trash2 size={15} />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -483,15 +586,34 @@ export default function Academics() {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-right">
-                                                {!t.is_current && (
-                                                    <button onClick={() => {
-                                                        setActivatingTerm(t);
-                                                        setResumptionDate(t.resumption_date || t.start_date);
-                                                        setActivationSuccess(null);
-                                                    }} className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold transition-all">
-                                                        Activate Term & Notify
-                                                    </button>
-                                                )}
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {t.is_current ? (
+                                                        <button
+                                                            onClick={() => handleTransitionVacation(t)}
+                                                            disabled={transitioningVacationId === t.id}
+                                                            className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                                        >
+                                                            {transitioningVacationId === t.id ? 'Transitioning...' : 'Transition Vacation'}
+                                                        </button>
+                                                    ) : (
+                                                        <>
+                                                            <button onClick={() => {
+                                                                setActivatingTerm(t);
+                                                                setResumptionDate(t.resumption_date || t.start_date);
+                                                                setActivationSuccess(null);
+                                                            }} className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold transition-all">
+                                                                Activate Term & Notify
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteGeneric('terms', t.id, t.name)}
+                                                                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                                                title="Delete Term"
+                                                            >
+                                                                <Trash2 size={15} />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -501,16 +623,42 @@ export default function Academics() {
                     )}
 
                     {activeTab === 'levels' && (
-                        <div className="space-y-4">
-                            <SimpleTable 
-                                headers={['Class Level', 'Sort Level Order', 'Distributed Subjects Count', 'Associated Classes']} 
-                                rows={data.levels.map(l => {
-                                    const lvlSubjects = data.subjects.filter(s => s.level === l.id);
-                                    const lvlClasses = data.classes.filter(c => c.level === l.id);
-                                    const classNames = lvlClasses.length > 0 ? lvlClasses.map(c => c.name).join(', ') : 'None';
-                                    return [l.name, String(l.numeric_level), `${lvlSubjects.length} subjects`, classNames];
-                                })} 
-                            />
+                        <div className="bg-white/5 rounded-2xl border border-white/5 overflow-hidden">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-white/5 bg-white/[0.02]">
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Class Level</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Sort Order</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Subjects</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Associated Classes</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.levels.map((l) => {
+                                        const lvlSubjects = data.subjects.filter(s => s.level === l.id);
+                                        const lvlClasses = data.classes.filter(c => c.level === l.id);
+                                        const classNames = lvlClasses.length > 0 ? lvlClasses.map(c => c.name).join(', ') : 'None';
+                                        return (
+                                            <tr key={l.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-all">
+                                                <td className="px-6 py-4 text-sm font-bold text-white">{l.name}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-300 font-mono">{l.numeric_level}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-300">{lvlSubjects.length} subjects</td>
+                                                <td className="px-6 py-4 text-sm text-slate-300">{classNames}</td>
+                                                <td className="px-6 py-4 text-sm text-right">
+                                                    <button
+                                                        onClick={() => handleDeleteGeneric('levels', l.id, l.name)}
+                                                        className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                                        title="Delete Level"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     )}
 
@@ -526,9 +674,18 @@ export default function Academics() {
                                                 <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
                                                     <GraduationCap size={24} />
                                                 </div>
-                                                <span className="text-[10px] uppercase tracking-wider font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
-                                                    {cls.level_name}
-                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[10px] uppercase tracking-wider font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
+                                                        {cls.level_name}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleDeleteGeneric('classes', cls.id, cls.name)}
+                                                        className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                                        title="Delete Class"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
                                             </div>
                                             <h3 className="text-lg font-bold text-white mb-1">{cls.name}</h3>
                                             <div className="flex items-center gap-2 text-slate-400 text-sm mb-4">
