@@ -371,6 +371,60 @@ def seed_data():
         )
     print("Today's student attendance logs seeded.")
 
+    # 8b. Assessments & Scores Seeding (CA 40%, Exam 60%)
+    from academics.models import AssessmentType, Assessment, StudentScore
+    ca_type, _ = AssessmentType.objects.get_or_create(
+        name='CA',
+        defaults={'max_score': 40, 'weight': 40.00}
+    )
+    exam_type, _ = AssessmentType.objects.get_or_create(
+        name='Exam',
+        defaults={'max_score': 60, 'weight': 60.00}
+    )
+
+    sample_scores_seeded = 0
+    import random
+    for u, sp in pupil_users:
+        sc = sp.current_class
+        if not sc:
+            continue
+        class_subjects = Subject.objects.filter(level=sc.level)
+        for subj in class_subjects:
+            # Create or get CA assessment
+            ca_assessment, _ = Assessment.objects.get_or_create(
+                assessment_type=ca_type,
+                school_class=sc,
+                subject=subj,
+                term=current_term,
+                defaults={'name': f"CA - {subj.name}", 'date_administered': current_term.start_date + timedelta(days=30)}
+            )
+            # Create or get Exam assessment
+            exam_assessment, _ = Assessment.objects.get_or_create(
+                assessment_type=exam_type,
+                school_class=sc,
+                subject=subj,
+                term=current_term,
+                defaults={'name': f"Exam - {subj.name}", 'date_administered': current_term.start_date + timedelta(days=60)}
+            )
+
+            # Assign realistic scores
+            ca_score = round(random.uniform(25.0, 38.0), 1)
+            exam_score = round(random.uniform(35.0, 58.0), 1)
+
+            StudentScore.objects.get_or_create(
+                student=u,
+                assessment=ca_assessment,
+                defaults={'score_obtained': ca_score, 'remarks': 'Good continuous performance'}
+            )
+            StudentScore.objects.get_or_create(
+                student=u,
+                assessment=exam_assessment,
+                defaults={'score_obtained': exam_score, 'remarks': 'Well performed in terminal exam'}
+            )
+            sample_scores_seeded += 2
+
+    print(f"Assessments and {sample_scores_seeded} pupil scores seeded (CA 40% + Exam 60%).")
+
     # 9. Enrollment Requests
     EnrollmentRequest.objects.get_or_create(
         parent_email='yusuf.parent@gmail.com',

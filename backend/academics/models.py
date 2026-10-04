@@ -301,6 +301,39 @@ class SchoolEvent(models.Model):
                 print(f"Error sending event notifications: {e}")
 
 
+class BehaviorNote(models.Model):
+    """Teacher-recorded conduct/behavior observations for a student."""
+
+    CATEGORY_CHOICES = [
+        ('positive', 'Positive'),
+        ('warning', 'Warning'),
+        ('critical', 'Critical'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'student'},
+        related_name='behavior_notes',
+    )
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'teacher'},
+        related_name='authored_behavior_notes',
+    )
+    note = models.TextField()
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='positive')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.category.upper()} – {self.student.full_name} ({self.created_at.date()})"
+
+
 class LessonMaterial(models.Model):
     """Lesson notes / plans uploaded by teachers, reviewed by admin."""
 
